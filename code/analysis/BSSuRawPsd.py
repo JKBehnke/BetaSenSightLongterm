@@ -20,6 +20,7 @@ import PerceiveImport.methods.find_folders as findfolders
 
 
 
+
 # mapping = dictionary of all possible channel names as keys, new channel names (Retune standard) as values
 mapping = {
     'LFP_Stn_0_3_RIGHT_RING':"LFP_R_03_STN_MT",
@@ -87,14 +88,14 @@ mapping = {
 
 
 
-def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_condition: list, tasks: list, pickChannels: list, hemisphere: str, normalization: str):
+def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
     """
 
     Input: 
         - incl_sub = str e.g. "024"
         - incl_session = list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
         - incl_condition = list e.g. ["m0s0", "m1s0"]
-        - tasks = list ['RestBSSuRingR', 'RestBSSuSegmInterR', 'RestBSSuSegmIntraR','RestBSSuRingL', 'RestBSSuSegmInterL', 'RestBSSuSegmIntraL']
+        - incl_contact: a list of contacts to include ["RingR", "SegmIntraR", "SegmInterR", "RingL", "SegmIntraL", "SegmInterL", "Bip02", "Bip13", "Ring", "Segments"]
         - hemisphere: str e.g. "Right"
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
 
@@ -138,7 +139,8 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
         incl_modalities= ["survey"],
         incl_session = incl_session,
         incl_condition = incl_condition,
-        incl_task = ["rest"]
+        incl_task = ["rest"],
+        incl_contact=incl_contact
         )
 
     
@@ -155,14 +157,15 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
 
     # set layout for figures: using the object-oriented interface
     fig, axes = plt.subplots(len(incl_session), 1, figsize=(15, 15)) # subplot(rows, columns, panel number)
-    fig.tight_layout(pad=5.0)
+    
+ 
 
     for t, tp in enumerate(incl_session):
         # t is indexing time_points, tp are the time_points
 
         for c, cond in enumerate(incl_condition):
 
-            for tk, task in enumerate(tasks): 
+            for cont, contact in enumerate(incl_contact): 
                 # tk is indexing task, task is the input task
 
                 # avoid Attribute Error, continue if attribute doesn´t exist
@@ -185,7 +188,8 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
                 #     continue
 
                 temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
-                temp_data = temp_data.rest.data[tasks[tk]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
+                temp_data = getattr(temp_data.rest, contact)
+                temp_data = temp_data.data[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
     
                 print("DATA", temp_data)
 
@@ -202,10 +206,7 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
 
                 # create the filter
                 b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
-
-
-                # the title of each plot is set to the timepoint e.g. "postop"
-                axes[t].set_title(tp)  
+ 
 
                 #################### RENAME CHANNELS ####################
                 # all channel names of one loaded file (one session, one task)
@@ -338,11 +339,6 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
                     f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, percentageNormPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
 
-                    
-
-                    # get y-axis label and limits
-                    axes[t].get_ylabel()
-                    axes[t].get_ylim()
 
                     #################### PEAK DETECTION ####################
 
@@ -486,6 +482,13 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
 
                     #################### PLOT THE CHOSEN PSD DEPENDING ON NORMALIZATION INPUT ####################
 
+                    # the title of each plot is set to the timepoint e.g. "postop"
+                    axes[t].set_title(tp, fontsize=20) 
+
+                    # get y-axis label and limits
+                    # axes[t].get_ylabel()
+                    # axes[t].get_ylim()
+
                     # .plot() method for creating the plot, axes[0] refers to the first plot, the plot is set on the appropriate object axes[t]
                     axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}")  # or np.log10(px)
 
@@ -495,14 +498,26 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
 
 
     #################### PLOT SETTINGS ####################
+
+    font = {"size": 16}
+
     for ax in axes: 
-        ax.legend(loc= 'upper right') # Legend will be in upper right corner
-        ax.set(xlabel="Frequency", ylabel= chosen_ylabel, xlim=[-5, 60])
+        #ax.legend(loc= 'upper right') # Legend will be in upper right corner
+        ax.set(xlim=[-5, 60], ylim=[0,7])
+        ax.set_xlabel("Frequency", fontdict=font)
+        ax.set_ylabel(chosen_ylabel, fontdict=font)
         ax.axvline(x=8, color='darkgrey', linestyle='--')
         ax.axvline(x=13, color='darkgrey', linestyle='--')
         ax.axvline(x=20, color='darkgrey', linestyle='--')
         ax.axvline(x=35, color='darkgrey', linestyle='--')
-    
+        
+    #fig.legend(title="bipolar channels", loc= 'upper right', bbox_to_anchor=(0.5,1.05), fancybox=True, shadow=True, fontsize="small")
+
+    legend = plt.legend(loc= 'upper right', edgecolor="black")
+    legend.get_frame().set_alpha(None)
+    legend.get_frame().set_facecolor("white")
+
+    fig.tight_layout()
 
     plt.show()
     fig.savefig(local_path + f"\sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
