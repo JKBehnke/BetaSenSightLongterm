@@ -1,4 +1,4 @@
-""" power spectral density methods """
+""" power spectral density calculation of Brain Sense Survey Recordings """
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,6 +15,7 @@ import json
 import os
 import mne
 
+# PyPerceive Imports
 import PerceiveImport.classes.main_class as mainclass
 import PerceiveImport.methods.find_folders as findfolders
 
@@ -88,14 +89,18 @@ mapping = {
 
 
 
-def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
+def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
     """
 
     Input: 
-        - incl_sub = str e.g. "024"
-        - incl_session = list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
-        - incl_condition = list e.g. ["m0s0", "m1s0"]
-        - incl_contact: a list of contacts to include ["RingR", "SegmIntraR", "SegmInterR", "RingL", "SegmIntraL", "SegmInterL", "Bip02", "Bip13", "Ring", "Segments"]
+        - incl_sub: str e.g. "024"
+        - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
+        - incl_condition: list e.g. ["m0s0", "m1s0"]
+        - incl_contact: a list of contacts to include ["RingR", "SegmIntraR", "SegmInterR", "RingL", "SegmIntraL", "SegmInterL"]
+        - pickChannels: list of bipolar channels, depending on which incl_contact was chosen
+                        Ring: ['03', '13', '02', '12', '01', '23']
+                        SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+                        SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
 
@@ -119,7 +124,7 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
     6) The raw or noramlized PSD values will be plotted and the figure will be saved as:
         f"\sub{incl_sub}_{hemisphere}_normalizedPsdToTotalSum_seperateTimepoints_{pickChannels}.png"
     
-    6) All frequencies and relative psd values, as well as the values for the highest PEAK in each frequency band will be returned as a Dataframe in a dictionary: 
+    7) All frequencies and relative psd values, as well as the values for the highest PEAK in each frequency band will be returned as a Dataframe in a dictionary: 
     
     return {
         "rawPsdDataFrame":rawPSDDataFrame,
@@ -133,6 +138,7 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
     """
 
     # sns.set()
+    # plt.style.use('seaborn-whitegrid')  
 
     mainclass_sub = mainclass.PerceiveData(
         sub = incl_sub, 
@@ -144,7 +150,8 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
         )
 
     
-    local_path = findfolders.get_local_path(folder="figures", sub=incl_sub)
+    figures_path = findfolders.get_local_path(folder="figures", sub=incl_sub)
+    results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
 
     # add error correction for sub and task??
     
@@ -351,17 +358,17 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
                     elif normalization == "normPsdToTotalSum":
                         chosenPsd = normToTotalSum_psd
                         chosenSem = semNormToTotalSum_psd
-                        chosen_ylabel = "relative PSD to total sum in % +- SEM"
+                        chosen_ylabel = "rel. PSD to total sum (%) +- SEM"
 
                     elif normalization == "normPsdToSum1_100Hz":
                         chosenPsd = percentageNormPsdToSum1to100Hz
                         chosenSem = semNormPsdToSum1to100Hz
-                        chosen_ylabel = "relative PSD to sum between 1-100 Hz in % +- SEM"
+                        chosen_ylabel = "rel. PSD to sum 1-100 Hz (%) +- SEM"
 
                     elif normalization == "normPsdToSum40_90Hz":
                         chosenPsd = percentageNormPsdToSum40to90Hz
                         chosenSem = semNormPsdToSum40to90Hz
-                        chosen_ylabel = "relative PSD to sum between 40-90 Hz in % +- SEM"
+                        chosen_ylabel = "rel. PSD to sum 40-90 Hz (%) +- SEM"
 
 
                     #################### PSD AVERAGE OF EACH FREQUENCY BAND DEPENDING ON CHOSEN PSD NORMALIZATION ####################
@@ -472,7 +479,7 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
                         highest_peak_pos = peaksinfreq_pos[ix].item()
 
                         # plot only the highest peak within each frequency band
-                        axes[t].scatter(highest_peak_pos, highest_peak_height, s=15, marker='D')
+                        axes[t].scatter(highest_peak_pos, highest_peak_height, color="k", s=15, marker='D')
 
                         # store highest peak values of each frequency band in a dictionary
                         highest_peak_dict[f'{tp}_{ch}_highestPEAK_{frequency}'] = [tp, ch, frequency, highest_peak_pos, highest_peak_height, highest_peak_height_5Hzaverage]
@@ -499,34 +506,38 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
 
     #################### PLOT SETTINGS ####################
 
+    plt.subplots_adjust(wspace=0, hspace=0)
+
     font = {"size": 16}
 
     for ax in axes: 
-        #ax.legend(loc= 'upper right') # Legend will be in upper right corner
+        # ax.legend(loc= 'upper right') # Legend will be in upper right corner
+        ax.grid() # show grid
         ax.set(xlim=[-5, 60], ylim=[0,7])
         ax.set_xlabel("Frequency", fontdict=font)
         ax.set_ylabel(chosen_ylabel, fontdict=font)
-        ax.axvline(x=8, color='darkgrey', linestyle='--')
-        ax.axvline(x=13, color='darkgrey', linestyle='--')
-        ax.axvline(x=20, color='darkgrey', linestyle='--')
-        ax.axvline(x=35, color='darkgrey', linestyle='--')
+        ax.axvline(x=8, color='black', linestyle='--')
+        ax.axvline(x=13, color='black', linestyle='--')
+        ax.axvline(x=20, color='black', linestyle='--')
+        ax.axvline(x=35, color='black', linestyle='--')
+    
+    # remove x ticks and labels from all but the bottom subplot
+    for ax in axes.flat[:-1]:
+        ax.set(xlabel='')
         
     #fig.legend(title="bipolar channels", loc= 'upper right', bbox_to_anchor=(0.5,1.05), fancybox=True, shadow=True, fontsize="small")
 
-    legend = plt.legend(loc= 'upper right', edgecolor="black")
+    ###### LEGEND ######
+    legend = axes[0].legend(loc= 'upper right', edgecolor="black") # only show the first subplot´s legend 
+    # frame the legend with black edges amd white background color 
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor("white")
 
     fig.tight_layout()
 
     plt.show()
-    fig.savefig(local_path + f"\sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
     
-    # write DataFrame of all frequencies and psd values of each channel per timepoint
-    # frequenciesDataFrame = pd.DataFrame({k: v[0] for k, v in f_rawPsd_dict.items()}) # Dataframe of frequencies: columns=single bipolar channel of one session
-    # rawPsdDataFrame = pd.DataFrame({k: v[1] for k, v in f_rawPsd_dict.items()}) # Dataframe of raw psd: columns=single bipolar channel of one session
-    # semRawPsdDataFrame = pd.DataFrame({k: v[2] for k, v in f_rawPsd_dict.items()}) # Dataframe of sem of rawPsd: columns=single bipolar channel of one session
-
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
     # write raw PSD Dataframe
@@ -560,6 +571,15 @@ def welch_rawPsd_seperateTimepoints(incl_sub: str, incl_session: list, incl_cond
     highestPEAKDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: "PEAK_frequency", 4:f"PEAK_{normalization}", 5: "highest_peak_height_5HzAverage"}, inplace=True) # rename the rows
     highestPEAKDF = highestPEAKDF.transpose() # Dataframe with 6 columns and rows for each single power spectrum
 
+
+    # save Dataframes as csv in the results folder
+    
+    rawPSDDataFrame.to_csv(os.path.join(results_path,f"rawPSD_{hemisphere}"), sep=",")
+    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"normPsdToTotalSum_{hemisphere}"), sep=",")
+    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"normPsdToSum_1to100Hz_{hemisphere}"), sep=",")
+    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"normPsdToSum_40to90Hz_{hemisphere}"), sep=",")
+    psdAverageDF.to_csv(os.path.join(results_path,f"psdAverage_{normalization}_{hemisphere}"), sep=",")
+    highestPEAKDF.to_csv(os.path.join(results_path,f"highestPEAK_{normalization}_{hemisphere}"), sep=",")
 
 
     return {
