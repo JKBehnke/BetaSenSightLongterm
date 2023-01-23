@@ -267,6 +267,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
                     # filter the signal by using the above defined butterworth filter
                     filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) # .get_data()
 
+
                     #################### GET ABSOLUTE PSD VALUES BY USING WELCH'S METHOD ####################
 
                     # transform the filtered time series data into power spectral density using Welch's method
@@ -275,10 +276,6 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
 
                     # calculate the SEM of psd values and store sem of each channel in dictionary
                     semRawPsd = np.std(px)/np.sqrt(len(px))
-                    # semRawPsd_dict[f'sem_{tp}_{ch}'] = semRawPsd
-
-                    # average of PSD in each frequency band
-                    
 
                     # store frequency, raw psd and sem values in a dictionary, together with session timepoint and channel
                     f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, px, semRawPsd]
@@ -369,6 +366,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
                         chosenPsd = percentageNormPsdToSum40to90Hz
                         chosenSem = semNormPsdToSum40to90Hz
                         chosen_ylabel = "rel. PSD to sum 40-90 Hz (%) +- SEM"
+
 
 
                     #################### PSD AVERAGE OF EACH FREQUENCY BAND DEPENDING ON CHOSEN PSD NORMALIZATION ####################
@@ -513,7 +511,8 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     for ax in axes: 
         # ax.legend(loc= 'upper right') # Legend will be in upper right corner
         ax.grid() # show grid
-        ax.set(xlim=[-5, 60], ylim=[0,7])
+        ax.set(xlim=[-5, 60]) # no ylim for rawPSD and normalization to sum 40-90 Hz
+        # ax.set(xlim=[-5, 60] ,ylim=[0,7]) for normalizations to total sum or to sum 1-100Hz set ylim to zoom in
         ax.set_xlabel("Frequency", fontdict=font)
         ax.set_ylabel(chosen_ylabel, fontdict=font)
         ax.axvline(x=8, color='black', linestyle='--')
