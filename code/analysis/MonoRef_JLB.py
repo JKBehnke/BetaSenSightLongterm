@@ -10,7 +10,6 @@ import os
 import mne
 
 # PyPerceive Imports
-import PerceiveImport.classes.main_class as mainclass
 import PerceiveImport.methods.find_folders as findfolders
 
 
@@ -80,7 +79,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
                 # get the row that contains the the bipolar channel of interest "1A2A", "1B2B", "1C2C"
                 directionDF = session_frequency_Dataframe[session_frequency_Dataframe["bipolarChannel"].str.contains(dir)]
 
-                # store these 3 averaged psd values (in fifth column) in the dictionary
+                # store these 3 averaged psd values (in fifth column pf the initial DF) in the dictionary
                 averagedPSD_dict[f"averagedPSD_{tp}_{fq}_{dir}"] = [tp, fq, dir, directionDF.iloc[:,4].item()]
 
 
@@ -90,7 +89,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
             averagedPsd_C = averagedPSD_dict[f"averagedPSD_{tp}_{fq}_1C2C"][3]
 
             sumABC = averagedPsd_A + averagedPsd_B + averagedPsd_C
-        
+            
             # calculate the percentage of each direction of the total mean beta power of all directions
             for d, dir in enumerate(direction_proxy):
 
