@@ -126,7 +126,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
             monopol_2C = percentagePSD_C * averagedPsd_level2
 
             # store monopolar references in a dictionary
-            monopolar_references[f"monoRef_{tp}_{fq}"] = [tp, fq, monopol_1A, monopol_1B, monopol_1C, monopol_2A, monopol_2B, monopol_2C]
+            monopolar_references[f"monoRef_{tp}_{fq}"] = [monopol_1A, monopol_1B, monopol_1C, monopol_2A, monopol_2B, monopol_2C]
 
 
     
@@ -144,16 +144,28 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     psdPercentageDF = psdPercentageDF.transpose() # Dataframe with 1 columns and rows for each single power spectrum
 
 
-    # write DataFrame of percentage psd values in each frequency band depending on the chosen normalization
+    # write DataFrame of monopolar reference values in each frequency band and session timepoint
     monopolRefDF = pd.DataFrame(monopolar_references) 
-    monopolRefDF.rename(index={0: "session", 1: "frequency_band", 2: "monopolarRef_1A", 3: "monopolarRef_1B", 4: "monopolarRef_1C", 5: "monopolarRef_2A", 6: "monopolarRef_2B", 7: "monopolarRef_2C"}, inplace=True) # rename the rows
-    monopolRefDF = monopolRefDF.transpose() # Dataframe with 8 columns and rows for each single power spectrum
+    monopolRefDF.rename(index={0: "monopolarRef_1A", 1: "monopolarRef_1B", 2: "monopolarRef_1C", 3: "monopolarRef_2A", 4: "monopolarRef_2B", 5: "monopolarRef_2C"}, inplace=True) # rename the rows
 
+
+    # write DataFrame of ranks of monopolar references in each frequency band and session timepoint
+    monopolRankDF = monopolRefDF.rank(ascending=False) # new Dataframe ranking monopolar values from monopolRefDF from high to low
+
+
+
+    # save Dataframes as csv in the results folder
+    psdAverageDF.to_csv(os.path.join(results_path,f"averagedPSD_{normalization}_{hemisphere}"), sep=",")
+    psdPercentageDF.to_csv(os.path.join(results_path,f"percentagePsdDirection_{normalization}_{hemisphere}"), sep=",")
+    monopolRefDF.to_csv(os.path.join(results_path,f"monopolarReference_{normalization}_{hemisphere}"), sep=",")
+    monopolRankDF.to_csv(os.path.join(results_path,f"monopolarRanks_{normalization}_{hemisphere}"), sep=",")
+    
 
     return {
         "psdAverageDataframe":psdAverageDF,
         "psdPercentagePerDirection":psdPercentageDF,
-        "monopolarReference":monopolRefDF
+        "monopolarReference":monopolRefDF,
+        "monopolarRanks":monopolRankDF
     }
 
 

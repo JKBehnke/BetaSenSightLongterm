@@ -6,7 +6,7 @@ import seaborn as sns
 import numpy as np
 
 import scipy
-from scipy.signal import butter, filtfilt, freqz
+from scipy.signal import spectrogram, hann, butter, filtfilt, freqz
 
 import sklearn
 from sklearn.preprocessing import normalize
@@ -270,8 +270,11 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
 
                     #################### GET ABSOLUTE PSD VALUES BY USING WELCH'S METHOD ####################
 
+                    window = 250 # with sfreq 250 frequencies will be from 0 to 125 Hz
+                    noverlap = 0.5
+
                     # transform the filtered time series data into power spectral density using Welch's method
-                    f, px = scipy.signal.welch(filtered, fs)  # Returns: f=array of sample frequencies, px= psd or power spectrum of x (amplitude)
+                    f, px = scipy.signal.welch(filtered, fs, nperseg = window, noverlap = noverlap)  # Returns: f=array of sample frequencies, px= psd or power spectrum of x (amplitude)
                     # density unit: mV**2/Hz
 
                     # calculate the SEM of psd values and store sem of each channel in dictionary
