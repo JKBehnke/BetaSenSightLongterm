@@ -141,7 +141,7 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
 
     fig, axes = plt.subplots(len(pickChannels), len(incl_session), figsize=(15, 15)) # subplot(rows, columns, panel number)
     
-    plt.setp(axes.flat, xlabel='Frequency', ylabel='Time')
+    plt.setp(axes.flat, xlabel='Time [sec]', ylabel='Frequency [Hz]')
 
     pad = 5 # in points
 
@@ -261,12 +261,19 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
                     #################### FILTER ####################
 
                     # filter the signal by using the above defined butterworth filter
-                    filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) # .get_data()
+                    filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
 
-                    # plot Time Frequency plot
-                    noverlap = 0.5
+                    # settings for window
+                    noverlap = 0.5 
+                    win_samp = 250 # window for fft in samples e.g. 250 for 1 sec
+                    window = hann(win_samp, sym=False)
+
+                    # calculate Time Frequency
+                    # freq,time,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap)
 
                     # plot in subplot row=channel, column=timepoint
+                    # axes[i, t].pcolormesh(time, freq, Sxx, cmap='viridis', shading="gouraud", vmin=0, vmax=5)
+                    
                     axes[i, t].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
                 
     plt.show()
