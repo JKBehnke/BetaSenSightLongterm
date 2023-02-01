@@ -3,7 +3,7 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.transforms import offset_copy
+from matplotlib.transforms import offset_copy 
 
 import seaborn as sns
 import numpy as np
@@ -143,6 +143,7 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
     
     plt.setp(axes.flat, xlabel='Time [sec]', ylabel='Frequency [Hz]')
 
+
     pad = 5 # in points
 
     for ax, col in zip(axes[0], cols):
@@ -266,15 +267,17 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
                     # settings for window
                     noverlap = 0.5 
                     win_samp = 250 # window for fft in samples e.g. 250 for 1 sec
-                    window = hann(win_samp, sym=False)
+                    # window = hann(win_samp, sym=False)
 
-                    # calculate Time Frequency
+                    # calculate Time Frequency using scipy
                     # freq,time,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap)
 
                     # plot in subplot row=channel, column=timepoint
                     # axes[i, t].pcolormesh(time, freq, Sxx, cmap='viridis', shading="gouraud", vmin=0, vmax=5)
                     
+                    ### calculate and plot a spectogram using matplotlib
                     axes[i, t].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                    
                 
     plt.show()
     

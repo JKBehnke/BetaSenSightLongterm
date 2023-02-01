@@ -1,4 +1,4 @@
-""" power spectral density calculation of Brain Sense Survey Recordings """
+""" power spectral density calculation Welch's method of Brain Sense Survey Recordings """
 
 import pandas as pd
 import matplotlib.pyplot as plt
