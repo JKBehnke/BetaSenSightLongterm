@@ -90,7 +90,7 @@ mapping = {
 
 
 
-def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
+def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
     """
 
     Input: 
@@ -268,28 +268,29 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
 
                     window = hann(window, sym=False)
 
-                    f,time_sectors,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap)
+                    # compute spectrogram with Fourier Transforms
+                    
+                    f,time_sectors,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
+                    # f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
+                    # time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (in total 21 time sectors)
+                    # Sxx = 126 arrays with 21 values each of PSD [µV^2/Hz], for each frequency bin PSD values of each time sector
+                    # Sxx = 126 rows, 21 columns
 
+                    # average all 126 Power spectra with values of the 21 time sectors 
+                    average_Sxx = np.mean(Sxx, axis=1) # axis = 1 -> mean of each row: in total 126 array mean values 
                     
 
+                    # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
+                    f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx]                
 
 
 
 
-                    #################### GET ABSOLUTE PSD VALUES BY USING WELCH'S METHOD ####################
+                    #################### CALCULATE THE CONFIDENCE INTERVAL ####################
 
-                    window = 250 # with sfreq 250 frequencies will be from 0 to 125 Hz
-                    noverlap = 0.5
+                    # # calculate the SEM of psd values and store sem of each channel in dictionary
+                    semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx))
 
-                    # transform the filtered time series data into power spectral density using Welch's method
-                    f, px = scipy.signal.welch(filtered, fs, nperseg = window, noverlap = noverlap)  # Returns: f=array of sample frequencies, px= psd or power spectrum of x (amplitude)
-                    # density unit: mV**2/Hz
-
-                    # calculate the SEM of psd values and store sem of each channel in dictionary
-                    semRawPsd = np.std(px)/np.sqrt(len(px))
-
-                    # store frequency, raw psd and sem values in a dictionary, together with session timepoint and channel
-                    f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, px, semRawPsd]
 
                 
 
@@ -297,18 +298,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
                     
                     #################### NORMALIZE PSD TO TOTAL SUM OF THE POWER SPECTRUM (ALL FREQUENCIES) ####################
 
-                    # reshape the array to a single-row 2D array, so it can be used in sklearn.preprocessing.normalize()
-                    # normalize() does not work with px as input, eventhough it is a numpy array, reshaping px to a 2D array .reshape(1,-1) is necessary
-                    px_2Darray = px.reshape(1, -1) # reshape into a single-row 2D Array: -1 is a placeholder, so as many features as in px
-
-                    # sklearn.preprocessing.normalize() norm="l1" will normalize so that sum of absolute values is 1
-                    px_rel_2Darray = normalize(px_2Darray, norm='l1') 
-                    
-                    # reshape back to 1D Array, because of other functions that input 1D arrays: like scipy.signal.find_peaks
-                    rel_psd_1Darray = px_rel_2Darray.reshape(-1,) 
-
-                    # *100 to get the values in percentage
-                    normToTotalSum_psd = rel_psd_1Darray * 100                  
+                    normToTotalSum_psd = (average_Sxx/np.sum(average_Sxx))*100 # in percentage               
 
                     # calculate the SEM of psd values 
                     semNormToTotalSum_psd = np.std(normToTotalSum_psd)/np.sqrt(len(normToTotalSum_psd))
@@ -320,46 +310,44 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
                     #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 1-100 Hz  ####################
                    
                     # get raw psd values from 1 to 100 Hz by indexing the numpy arrays f and px
-                    rawPsd_1to100Hz = px[1:104]
+                    rawPsd_1to100Hz = average_Sxx[1:100]
 
                     # sum of rawPSD between 1 and 100 Hz
                     psdSum1to100Hz = rawPsd_1to100Hz.sum()
 
                     # raw psd divided by sum of psd between 1 and 100 Hz
-                    normPsdToSum1to100Hz = px/psdSum1to100Hz
-                    percentageNormPsdToSum1to100Hz = normPsdToSum1to100Hz * 100 
+                    normPsdToSum1to100Hz = (average_Sxx/psdSum1to100Hz)*100
 
                     # calculate the SEM of psd values 
-                    semNormPsdToSum1to100Hz = np.std(percentageNormPsdToSum1to100Hz)/np.sqrt(len(percentageNormPsdToSum1to100Hz))
+                    semNormPsdToSum1to100Hz = np.std(normPsdToSum1to100Hz)/np.sqrt(len(normPsdToSum1to100Hz))
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, percentageNormPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
+                    f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
 
 
                     #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 40-90 Hz  ####################
                    
                     # get raw psd values from 40 to 90 Hz (gerundet) by indexing the numpy arrays f and px
-                    rawPsd_40to90Hz = px[41:93] 
+                    rawPsd_40to90Hz = average_Sxx[40:90] 
 
                     # sum of rawPSD between 40 and 90 Hz
                     psdSum40to90Hz = rawPsd_40to90Hz.sum()
 
                     # raw psd divided by sum of psd between 40 and 90 Hz
-                    normPsdToSum40to90Hz = px/psdSum40to90Hz
-                    percentageNormPsdToSum40to90Hz = normPsdToSum40to90Hz * 100 
-
+                    normPsdToSum40to90Hz = (average_Sxx/psdSum40to90Hz)*100
+                   
                     # calculate the SEM of psd values 
-                    semNormPsdToSum40to90Hz = np.std(percentageNormPsdToSum40to90Hz)/np.sqrt(len(percentageNormPsdToSum40to90Hz))
+                    semNormPsdToSum40to90Hz = np.std(normPsdToSum40to90Hz)/np.sqrt(len(normPsdToSum40to90Hz))
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, percentageNormPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
+                    f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
 
 
                     #################### PEAK DETECTION ####################
 
                     # depending on what normalization or raw was chosen: define variables for psd, sem and ylabel accordingly
                     if normalization == "rawPsd":
-                        chosenPsd = px
+                        chosenPsd = average_Sxx
                         chosenSem = semRawPsd
                         chosen_ylabel = "uV^2/Hz +- SEM"
                     
@@ -369,12 +357,12 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
                         chosen_ylabel = "rel. PSD to total sum (%) +- SEM"
 
                     elif normalization == "normPsdToSum1_100Hz":
-                        chosenPsd = percentageNormPsdToSum1to100Hz
+                        chosenPsd = normPsdToSum1to100Hz
                         chosenSem = semNormPsdToSum1to100Hz
                         chosen_ylabel = "rel. PSD to sum 1-100 Hz (%) +- SEM"
 
                     elif normalization == "normPsdToSum40_90Hz":
-                        chosenPsd = percentageNormPsdToSum40to90Hz
+                        chosenPsd = normPsdToSum40to90Hz
                         chosenSem = semNormPsdToSum40to90Hz
                         chosen_ylabel = "rel. PSD to sum 40-90 Hz (%) +- SEM"
 
@@ -546,13 +534,13 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     fig.tight_layout()
 
     plt.show()
-    fig.savefig(figures_path + f"\sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\PSDspectrogram_sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
     
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
     # write raw PSD Dataframe
     rawPSDDataFrame = pd.DataFrame(f_rawPsd_dict)
-    rawPSDDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "rawPSD", 4: "SEM_rawPSD"}, inplace=True) # rename the rows
+    rawPSDDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "averagedPSD"}, inplace=True) # rename the rows
     rawPSDDataFrame = rawPSDDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to total Sum
@@ -584,12 +572,12 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
 
     # save Dataframes as csv in the results folder
     
-    rawPSDDataFrame.to_csv(os.path.join(results_path,f"rawPSD_{hemisphere}"), sep=",")
-    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"normPsdToTotalSum_{hemisphere}"), sep=",")
-    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"normPsdToSum_1to100Hz_{hemisphere}"), sep=",")
-    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"normPsdToSum_40to90Hz_{hemisphere}"), sep=",")
-    psdAverageDF.to_csv(os.path.join(results_path,f"psdAverage_{normalization}_{hemisphere}"), sep=",")
-    highestPEAKDF.to_csv(os.path.join(results_path,f"highestPEAK_{normalization}_{hemisphere}"), sep=",")
+    rawPSDDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMrawPSD_{hemisphere}"), sep=",")
+    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToTotalSum_{hemisphere}"), sep=",")
+    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_1to100Hz_{hemisphere}"), sep=",")
+    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_40to90Hz_{hemisphere}"), sep=",")
+    psdAverageDF.to_csv(os.path.join(results_path,f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"), sep=",")
+    highestPEAKDF.to_csv(os.path.join(results_path,f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}"), sep=",")
 
 
     return {
