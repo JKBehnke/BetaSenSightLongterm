@@ -274,12 +274,11 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     # f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
                     # time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (in total 21 time sectors)
                     # Sxx = 126 arrays with 21 values each of PSD [µV^2/Hz], for each frequency bin PSD values of each time sector
-                    # Sxx = 126 rows, 21 columns
+                    # Sxx = 126 frequency rows, 21 time sector columns
 
-                    # average all 126 Power spectra with values of the 21 time sectors 
-                    average_Sxx = np.mean(Sxx, axis=1) # axis = 1 -> mean of each row: in total 126 array mean values 
+                    # average all 21 Power spectra of all time sectors 
+                    average_Sxx = np.mean(Sxx, axis=1) # axis = 1 -> mean of each column: in total 21x126 mean values for each frequency
                     
-
                     # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
                     f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx]                
 
@@ -288,8 +287,8 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
                     #################### CALCULATE THE CONFIDENCE INTERVAL ####################
 
-                    # # calculate the SEM of psd values and store sem of each channel in dictionary
-                    semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx))
+                    # calculate the SEM of psd values and store sem of each channel in dictionary
+                    semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx)) # SEM = standard deviation / square root of sample size
 
 
                 
