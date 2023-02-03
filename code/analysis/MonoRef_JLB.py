@@ -62,7 +62,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
 
     # read .csv file as Dataframe
-    psdAverageDataframe = pd.read_csv(os.path.join(results_path, f"psdAverage_{normalization}_{hemisphere}"))
+    psdAverageDataframe = pd.read_csv(os.path.join(results_path, f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"))
 
     
     for t, tp in enumerate(time_points):

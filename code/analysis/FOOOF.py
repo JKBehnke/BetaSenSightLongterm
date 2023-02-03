@@ -32,7 +32,7 @@ from fooof.plts.annotate import plot_annotated_model
 
 
 
-def FOOOF(incl_sub: str, psdMethod: str, normalization: str, hemisphere: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list):
+def FOOOF(incl_sub: list, psdMethod: str, normalization: str, hemisphere: str):
     """
 
     Input: 
@@ -47,6 +47,10 @@ def FOOOF(incl_sub: str, psdMethod: str, normalization: str, hemisphere: str, in
                         SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+    
+    1) Load csv file from results folder for each subject
+
+    2) 
 
     """
 
@@ -54,14 +58,20 @@ def FOOOF(incl_sub: str, psdMethod: str, normalization: str, hemisphere: str, in
     # dictionary to fill in for each subject
     subject_dictionary = {}
 
+    # define variables 
+    time_points = ['postop', 'fu3m', 'fu12m', 'fu18m']
+    frequency_range = ["lowBeta", "highBeta", "beta"]
+
     
+
+    ################### Load csv file from results folder for each subject ###################
     for sub, subject in enumerate(incl_sub):
 
         # get path to results folder of each subject
         local_results_path = findfolders.get_local_path(folder="results", sub=subject)
 
         # get result CSV from each subject
-        df = loadcsv.load_resultCSV(
+        df = loadcsv.load_PSDresultCSV(
             sub=subject,
             psdMethod=psdMethod,
             normalization=normalization,
@@ -71,5 +81,15 @@ def FOOOF(incl_sub: str, psdMethod: str, normalization: str, hemisphere: str, in
         subject_dictionary[f"{subject}_path_csvDF"] = [subject, local_results_path, df]
     
 
+
+    ################### DIVIDE EACH DATAFRAME INTO COLLECTIONS OF EACH SESSION TIMEPOINT ###################
+
+
+
+    return local_results_path, df
     
+
+    
+
+
 
