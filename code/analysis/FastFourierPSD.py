@@ -164,7 +164,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
     highest_peak_dict = {}
 
     # set layout for figures: using the object-oriented interface
-    fig, axes = plt.subplots(len(incl_session), 1, figsize=(15, 15)) # subplot(rows, columns, panel number)
+    fig, axes = plt.subplots(len(incl_session), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
     
  
 
@@ -278,9 +278,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
                     # average all 21 Power spectra of all time sectors 
                     average_Sxx = np.mean(Sxx, axis=1) # axis = 1 -> mean of each column: in total 21x126 mean values for each frequency
-                    
-                    # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
-                    f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx]                
+                                   
 
 
 
@@ -291,6 +289,8 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx)) # SEM = standard deviation / square root of sample size
 
 
+                    # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
+                    f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx, semRawPsd] 
                 
 
                     #################### NORMALIZE PSD IN MULTIPLE WAYS ####################
@@ -303,7 +303,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     semNormToTotalSum_psd = np.std(normToTotalSum_psd)/np.sqrt(len(normToTotalSum_psd))
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToTotalSum_dict[f'{tp}_{ch}'] = [tp, ch, f, normToTotalSum_psd, semNormToTotalSum_psd]
+                    f_normPsdToTotalSum_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normToTotalSum_psd, semNormToTotalSum_psd]
 
 
                     #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 1-100 Hz  ####################
@@ -321,7 +321,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     semNormPsdToSum1to100Hz = np.std(normPsdToSum1to100Hz)/np.sqrt(len(normPsdToSum1to100Hz))
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
+                    f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
 
 
                     #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 40-90 Hz  ####################
@@ -339,7 +339,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     semNormPsdToSum40to90Hz = np.std(normPsdToSum40to90Hz)/np.sqrt(len(normPsdToSum40to90Hz))
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
+                    f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
 
 
                     #################### PEAK DETECTION ####################
@@ -364,8 +364,13 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                         chosenPsd = normPsdToSum40to90Hz
                         chosenSem = semNormPsdToSum40to90Hz
                         chosen_ylabel = "rel. PSD to sum 40-90 Hz (%) +- SEM"
-
-
+                    
+                    else:
+                        chosenPsd = average_Sxx
+                        chosenSem = semRawPsd
+                        chosen_ylabel = "uV^2/Hz +- SEM"
+                    # else statement is necessary to ensure the definition variable is not only locally 
+                        
 
                     #################### PSD AVERAGE OF EACH FREQUENCY BAND DEPENDING ON CHOSEN PSD NORMALIZATION ####################
                     
@@ -393,10 +398,11 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                             frequency = "beta"
                         elif count == 4:
                             frequency = "narrowGamma"
+                        
 
 
                         # get all frequencies and chosen psd values within each frequency range
-                        frequencyInFreqBand = f[range_allFrequencies[count]] # all frequencies within a frequency band
+                        # frequencyInFreqBand = f[range_allFrequencies[count]] # all frequencies within a frequency band
                         psdInFreqBand = chosenPsd[range_allFrequencies[count]] # all psd values within a frequency band
 
                         psdAverage = np.mean(psdInFreqBand)
@@ -509,7 +515,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
     for ax in axes: 
         # ax.legend(loc= 'upper right') # Legend will be in upper right corner
         ax.grid() # show grid
-        ax.set(xlim=[-5, 60]) # no ylim for rawPSD and normalization to sum 40-90 Hz
+        ax.set(xlim=[4, 40]) # no ylim for rawPSD and normalization to sum 40-90 Hz
         # ax.set(xlim=[-5, 60] ,ylim=[0,7]) for normalizations to total sum or to sum 1-100Hz set ylim to zoom in
         ax.set_xlabel("Frequency", fontdict=font)
         ax.set_ylabel(chosen_ylabel, fontdict=font)
@@ -525,7 +531,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
     #fig.legend(title="bipolar channels", loc= 'upper right', bbox_to_anchor=(0.5,1.05), fancybox=True, shadow=True, fontsize="small")
 
     ###### LEGEND ######
-    legend = axes[0].legend(loc= 'upper right', edgecolor="black") # only show the first subplot´s legend 
+    legend = axes[0].legend(loc= 'lower right', edgecolor="black", bbox_to_anchor=(1.5, -0.1)) # only show the first subplot´s legend 
     # frame the legend with black edges amd white background color 
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor("white")
@@ -533,28 +539,28 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
     fig.tight_layout()
 
     plt.show()
-    fig.savefig(figures_path + f"\PSDspectrogram_sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\\PSDspectrogram_sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
     
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
     # write raw PSD Dataframe
     rawPSDDataFrame = pd.DataFrame(f_rawPsd_dict)
-    rawPSDDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "averagedPSD"}, inplace=True) # rename the rows
+    rawPSDDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "averagedPSD", 5: "SEM_rawPsd"}, inplace=True) # rename the rows
     rawPSDDataFrame = rawPSDDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to total Sum
     normPsdToTotalSumDataFrame = pd.DataFrame(f_normPsdToTotalSum_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToTotalSumDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "normPsdToTotalSum", 4: "SEM_normPsdToTotalSum"}, inplace=True) # rename the rows
+    normPsdToTotalSumDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToTotalSum", 5: "SEM_normPsdToTotalSum"}, inplace=True) # rename the rows
     normPsdToTotalSumDataFrame = normPsdToTotalSumDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to Sum of PSD between 1 and 100 Hz
     normPsdToSum1to100HzDataFrame = pd.DataFrame(f_normPsdToSum1to100Hz_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToSum1to100HzDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "normPsdToSumPsd1to100Hz", 4: "SEM_normPsdToSumPsd1to100Hz"}, inplace=True) # rename the rows
+    normPsdToSum1to100HzDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToSumPsd1to100Hz", 5: "SEM_normPsdToSumPsd1to100Hz"}, inplace=True) # rename the rows
     normPsdToSum1to100HzDataFrame = normPsdToSum1to100HzDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to Sum of PSD between 1 and 100 Hz
     normPsdToSum40to90DataFrame = pd.DataFrame(f_normPsdToSum40to90Hz_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToSum40to90DataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "normPsdToSum40to90Hz", 4: "SEM_normPsdToSum40to90Hz"}, inplace=True) # rename the rows
+    normPsdToSum40to90DataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToSum40to90Hz", 5: "SEM_normPsdToSum40to90Hz"}, inplace=True) # rename the rows
     normPsdToSum40to90DataFrame = normPsdToSum40to90DataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of averaged psd values in each frequency band depending on the chosen normalization
@@ -593,6 +599,34 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
 
 
+# #################### PERFORM FOURIER TRANSFORMATION AND CALCULATE POWER SPECTRAL DENSITY ####################
+
+#                     window = 250 # with sfreq 250 frequencies will be from 0 to 125 Hz, 125Hz = Nyquist = fs/2
+#                     noverlap = 0.5 # 50% overlap of windows
+
+#                     window = hann(window, sym=False)
+
+#                     # compute spectrogram with Fourier Transforms
+                    
+#                     f,time_sectors,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
+#                     # f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
+#                     # time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (in total 21 time sectors)
+#                     # Sxx = 126 arrays with 21 values each of PSD [µV^2/Hz], for each frequency bin PSD values of each time sector
+#                     # Sxx = 126 frequency rows, 21 time sector columns
+
+#                     # average all 21 Power spectra of all time sectors 
+#                     average_Sxx = np.mean(Sxx, axis=1) # axis = 1 -> mean of each column: in total 21x126 mean values for each frequency
+                    
+#                     # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
+#                     f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx]                
+
+
+
+
+#                     #################### CALCULATE THE CONFIDENCE INTERVAL ####################
+
+#                     # calculate the SEM of psd values and store sem of each channel in dictionary
+#                     semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx)) # SEM = standard deviation / square root of sample size
 
 
 

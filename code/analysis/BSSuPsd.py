@@ -163,7 +163,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     highest_peak_dict = {}
 
     # set layout for figures: using the object-oriented interface
-    fig, axes = plt.subplots(len(incl_session), 1, figsize=(15, 15)) # subplot(rows, columns, panel number)
+    fig, axes = plt.subplots(len(incl_session), 1, figsize=(10, 15)) # subplot(rows, columns, panel number)
     
  
 
@@ -514,7 +514,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     for ax in axes: 
         # ax.legend(loc= 'upper right') # Legend will be in upper right corner
         ax.grid() # show grid
-        ax.set(xlim=[-5, 60]) # no ylim for rawPSD and normalization to sum 40-90 Hz
+        ax.set(xlim=[4, 40]) # no ylim for rawPSD and normalization to sum 40-90 Hz
         # ax.set(xlim=[-5, 60] ,ylim=[0,7]) for normalizations to total sum or to sum 1-100Hz set ylim to zoom in
         ax.set_xlabel("Frequency", fontdict=font)
         ax.set_ylabel(chosen_ylabel, fontdict=font)
@@ -530,7 +530,8 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     #fig.legend(title="bipolar channels", loc= 'upper right', bbox_to_anchor=(0.5,1.05), fancybox=True, shadow=True, fontsize="small")
 
     ###### LEGEND ######
-    legend = axes[0].legend(loc= 'upper right', edgecolor="black") # only show the first subplot´s legend 
+    legend = axes[0].legend(loc= 'lower right', edgecolor="black", bbox_to_anchor=(1.5, -0.1)) # only show the first subplot´s legend 
+    # bbox_to_anchor(x,y)
     # frame the legend with black edges amd white background color 
     legend.get_frame().set_alpha(None)
     legend.get_frame().set_facecolor("white")
@@ -538,7 +539,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     fig.tight_layout()
 
     plt.show()
-    fig.savefig(figures_path + f"\sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\\narrowFigsub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
     
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
