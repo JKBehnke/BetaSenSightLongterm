@@ -280,14 +280,10 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     average_Sxx = np.mean(Sxx, axis=1) # axis = 1 -> mean of each column: in total 21x126 mean values for each frequency
                                    
 
-
-
-
-                    #################### CALCULATE THE CONFIDENCE INTERVAL ####################
-
-                    # calculate the SEM of psd values and store sem of each channel in dictionary
-                    semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx)) # SEM = standard deviation / square root of sample size
-
+                    #################### CALCULATE THE STANDARD ERROR OF MEAN ####################
+                    # SEM = standard deviation / square root of sample size
+                    Sxx_std = np.std(Sxx, axis=1) # standard deviation of each frequency row
+                    semRawPsd = Sxx_std / np.sqrt(Sxx.shape[1]) # sample size = 21 time vectors -> sem with 126 values
 
                     # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
                     f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx, semRawPsd] 
@@ -300,7 +296,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     normToTotalSum_psd = (average_Sxx/np.sum(average_Sxx))*100 # in percentage               
 
                     # calculate the SEM of psd values 
-                    semNormToTotalSum_psd = np.std(normToTotalSum_psd)/np.sqrt(len(normToTotalSum_psd))
+                    semNormToTotalSum_psd = (semRawPsd/np.sum(average_Sxx))*100
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
                     f_normPsdToTotalSum_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normToTotalSum_psd, semNormToTotalSum_psd]
@@ -318,7 +314,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     normPsdToSum1to100Hz = (average_Sxx/psdSum1to100Hz)*100
 
                     # calculate the SEM of psd values 
-                    semNormPsdToSum1to100Hz = np.std(normPsdToSum1to100Hz)/np.sqrt(len(normPsdToSum1to100Hz))
+                    semNormPsdToSum1to100Hz = (semRawPsd/psdSum1to100Hz)*100
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
                     f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
@@ -336,7 +332,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     normPsdToSum40to90Hz = (average_Sxx/psdSum40to90Hz)*100
                    
                     # calculate the SEM of psd values 
-                    semNormPsdToSum40to90Hz = np.std(normPsdToSum40to90Hz)/np.sqrt(len(normPsdToSum40to90Hz))
+                    semNormPsdToSum40to90Hz = (semRawPsd/psdSum40to90Hz)*100
 
                     # store frequencies and normalized psd values and sem of normalized psd in a dictionary
                     f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
@@ -502,7 +498,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}")  # or np.log10(px)
 
                     # make a shadowed line of the sem
-                    axes[t].fill_between(f, chosenPsd-chosenSem, chosenPsd+chosenSem, color='b', alpha=0.2)
+                    axes[t].fill_between(f, chosenPsd-chosenSem, chosenPsd+chosenSem, color='lightgray', alpha=0.5)
 
 
 
