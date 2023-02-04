@@ -3,6 +3,7 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from cycler import cycler
 import seaborn as sns
 import numpy as np
 
@@ -107,11 +108,24 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
     
     1) load data from mainclass.PerceiveData using the input values.
+
+    2) Rename and pick channels
     
     2) band-pass filter by a Butterworth Filter of fifth order (5-95 Hz).
     
     3) Calculate the raw psd values of every channel for each timepoint by using scipy.sinal.scpectrogram.
+        - Compute a spectrogram with consecutive Fourier transforms.
+        - hanning window (scipy.signal.hann):
+            - sampling frequency: 250 Hz
+            - window samples: 250
+            - sym=False
+            - noverlap: 0.5 (50% overlap of windows)
 
+        output variables:
+        - f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
+        - time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (21 time sectors)
+        - Sxx = 126 frequency rows (arrays with 21 PSD values [µV^2/Hz] of each time sector, 21 time sector columns
+    
     4) Normalization variants: calculate different normalized PSD values 
         - normalized to total sum of PSD from each power spectrum
         - normalized to sum of PSD from 1-100 Hz
@@ -166,7 +180,11 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
     # set layout for figures: using the object-oriented interface
     fig, axes = plt.subplots(len(incl_session), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
     
- 
+
+    # Create a list of 15 colors and add it to the cycle of matplotlib 
+    cycler_colors = cycler("color", ["blue", "navy", "deepskyblue", "purple", "green", "darkolivegreen", "magenta", "orange", "red", "darkred", "chocolate", "gold", "cyan",  "yellow", "lime"])
+    plt.rc('axes', prop_cycle=cycler_colors)
+
 
     for t, tp in enumerate(incl_session):
         # t is indexing time_points, tp are the time_points
@@ -495,7 +513,9 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     # axes[t].get_ylim()
 
                     # .plot() method for creating the plot, axes[0] refers to the first plot, the plot is set on the appropriate object axes[t]
-                    axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}")  # or np.log10(px)
+                    axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}")  # or np.log10(px) 
+                    # colors of each line in different color, defined at the beginning
+                    # axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}", color=colors[i])
 
                     # make a shadowed line of the sem
                     axes[t].fill_between(f, chosenPsd-chosenSem, chosenPsd+chosenSem, color='lightgray', alpha=0.5)

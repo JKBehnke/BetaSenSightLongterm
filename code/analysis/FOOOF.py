@@ -32,7 +32,7 @@ from fooof.plts.annotate import plot_annotated_model
 
 
 
-def FOOOF(incl_sub: list, psdMethod: str, normalization: str, hemisphere: str):
+def FOOOF(incl_sub: list, psdMethod: str, normalization: str, incl_hemisphere: list):
     """
 
     Input: 
@@ -45,7 +45,7 @@ def FOOOF(incl_sub: list, psdMethod: str, normalization: str, hemisphere: str):
                         Ring: ['03', '13', '02', '12', '01', '23']
                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
                         SegmInter: ['1A2A', '1B2B', '1C2C']
-        - hemisphere: str e.g. "Right"
+        - incl_hemisphere: str e.g. ["Right", "Left"]
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
     
     1) Load csv file from results folder for each subject
@@ -66,27 +66,30 @@ def FOOOF(incl_sub: list, psdMethod: str, normalization: str, hemisphere: str):
 
     ################### Load csv file from results folder for each subject ###################
     for sub, subject in enumerate(incl_sub):
+        for hem, hemisphere in enumerate(incl_hemisphere):
 
-        # get path to results folder of each subject
-        local_results_path = findfolders.get_local_path(folder="results", sub=subject)
+            # get path to results folder of each subject
+            local_results_path = findfolders.get_local_path(folder="results", sub=subject)
 
-        # get result CSV from each subject
-        df = loadcsv.load_PSDresultCSV(
-            sub=subject,
-            psdMethod=psdMethod,
-            normalization=normalization,
-            hemisphere=hemisphere
-            )
+            # get result CSV from each subject
+            df = loadcsv.load_PSDresultCSV(
+                sub=subject,
+                psdMethod=psdMethod,
+                normalization=normalization,
+                hemisphere=hemisphere
+                )
+            
+            subject_dictionary[f"{subject}_{hemisphere}"] = [subject, local_results_path, df]
         
-        subject_dictionary[f"{subject}_path_csvDF"] = [subject, local_results_path, df]
-    
 
 
     ################### DIVIDE EACH DATAFRAME INTO COLLECTIONS OF EACH SESSION TIMEPOINT ###################
 
 
 
-    return local_results_path, df
+    return {
+        "subject_dictionary": subject_dictionary, 
+        }
     
 
     
