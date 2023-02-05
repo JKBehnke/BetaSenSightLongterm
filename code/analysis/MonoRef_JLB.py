@@ -12,6 +12,8 @@ import mne
 # PyPerceive Imports
 import PerceiveImport.methods.find_folders as findfolders
 
+import analysis.loadCSVresults as loadcsv
+
 
 def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
 
@@ -24,7 +26,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
         - normalization: str, e.g. "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
 
 
-    For different versions of PSD: 
+    Four different versions of PSD: 
         - raw PSD
         - relative PSD to total sum
         - relative PSD to sum 1-100 Hz
@@ -153,7 +155,6 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     monopolRankDF = monopolRefDF.rank(ascending=False) # new Dataframe ranking monopolar values from monopolRefDF from high to low
 
 
-
     # save Dataframes as csv in the results folder
     psdAverageDF.to_csv(os.path.join(results_path,f"averagedPSD_{normalization}_{hemisphere}"), sep=",")
     psdPercentageDF.to_csv(os.path.join(results_path,f"percentagePsdDirection_{normalization}_{hemisphere}"), sep=",")
@@ -171,7 +172,81 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
 
 
 
-            
+
+def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str, baselineRank: str):
+    """
+    Selecting the monopolar referenced contact with #1 Rank (postop #1 or fu3m #1)
+
+        - sub: str, 
+        - normalization: str, 
+        - hemisphere: str, 
+        - baselineRank: str, "postop" or "fu3m" (choose between #1 rank of postop or #1 rank of fu3m)
+        - 
+
+    """
+
+    monopolarFirstRank = {}
+
+
+    ############# READ CSV FILE of monopolar referenced AVERAGED PSD as Dataframe #############
+    # get path to results folder of subject
+    results_path = findfolders.get_local_path(folder="results", sub=sub)
+
+    # read .csv file as Dataframe
+    monoRef_result = loadcsv.load_MonoRef_JLBresultCSV(
+    sub=sub,
+    normalization=normalization,
+    hemisphere=hemisphere
+    )
+    
+    # get Dataframe of monopolar references
+    monoRefDF = monoRef_result["monopolRefDF"]
+
+    # get Dataframe of monopolar references
+    monoRankDF = monoRef_result["monopolRankDF"]
+
+    # Replace every rank #1 in monoRankDF with the monopolar channel (in first column: 'Unnamed: 0')
+    df = monoRankDF.apply(lambda x: x.where(x != 1.0, monoRankDF['Unnamed: 0']), axis=0)
+
+    # drop first column "Unnamed: 0" with all monopolar Ref channel names 
+    df.drop(columns=df.columns[0], axis=1,  inplace=True)
+
+    # only select the strings values with the monopolar channel #1 rank for each column (session_frequencyBand)
+    # loop over each column
+    for col in df.columns:
+        # extract the column as a series
+        column = df[col]
+        
+        # exclude float values and replace floats by nan
+        # lambda function returns the value if it is a string, otherwise it returns np.nan
+        column = column.apply(lambda x: x if isinstance(x, str) else np.nan)
+        
+        # drop all NaN values
+        column.dropna(how='all', inplace=True)
+        
+        # find the first value that is a string
+        #The next function returns the first value of each column that is a string. If the sequence is empty, the default value None is returned.
+        value = next((value for value in column.values if isinstance(value, str)), None)
+        
+        # add the result to the dictionary
+        monopolarFirstRank[col] = value
+
+    # convert the dictionary to a dataframe
+    monopolarFirstRankDF = pd.DataFrame(list(monopolarFirstRank.items()), columns=['session_frequencyBand', 'numberOneRank_monopolarChannel'])
+    
+
+    # from monoRefDF extract only the row equal to the value of the column 'numberOneRank_monopolarChannel' 
+    # and append each row to the monopolarFirstRankDF
+
+
+
+
+    return {
+        "monopolarFirstRankDF": monopolarFirstRankDF
+
+    }
+
+    
 
 
 

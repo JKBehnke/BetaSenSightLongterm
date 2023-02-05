@@ -79,7 +79,7 @@ def FOOOF(incl_sub: list, psdMethod: str, normalization: str, incl_hemisphere: l
                 hemisphere=hemisphere
                 )
             
-            subject_dictionary[f"{subject}_{hemisphere}"] = [subject, local_results_path, df]
+            subject_dictionary[f"sub{subject}_{hemisphere}"] = [subject, local_results_path, df]
         
 
 
