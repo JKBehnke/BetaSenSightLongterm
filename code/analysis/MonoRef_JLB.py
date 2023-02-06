@@ -173,7 +173,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
 
 
 
-def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str, baselineRank: str):
+def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str):
     """
     Selecting the monopolar referenced contact with #1 Rank (postop #1 or fu3m #1)
 
@@ -183,10 +183,15 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str, baseli
         - baselineRank: str, "postop" or "fu3m" (choose between #1 rank of postop or #1 rank of fu3m)
         - 
 
+        1) Load and restructure the monopolar Rank and References Dataframes
+            - select the monopolar contact with Rank #1 in every session_freqBand column of the monoRankDF
+            - store every Rank #1 monopolar contact in a dictionary monopolarFirstRank, transform to DF
+            - for every #1 ranked channel in every session and for every frequency band, add all monopolarly referenced PSD values
+
+
+
+
     """
-
-    monopolarFirstRank = {}
-
 
     ############# READ CSV FILE of monopolar referenced AVERAGED PSD as Dataframe #############
     # get path to results folder of subject
@@ -199,23 +204,27 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str, baseli
     hemisphere=hemisphere
     )
     
-    # get Dataframe of monopolar references
+    # get Dataframe of monopolar references/ monopolarly referenced PSD values
     monoRefDF = monoRef_result["monopolRefDF"]
 
-    # get Dataframe of monopolar references
+    # get Dataframe of monopolar ranks (column "Unnamed: 0" with monopolar contact names n=6)
     monoRankDF = monoRef_result["monopolRankDF"]
 
+
+    ################ Restructure the Dataframes ################ 
     # Replace every rank #1 in monoRankDF with the monopolar channel (in first column: 'Unnamed: 0')
-    df = monoRankDF.apply(lambda x: x.where(x != 1.0, monoRankDF['Unnamed: 0']), axis=0)
+    monoRank_replace1DF = monoRankDF.apply(lambda x: x.where(x != 1.0, monoRankDF['Unnamed: 0']), axis=0)
 
     # drop first column "Unnamed: 0" with all monopolar Ref channel names 
-    df.drop(columns=df.columns[0], axis=1,  inplace=True)
+    monoRank_replace1DF.drop(columns=monoRank_replace1DF.columns[0], axis=1,  inplace=True)
 
     # only select the strings values with the monopolar channel #1 rank for each column (session_frequencyBand)
+    monopolarFirstRank = {}
+
     # loop over each column
-    for col in df.columns:
+    for col in monoRank_replace1DF.columns:
         # extract the column as a series
-        column = df[col]
+        column = monoRank_replace1DF[col]
         
         # exclude float values and replace floats by nan
         # lambda function returns the value if it is a string, otherwise it returns np.nan
@@ -224,7 +233,7 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str, baseli
         # drop all NaN values
         column.dropna(how='all', inplace=True)
         
-        # find the first value that is a string
+        # find the first value that is a string (e.g. "monopolarRef_1A")
         #The next function returns the first value of each column that is a string. If the sequence is empty, the default value None is returned.
         value = next((value for value in column.values if isinstance(value, str)), None)
         
@@ -236,13 +245,28 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str, baseli
     
 
     # from monoRefDF extract only the row equal to the value of the column 'numberOneRank_monopolarChannel' 
-    # and append each row to the monopolarFirstRankDF
+    
+    # loop through each #1 rank value and store the matching dataframe row from monoRefDF in a dictionary
+    FirstRankRef_dict = {}
+    
+    for index, value in monopolarFirstRankDF['numberOneRank_monopolarChannel'].iteritems():
+        FirstRankRef_dict[f"{index}_{value}"] = monoRefDF[monoRefDF['Unnamed: 0'].str.contains(value)]
+
+
+    # first make a new Dataframe of selected monoRef rows, by concatenating all values of FirstRankRef_dict
+    FirstRankRef_DF = pd.concat(FirstRankRef_dict.values(), keys=FirstRankRef_dict.keys(), ignore_index=True) # keys need to be specified
+
+    # drop the first column with monopolar channel names, because this column already exists in the monopolarFirstRank DF that will be concatenated
+    FirstRankRef_DF.drop(columns=FirstRankRef_DF.columns[0], axis=1, inplace=True) # inplace=True will modify the original DF and will not create a new DF
+
+    # now concatenate the FirstRankDF (with #1 ranked monopolar contacts) with the FirstRankRefDF (with all referenced psd values of this #1 ranked contact)
+    FirstRankChannel_PSD_DF = pd.concat([monopolarFirstRankDF, FirstRankRef_DF], axis=1)
 
 
 
 
     return {
-        "monopolarFirstRankDF": monopolarFirstRankDF
+        "FirstRankChannel_PSD_DF":FirstRankChannel_PSD_DF
 
     }
 
