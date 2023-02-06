@@ -36,7 +36,7 @@ def FOOOF(incl_sub: list, psdMethod: str, normalization: str, incl_hemisphere: l
     """
 
     Input: 
-        - incl_sub: str e.g. "024"
+        - incl_sub: list e.g. ["024"]
         - psdMethod: str "Welch" or "Spectrogram"
         - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
         - incl_condition: list e.g. ["m0s0", "m1s0"]
@@ -45,7 +45,7 @@ def FOOOF(incl_sub: list, psdMethod: str, normalization: str, incl_hemisphere: l
                         Ring: ['03', '13', '02', '12', '01', '23']
                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
                         SegmInter: ['1A2A', '1B2B', '1C2C']
-        - incl_hemisphere: str e.g. ["Right", "Left"]
+        - incl_hemisphere: list e.g. ["Right", "Left"]
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
     
     1) Load csv file from results folder for each subject

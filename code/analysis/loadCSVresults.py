@@ -92,21 +92,37 @@ def load_MonoRef_JLBresultCSV(sub: str, normalization: str, hemisphere: str):
     # find the path to the results folder of a subject
     local_results_path = find_folder.get_local_path(folder="results", sub=sub)
 
-    # Error if filename doesn´t end with .mat
-    # assert filename[-4:] == '.csv', (
-    #     f'filename no .csv INCORRECT extension: {filename}'
-    # )
 
     psdAverageDataframe = pd.read_csv(os.path.join(local_results_path, f"averagedPSD_{normalization}_{hemisphere}"))
     psdPercentagePerDirection = pd.read_csv(os.path.join(local_results_path, f"percentagePsdDirection_{normalization}_{hemisphere}"))
     monopolRefDF = pd.read_csv(os.path.join(local_results_path, f"monopolarReference_{normalization}_{hemisphere}"))
     monopolRankDF =  pd.read_csv(os.path.join(local_results_path, f"monopolarRanks_{normalization}_{hemisphere}"))
+ 
+    # FirstRankChannel_PSD_DF = pd.read_csv(os.path.join(local_results_path,f"FirstRankChannel_PSD_DF{normalization}_{hemisphere}"), sep=",")
+    # postopBaseline_beta = pd.read_csv(os.path.join(local_results_path,f"postopBaseline_beta{normalization}_{hemisphere}"), sep=",")
+    # postopBaseline_lowBeta= pd.read_csv(os.path.join(local_results_path,f"postopBaseline_lowBeta{normalization}_{hemisphere}"), sep=",")
+    # postopBaseline_highBeta= pd.read_csv(os.path.join(local_results_path,f"postopBaseline_highBeta{normalization}_{hemisphere}"), sep=",")
+    # fu3mBaseline_beta= pd.read_csv(os.path.join(local_results_path,f"fu3mBaseline_beta{normalization}_{hemisphere}"), sep=",")
+    # fu3mBaseline_lowBeta= pd.read_csv(os.path.join(local_results_path,f"fu3mBaseline_lowBeta{normalization}_{hemisphere}"), sep=",")
+    # fu3mBaseline_highBeta= pd.read_csv(os.path.join(local_results_path,f"fu3mBaseline_highBeta{normalization}_{hemisphere}"), sep=",")
+    
+
+
 
     return {
         "psdAverageDataframe": psdAverageDataframe, 
         "psdPercentagePerDirection": psdPercentagePerDirection, 
         "monopolRefDF": monopolRefDF, 
-        "monopolRankDF": monopolRankDF}
+        "monopolRankDF": monopolRankDF,
+        # "FirstRankChannel_PSD_DF":FirstRankChannel_PSD_DF,
+        # "PostopBaseline_beta": postopBaseline_beta,
+        # "PostopBaseline_lowBeta": postopBaseline_lowBeta,
+        # "PostopBaseline_highBeta": postopBaseline_highBeta,
+        # "Fu3mBaseline_beta": fu3mBaseline_beta,
+        # "Fu3mBaseline_lowBeta": fu3mBaseline_lowBeta,
+        # "Fu3mBaseline_highBeta": fu3mBaseline_highBeta,
+        
+        }
 
 
 
