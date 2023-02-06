@@ -187,6 +187,12 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str):
             - select the monopolar contact with Rank #1 in every session_freqBand column of the monoRankDF
             - store every Rank #1 monopolar contact in a dictionary monopolarFirstRank, transform to DF
             - for every #1 ranked channel in every session and for every frequency band, add all monopolarly referenced PSD values
+            - FirstRankChannel_PSD_DF with columns: "session_frequencyBand", "numberOneRank_monopolarChannel", "monoRef_postop_lowBeta", "monoRef_postop_highBeta" etc.
+        
+        2) For postop and fu3m baselineRank Channel create new Dataframes each
+            - BetaPsdAverage
+            - LowBetaPsdAverage
+            - HighBetaPsdAverage
 
 
 
@@ -263,11 +269,49 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str):
     FirstRankChannel_PSD_DF = pd.concat([monopolarFirstRankDF, FirstRankRef_DF], axis=1)
 
 
+    ################ SELECT HIGHEST RANK FOR POSTOP AND FU3M BASELINE ################
 
+    # Dataframes for postop Baseline first ranks in each frequency band
+    postop_mask = FirstRankChannel_PSD_DF["session_frequencyBand"].str.contains("postop")
+    fu3m_mask = FirstRankChannel_PSD_DF["session_frequencyBand"].str.contains("fu3m")
+    beta_mask = FirstRankChannel_PSD_DF["session_frequencyBand"].str.contains("_beta")
+    lowBeta_mask = FirstRankChannel_PSD_DF["session_frequencyBand"].str.contains("_lowBeta")
+    highBeta_mask = FirstRankChannel_PSD_DF["session_frequencyBand"].str.contains("_highBeta")
+
+
+    #######    POSTOP BASELINE  #######
+    # first select the row from the highest ranked channel in each frequency band
+    postopBaseline_beta_channelRow = FirstRankChannel_PSD_DF[postop_mask & beta_mask]
+    postopBaseline_lowBeta_channelRow = FirstRankChannel_PSD_DF[postop_mask & lowBeta_mask]
+    postopBaseline_highBeta_channelRow = FirstRankChannel_PSD_DF[postop_mask & highBeta_mask]
+
+    # then select the columns with the averaged PSD values of the corresponding frequency band of every session
+    postopBaseline_beta = postopBaseline_beta_channelRow.loc[:,postopBaseline_beta_channelRow.columns.str.contains("_beta")]
+    postopBaseline_lowBeta = postopBaseline_lowBeta_channelRow.loc[:,postopBaseline_lowBeta_channelRow.columns.str.contains("_lowBeta")]
+    postopBaseline_highBeta = postopBaseline_highBeta_channelRow.loc[:,postopBaseline_highBeta_channelRow.columns.str.contains("_highBeta")]
+    
+
+    #######    FU3M BASELINE  #######
+     # first select the row from the highest ranked channel in each frequency band
+    fu3mBaseline_beta_channelRow = FirstRankChannel_PSD_DF[fu3m_mask & beta_mask]
+    fu3mBaseline_lowBeta_channelRow = FirstRankChannel_PSD_DF[fu3m_mask & lowBeta_mask]
+    fu3mBaseline_highBeta_channelRow = FirstRankChannel_PSD_DF[fu3m_mask & highBeta_mask]
+
+    # then select the columns with the averaged PSD values of the corresponding frequency band of every session
+    fu3mBaseline_beta = fu3mBaseline_beta_channelRow.loc[:,postopBaseline_beta_channelRow.columns.str.contains("_beta")]
+    fu3mBaseline_lowBeta = fu3mBaseline_lowBeta_channelRow.loc[:,postopBaseline_lowBeta_channelRow.columns.str.contains("_lowBeta")]
+    fu3mBaseline_highBeta = fu3mBaseline_highBeta_channelRow.loc[:,postopBaseline_highBeta_channelRow.columns.str.contains("_highBeta")]
+    
+    
 
     return {
-        "FirstRankChannel_PSD_DF":FirstRankChannel_PSD_DF
-
+        "FirstRankChannel_PSD_DF":FirstRankChannel_PSD_DF,
+        "PostopBaseline_beta": postopBaseline_beta,
+        "PostopBaseline_lowBeta": postopBaseline_lowBeta,
+        "PostopBaseline_highBeta": postopBaseline_highBeta,
+        "Fu3mBaseline_beta": fu3mBaseline_beta,
+        "Fu3mBaseline_lowBeta": fu3mBaseline_lowBeta,
+        "Fu3mBaseline_highBeta": fu3mBaseline_highBeta,
     }
 
     
