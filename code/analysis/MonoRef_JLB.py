@@ -201,6 +201,13 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     monopolRankDF.to_csv(os.path.join(results_path,f"monopolarRanks_{normalization}_{hemisphere}"), sep=",")
     
 
+    
+    return {
+        "psdAverageDataframe":psdAverageDF,
+        "psdPercentagePerDirection":psdPercentageDF,
+        "monopolarReference":monopolRefDF,
+        "monopolarRanks":monopolRankDF,
+    }
 
 
     # ################ Restructure the Dataframes ################ 
@@ -299,12 +306,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     # fu3mBaseline_highBeta.to_csv(os.path.join(results_path,f"fu3mBaseline_highBeta{normalization}_{hemisphere}"), sep=",")
     
 
-    return {
-        "psdAverageDataframe":psdAverageDF,
-        "psdPercentagePerDirection":psdPercentageDF,
-        "monopolarReference":monopolRefDF,
-        "monopolarRanks":monopolRankDF,
-    }
+    # return {
     #     "FirstRankChannel_PSD_DF":FirstRankChannel_PSD_DF,
     #     "PostopBaseline_beta": postopBaseline_beta,
     #     "PostopBaseline_lowBeta": postopBaseline_lowBeta,
