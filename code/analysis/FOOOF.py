@@ -32,7 +32,7 @@ from fooof.plts.annotate import plot_annotated_model
 
 
 
-def FOOOF(incl_sub: list, psdMethod: str, normalization: str, incl_hemisphere: list):
+def FOOOF(incl_sub: list, psdMethod: str, incl_hemisphere: list):
     """
 
     Input: 

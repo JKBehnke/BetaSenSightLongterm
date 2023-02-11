@@ -646,9 +646,11 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
 
 
-def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
+def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str):
     """
 
+    Calculating and plotting raw, absolute PSD with scipy.signal.spectrogram()
+    
     Input: 
         - incl_sub: str e.g. "024"
         - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
@@ -659,12 +661,10 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
                         SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
-        - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
-
     
     1) load data from mainclass.PerceiveData using the input values.
 
-    2) Rename and pick channels
+    2) Pick channels
     
     2) no  filter
     
@@ -682,14 +682,11 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
         - Sxx = 126 frequency rows (arrays with 21 PSD values [µV^2/Hz] of each time sector, 21 time sector columns
     
     4) no relative values
-
-
-    Depending on normalization variation: 
     
     5) For each frequency band alpha (8-12 Hz), low beta (13-20 Hz), high beta (21-35 Hz), beta (13-35 Hz), gamma (40-90 Hz) the highest Peak values (frequency and psd) will be seleted and saved in a DataFrame.
 
-    6) The raw or noramlized PSD values will be plotted and the figure will be saved as:
-        f"\sub{incl_sub}_{hemisphere}_normalizedPsdToTotalSum_seperateTimepoints_{pickChannels}.png"
+    6) The raw PSD values will be plotted and the figure will be saved as:
+        f"\RawUnfilteredPSDsub{incl_sub}_{hemisphere}_seperateTimepoints_{pickChannels}.png"
     
     7) All frequencies and psd values, as well as the values for the highest PEAK in each frequency band will be returned as a Dataframe in a dictionary: 
     
@@ -761,40 +758,18 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
 
                 temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
                 temp_data = getattr(temp_data.rest, contact)
-                temp_data = temp_data.data[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
+                temp_data = getattr(temp_data.run1, "data") # gets the mne loaded data from the perceive .mat BSSu, m0s0 file 
     
 
-                #################### CREATE A BUTTERWORTH FILTER #################### 
-
-                # set filter parameters for band-pass filter
-                filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
-                frequency_cutoff_low = 5 # 5Hz high-pass filter
-                frequency_cutoff_high = 95 # 95 Hz low-pass filter
-                fs = temp_data.info['sfreq'] # sample frequency: 250 Hz
-
-                # create the filter
-                b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
- 
-
-                #################### RENAME CHANNELS ####################
+                #################### GET CHANNELS ####################
                 # all channel names of one loaded file (one session, one task)
-                ch_names_original = temp_data.info.ch_names
-
-                # select only relevant keys and values from the mapping dictionary to rename channels
-                mappingSelected = dict((key, mapping[key]) for key in ch_names_original if key in mapping)
-
-                # rename channels using mne and the new selected mapping dictionary
-                mne.rename_channels(info=temp_data.info, mapping=mappingSelected, allow_duplicates=False)
-
-                # get new channel names
-                ch_names_renamed = temp_data.info.ch_names
-
+                ch_names = temp_data.info.ch_names
 
                 #################### PICK CHANNELS ####################
                 include_channelList = [] # this will be a list with all channel names selected
                 exclude_channelList = []
 
-                for n, names in enumerate(ch_names_renamed):
+                for n, names in enumerate(ch_names):
                     
                     # add all channel names that contain the picked channels: e.g. 02, 13, etc given in the input pickChannels
                     for picked in pickChannels:
@@ -811,19 +786,20 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
                     continue
 
                 # pick channels of interest: mne.pick_channels() will output the indices of included channels in an array
-                ch_names_indices = mne.pick_channels(ch_names_renamed, include=include_channelList)
+                ch_names_indices = mne.pick_channels(ch_names, include=include_channelList)
 
                 
-                for i, ch in enumerate(ch_names_renamed):
+                for i, ch in enumerate(ch_names):
                     
                     # only get picked channels
                     if i not in ch_names_indices:
                         continue
 
-                    #################### FILTER ####################
+                    #################### GET DATA and sampling frequency OF EACH CHANNEL ####################
 
-                    # filter the signal by using the above defined butterworth filter
-                    filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
+                    data = temp_data.get_data()[i, :]
+                    fs = temp_data.info["sfreq"]
+
 
                     #################### PERFORM FOURIER TRANSFORMATION AND CALCULATE POWER SPECTRAL DENSITY ####################
 
@@ -834,7 +810,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
 
                     # compute spectrogram with Fourier Transforms
                     
-                    f,time_sectors,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
+                    f,time_sectors,Sxx = scipy.signal.spectrogram(x=data, fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
                     # f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
                     # time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (in total 21 time sectors)
                     # Sxx = 126 arrays with 21 values each of PSD [µV^2/Hz], for each frequency bin PSD values of each time sector
@@ -849,87 +825,19 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
                     Sxx_std = np.std(Sxx, axis=1) # standard deviation of each frequency row
                     semRawPsd = Sxx_std / np.sqrt(Sxx.shape[1]) # sample size = 21 time vectors -> sem with 126 values
 
+                    # # store only the integers of the channel name (later on in the column Channel_ID)
+                    # split_ch_name = ch.split("_") # split channel names in parts seperated by underscores
+                    # channel_ID = [] # list with only one value: str with integers of the channelname e.g. "03" in channel LFP_R_03_STN_MT
+                       
+                    # for substr in split_ch_name:
+                    #        if substr.isdigit():
+                    #          channel_ID.append(substr)
+
+                    # print("CHANNEL ID", channel_ID)
+
                     # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
                     f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx, semRawPsd] 
-                
-
-                    #################### NORMALIZE PSD IN MULTIPLE WAYS ####################
-                    
-                    #################### NORMALIZE PSD TO TOTAL SUM OF THE POWER SPECTRUM (ALL FREQUENCIES) ####################
-
-                    normToTotalSum_psd = (average_Sxx/np.sum(average_Sxx))*100 # in percentage               
-
-                    # calculate the SEM of psd values 
-                    semNormToTotalSum_psd = (semRawPsd/np.sum(average_Sxx))*100
-
-                    # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToTotalSum_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normToTotalSum_psd, semNormToTotalSum_psd]
-
-
-                    #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 1-100 Hz  ####################
-                   
-                    # get raw psd values from 1 to 100 Hz by indexing the numpy arrays f and px
-                    rawPsd_1to100Hz = average_Sxx[1:100]
-
-                    # sum of rawPSD between 1 and 100 Hz
-                    psdSum1to100Hz = rawPsd_1to100Hz.sum()
-
-                    # raw psd divided by sum of psd between 1 and 100 Hz
-                    normPsdToSum1to100Hz = (average_Sxx/psdSum1to100Hz)*100
-
-                    # calculate the SEM of psd values 
-                    semNormPsdToSum1to100Hz = (semRawPsd/psdSum1to100Hz)*100
-
-                    # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
-
-
-                    #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 40-90 Hz  ####################
-                   
-                    # get raw psd values from 40 to 90 Hz (gerundet) by indexing the numpy arrays f and px
-                    rawPsd_40to90Hz = average_Sxx[40:90] 
-
-                    # sum of rawPSD between 40 and 90 Hz
-                    psdSum40to90Hz = rawPsd_40to90Hz.sum()
-
-                    # raw psd divided by sum of psd between 40 and 90 Hz
-                    normPsdToSum40to90Hz = (average_Sxx/psdSum40to90Hz)*100
-                   
-                    # calculate the SEM of psd values 
-                    semNormPsdToSum40to90Hz = (semRawPsd/psdSum40to90Hz)*100
-
-                    # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                    f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
-
-
-                    #################### PEAK DETECTION ####################
-
-                    # depending on what normalization or raw was chosen: define variables for psd, sem and ylabel accordingly
-                    if normalization == "rawPsd":
-                        chosenPsd = average_Sxx
-                        chosenSem = semRawPsd
-                        chosen_ylabel = "uV^2/Hz +- SEM"
-                    
-                    elif normalization == "normPsdToTotalSum":
-                        chosenPsd = normToTotalSum_psd
-                        chosenSem = semNormToTotalSum_psd
-                        chosen_ylabel = "rel. PSD to total sum (%) +- SEM"
-
-                    elif normalization == "normPsdToSum1_100Hz":
-                        chosenPsd = normPsdToSum1to100Hz
-                        chosenSem = semNormPsdToSum1to100Hz
-                        chosen_ylabel = "rel. PSD to sum 1-100 Hz (%) +- SEM"
-
-                    elif normalization == "normPsdToSum40_90Hz":
-                        chosenPsd = normPsdToSum40to90Hz
-                        chosenSem = semNormPsdToSum40to90Hz
-                        chosen_ylabel = "rel. PSD to sum 40-90 Hz (%) +- SEM"
-                    
-                    else:
-                        chosenPsd = average_Sxx
-                        chosenSem = semRawPsd
-                        chosen_ylabel = "uV^2/Hz +- SEM"
-                    # else statement is necessary to ensure the definition variable is not only locally 
+        
                         
 
                     #################### PSD AVERAGE OF EACH FREQUENCY BAND DEPENDING ON CHOSEN PSD NORMALIZATION ####################
@@ -963,7 +871,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
 
                         # get all frequencies and chosen psd values within each frequency range
                         # frequencyInFreqBand = f[range_allFrequencies[count]] # all frequencies within a frequency band
-                        psdInFreqBand = chosenPsd[range_allFrequencies[count]] # all psd values within a frequency band
+                        psdInFreqBand = average_Sxx[range_allFrequencies[count]] # all psd values within a frequency band
 
                         psdAverage = np.mean(psdInFreqBand)
 
@@ -974,7 +882,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
 
                     #################### PEAK DETECTION PSD DEPENDING ON CHOSEN PSD NORMALIZATION ####################
                     # find all peaks: peaks is a tuple -> peaks[0] = index of frequency?, peaks[1] = dictionary with keys("peaks_height") 
-                    peaks = scipy.signal.find_peaks(chosenPsd, height=0.1) # height: peaks only above 0.1 will be recognized
+                    peaks = scipy.signal.find_peaks(average_Sxx, height=0.1) # height: peaks only above 0.1 will be recognized
 
                     # Error checking: if no peaks found, continue
                     if len(peaks) == 0:
@@ -1021,7 +929,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
 
                         ######## calculate psd average of +- 2 Hz from highest Peak ########
                         # 1) find psd values from -2Hz until + 2Hz from highest Peak by slicing and indexing the numpy array of all chosen psd values
-                        peakIndex = np.where(chosenPsd == highest_peak_height) # np.where output is a tuple: index, dtype
+                        peakIndex = np.where(average_Sxx == highest_peak_height) # np.where output is a tuple: index, dtype
                         peakIndexValue = peakIndex[0].item() # only take the index value of the highest Peak psd value in all chosen psd
 
                         # 2) go -2 and +3 indeces 
@@ -1029,7 +937,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
                         indexhighCutt = peakIndexValue+3   # +3 because the ending index is left out when slicing a numpy array
 
                         # 3) slice the numpy array of all chosen psd values, only get values from -2 until +2 Hz from highest Peak
-                        psdArray5HzRangeAroundPeak = chosenPsd[indexlowCutt:indexhighCutt] # array only of psd values -2 until +2Hz around Peak = 5 values
+                        psdArray5HzRangeAroundPeak = average_Sxx[indexlowCutt:indexhighCutt] # array only of psd values -2 until +2Hz around Peak = 5 values
 
                         # 4) Average of 5Hz Array
                         highest_peak_height_5Hzaverage = np.mean(psdArray5HzRangeAroundPeak)                       
@@ -1049,7 +957,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
 
 
 
-                    #################### PLOT THE CHOSEN PSD DEPENDING ON NORMALIZATION INPUT ####################
+                    #################### PLOT THE ABSOLUTE UNFILTERED PSD  ####################
 
                     # the title of each plot is set to the timepoint e.g. "postop"
                     axes[t].set_title(tp, fontsize=20) 
@@ -1059,12 +967,12 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
                     # axes[t].get_ylim()
 
                     # .plot() method for creating the plot, axes[0] refers to the first plot, the plot is set on the appropriate object axes[t]
-                    axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}")  # or np.log10(px) 
+                    axes[t].plot(f, average_Sxx, label=f"{ch}_{cond}")  # or np.log10(px) 
                     # colors of each line in different color, defined at the beginning
                     # axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}", color=colors[i])
 
                     # make a shadowed line of the sem
-                    axes[t].fill_between(f, chosenPsd-chosenSem, chosenPsd+chosenSem, color='lightgray', alpha=0.5)
+                    axes[t].fill_between(f, average_Sxx-semRawPsd, average_Sxx+semRawPsd, color='lightgray', alpha=0.5)
 
 
 
@@ -1077,10 +985,10 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
     for ax in axes: 
         # ax.legend(loc= 'upper right') # Legend will be in upper right corner
         ax.grid() # show grid
-        ax.set(xlim=[4, 40]) # no ylim for rawPSD and normalization to sum 40-90 Hz
+        ax.set(xlim=[-2, 50]) # no ylim for rawPSD and normalization to sum 40-90 Hz
         # ax.set(xlim=[-5, 60] ,ylim=[0,7]) for normalizations to total sum or to sum 1-100Hz set ylim to zoom in
         ax.set_xlabel("Frequency", fontdict=font)
-        ax.set_ylabel(chosen_ylabel, fontdict=font)
+        ax.set_ylabel( "uV^2/Hz +- SEM", fontdict=font)
         ax.axvline(x=8, color='black', linestyle='--')
         ax.axvline(x=13, color='black', linestyle='--')
         ax.axvline(x=20, color='black', linestyle='--')
@@ -1101,7 +1009,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
     fig.tight_layout()
 
     plt.show()
-    fig.savefig(figures_path + f"\\PSDspectrogram_sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\\RawUnfilteredPSDspectrogram_sub{incl_sub}_{hemisphere}_{pickChannels}.png")
     
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
@@ -1110,49 +1018,28 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
     rawPSDDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "averagedPSD", 5: "SEM_rawPsd"}, inplace=True) # rename the rows
     rawPSDDataFrame = rawPSDDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
-    # write DataFrame of normalized PSD to total Sum
-    normPsdToTotalSumDataFrame = pd.DataFrame(f_normPsdToTotalSum_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToTotalSumDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToTotalSum", 5: "SEM_normPsdToTotalSum"}, inplace=True) # rename the rows
-    normPsdToTotalSumDataFrame = normPsdToTotalSumDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
-
-    # write DataFrame of normalized PSD to Sum of PSD between 1 and 100 Hz
-    normPsdToSum1to100HzDataFrame = pd.DataFrame(f_normPsdToSum1to100Hz_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToSum1to100HzDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToSumPsd1to100Hz", 5: "SEM_normPsdToSumPsd1to100Hz"}, inplace=True) # rename the rows
-    normPsdToSum1to100HzDataFrame = normPsdToSum1to100HzDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
-
-    # write DataFrame of normalized PSD to Sum of PSD between 1 and 100 Hz
-    normPsdToSum40to90DataFrame = pd.DataFrame(f_normPsdToSum40to90Hz_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToSum40to90DataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToSum40to90Hz", 5: "SEM_normPsdToSum40to90Hz"}, inplace=True) # rename the rows
-    normPsdToSum40to90DataFrame = normPsdToSum40to90DataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
-
     # write DataFrame of averaged psd values in each frequency band depending on the chosen normalization
     psdAverageDF = pd.DataFrame(psdAverage_dict) # Dataframe with 5 rows and columns for each single power spectrum
-    psdAverageDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: f"averaged{normalization}"}, inplace=True) # rename the rows
+    psdAverageDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: f"averagedRawUnfilteredPSD"}, inplace=True) # rename the rows
     psdAverageDF = psdAverageDF.transpose() # Dataframe with 4 columns and rows for each single power spectrum
 
 
     # write DataFrame of frequency and psd values of the highest peak in each frequency band
     highestPEAKDF = pd.DataFrame(highest_peak_dict) # Dataframe with 5 rows and columns for each single power spectrum
-    highestPEAKDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: "PEAK_frequency", 4:f"PEAK_{normalization}", 5: "highest_peak_height_5HzAverage"}, inplace=True) # rename the rows
+    highestPEAKDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: "PEAK_frequency", 4:f"PEAK_rawUnfilteredPSD", 5: "highest_peak_height_5HzAverage"}, inplace=True) # rename the rows
     highestPEAKDF = highestPEAKDF.transpose() # Dataframe with 6 columns and rows for each single power spectrum
 
 
     # save Dataframes as csv in the results folder
     
-    rawPSDDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMrawPSD_{hemisphere}"), sep=",")
-    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToTotalSum_{hemisphere}"), sep=",")
-    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_1to100Hz_{hemisphere}"), sep=",")
-    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_40to90Hz_{hemisphere}"), sep=",")
-    psdAverageDF.to_csv(os.path.join(results_path,f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"), sep=",")
-    highestPEAKDF.to_csv(os.path.join(results_path,f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}"), sep=",")
+    rawPSDDataFrame.to_csv(os.path.join(results_path,f"RawUnfilteredPSDSPECTROGRAM_{hemisphere}"), sep=",")
+    psdAverageDF.to_csv(os.path.join(results_path,f"RawUnfilteredPSDSPECTROGRAMaverageInFrequencyBands_{hemisphere}"), sep=",")
+    highestPEAKDF.to_csv(os.path.join(results_path,f"RawUnfilteredPSDSPECTROGRAM_highestPEAK_FrequencyBands_{hemisphere}"), sep=",")
 
 
     return {
         "rawPsdDataFrame":rawPSDDataFrame,
-        "normPsdToTotalSumDataFrame":normPsdToTotalSumDataFrame,
-        "normPsdToSum1to100HzDataFrame":normPsdToSum1to100HzDataFrame,
-        "normPsdToSum40to90HzDataFrame":normPsdToSum40to90DataFrame,
-        f"averaged{normalization}": psdAverageDF,
-        f"highestPEAK{normalization}": highestPEAKDF,
+        f"PSDaverage": psdAverageDF,
+        f"highestPEAK": highestPEAKDF,
     }
 
