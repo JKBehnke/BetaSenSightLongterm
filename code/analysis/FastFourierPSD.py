@@ -24,74 +24,7 @@ import PerceiveImport.methods.find_folders as findfolders
 
 
 
-# mapping = dictionary of all possible channel names as keys, new channel names (Retune standard) as values
-mapping = {
-    'LFP_Stn_0_3_RIGHT_RING':"LFP_R_03_STN_MT",
-    'LFP_Stn_1_3_RIGHT_RING':"LFP_R_13_STN_MT",
-    'LFP_Stn_0_2_RIGHT_RING':"LFP_R_02_STN_MT",
-    'LFP_Stn_1_2_RIGHT_RING':"LFP_R_12_STN_MT",
-    'LFP_Stn_0_1_RIGHT_RING':"LFP_R_01_STN_MT",
-    'LFP_Stn_2_3_RIGHT_RING':"LFP_R_23_STN_MT",
-    'LFP_Stn_0_3_LEFT_RING':"LFP_L_03_STN_MT",
-    'LFP_Stn_1_3_LEFT_RING':"LFP_L_13_STN_MT",
-    'LFP_Stn_0_2_LEFT_RING':"LFP_L_02_STN_MT",
-    'LFP_Stn_1_2_LEFT_RING':"LFP_L_12_STN_MT",
-    'LFP_Stn_0_1_LEFT_RING':"LFP_L_01_STN_MT",
-    'LFP_Stn_2_3_LEFT_RING':"LFP_L_23_STN_MT",
-    'LFP_Stn_1_A_1_B_RIGHT_SEGMENT':"LFP_R_1A1B_STN_MT",
-    'LFP_Stn_1_B_1_C_RIGHT_SEGMENT':"LFP_R_1B1C_STN_MT",
-    'LFP_Stn_1_A_1_C_RIGHT_SEGMENT':"LFP_R_1A1C_STN_MT",
-    'LFP_Stn_2_A_2_B_RIGHT_SEGMENT':"LFP_R_2A2B_STN_MT",
-    'LFP_Stn_2_B_2_C_RIGHT_SEGMENT':"LFP_R_2B2C_STN_MT",
-    'LFP_Stn_2_A_2_C_RIGHT_SEGMENT':"LFP_R_2A2C_STN_MT",
-    'LFP_Stn_1_A_1_B_LEFT_SEGMENT':"LFP_L_1A1B_STN_MT",
-    'LFP_Stn_1_B_1_C_LEFT_SEGMENT':"LFP_L_1B1C_STN_MT",
-    'LFP_Stn_1_A_1_C_LEFT_SEGMENT':"LFP_L_1A1C_STN_MT",
-    'LFP_Stn_2_A_2_B_LEFT_SEGMENT':"LFP_L_2A2B_STN_MT",
-    'LFP_Stn_2_B_2_C_LEFT_SEGMENT':"LFP_L_2B2C_STN_MT",
-    'LFP_Stn_2_A_2_C_LEFT_SEGMENT':"LFP_L_2A2C_STN_MT",
-    'LFP_Stn_1_A_2_A_RIGHT_SEGMENT':"LFP_R_1A2A_STN_MT",
-    'LFP_Stn_1_B_2_B_RIGHT_SEGMENT':"LFP_R_1B2B_STN_MT",
-    'LFP_Stn_1_C_2_C_RIGHT_SEGMENT':"LFP_R_1C2C_STN_MT",
-    'LFP_Stn_1_A_2_A_LEFT_SEGMENT':"LFP_L_1A2A_STN_MT",
-    'LFP_Stn_1_B_2_B_LEFT_SEGMENT':"LFP_L_1B2B_STN_MT",
-    'LFP_Stn_1_C_2_C_LEFT_SEGMENT':"LFP_L_1C2C_STN_MT",
-    "LFP_Stn_R_03":"LFP_R_03_STN_MT",
-    "LFP_Stn_R_13":"LFP_R_13_STN_MT",
-    "LFP_Stn_R_02":"LFP_R_02_STN_MT",
-    "LFP_Stn_R_12":"LFP_R_12_STN_MT",
-    "LFP_Stn_R_01":"LFP_R_01_STN_MT",
-    "LFP_Stn_R_23":"LFP_R_23_STN_MT",
-    "LFP_Stn_L_03":"LFP_L_03_STN_MT",
-    "LFP_Stn_L_13":"LFP_L_13_STN_MT",
-    "LFP_Stn_L_02":"LFP_L_02_STN_MT",
-    "LFP_Stn_L_12":"LFP_L_12_STN_MT",
-    "LFP_Stn_L_01":"LFP_L_01_STN_MT",
-    "LFP_Stn_L_23":"LFP_L_23_STN_MT",
-    'LFP_Stn_R_1A1B':"LFP_R_1A1B_STN_MT",
-    'LFP_Stn_R_1B1C':"LFP_R_1B1C_STN_MT",
-    'LFP_Stn_R_1A1C':"LFP_R_1A1C_STN_MT",
-    'LFP_Stn_R_2A2B':"LFP_R_2A2B_STN_MT",
-    'LFP_Stn_R_2B2C':"LFP_R_2B2C_STN_MT",
-    'LFP_Stn_R_2A2C':"LFP_R_2A2C_STN_MT",
-    'LFP_Stn_L_1A1B':"LFP_L_1A1B_STN_MT",
-    'LFP_Stn_L_1B1C':"LFP_L_1B1C_STN_MT",
-    'LFP_Stn_L_1A1C':"LFP_L_1A1C_STN_MT",
-    'LFP_Stn_L_2A2B':"LFP_L_2A2B_STN_MT",
-    'LFP_Stn_L_2B2C':"LFP_L_2B2C_STN_MT",
-    'LFP_Stn_L_2A2C':"LFP_L_2A2C_STN_MT",
-    'LFP_Stn_R_1A2A':"LFP_R_1A2A_STN_MT", 
-    'LFP_Stn_R_1B2B':"LFP_R_1B2B_STN_MT", 
-    'LFP_Stn_R_1C2C':"LFP_R_1C2C_STN_MT",
-    'LFP_Stn_L_1A2A':"LFP_L_1A2A_STN_MT", 
-    'LFP_Stn_L_1B2B':"LFP_L_1B2B_STN_MT", 
-    'LFP_Stn_L_1C2C':"LFP_L_1C2C_STN_MT",
-    
-}
-
-
-
-def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str):
+def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str, normalization: str, filter: str):
     """
 
     Input: 
@@ -105,15 +38,16 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                         SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - filter: str "unfiltered", "band-pass"
 
     
     1) load data from mainclass.PerceiveData using the input values.
 
-    2) Rename and pick channels
+    2) pick channels
     
-    2) band-pass filter by a Butterworth Filter of fifth order (5-95 Hz).
+    3) if filter == "band-pass": band-pass filter by a Butterworth Filter of fifth order (5-95 Hz).
     
-    3) Calculate the raw psd values of every channel for each timepoint by using scipy.sinal.scpectrogram.
+    4) Calculate the raw psd values of every channel for each timepoint by using scipy.sinal.scpectrogram.
         - Compute a spectrogram with consecutive Fourier transforms.
         - hanning window (scipy.signal.hann):
             - sampling frequency: 250 Hz
@@ -126,7 +60,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
         - time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (21 time sectors)
         - Sxx = 126 frequency rows (arrays with 21 PSD values [µV^2/Hz] of each time sector, 21 time sector columns
     
-    4) Normalization variants: calculate different normalized PSD values 
+    5) Normalization variants: calculate different normalized PSD values 
         - normalized to total sum of PSD from each power spectrum
         - normalized to sum of PSD from 1-100 Hz
         - normalized to sum of PSD from 40-90 Hz
@@ -134,12 +68,12 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
     Depending on normalization variation: 
     
-    5) For each frequency band alpha (8-12 Hz), low beta (13-20 Hz), high beta (21-35 Hz), beta (13-35 Hz), gamma (40-90 Hz) the highest Peak values (frequency and psd) will be seleted and saved in a DataFrame.
+    6) For each frequency band alpha (8-12 Hz), low beta (13-20 Hz), high beta (21-35 Hz), beta (13-35 Hz), gamma (40-90 Hz) the highest Peak values (frequency and psd) will be seleted and saved in a DataFrame.
 
-    6) The raw or noramlized PSD values will be plotted and the figure will be saved as:
+    7) The raw or noramlized PSD values will be plotted and the figure will be saved as:
         f"\sub{incl_sub}_{hemisphere}_normalizedPsdToTotalSum_seperateTimepoints_{pickChannels}.png"
     
-    7) All frequencies and relative psd values, as well as the values for the highest PEAK in each frequency band will be returned as a Dataframe in a dictionary: 
+    8) All frequencies and relative psd values, as well as the values for the highest PEAK in each frequency band will be returned as a Dataframe in a dictionary: 
     
     return {
         "rawPsdDataFrame":rawPSDDataFrame,
@@ -149,6 +83,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
         "psdAverage_dict": psdAverage_dict,
         "highestPeakRawPSD": highestPeakRawPsdDF,
     }
+    Watchout: I changed filenames -> now also including filter information!!!
 
     """
 
@@ -215,40 +150,37 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
                 temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
                 temp_data = getattr(temp_data.rest, contact)
-                temp_data = temp_data.data[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
+                temp_data = temp_data.run1.data # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
     
 
-                #################### CREATE A BUTTERWORTH FILTER #################### 
+                #################### CREATE A BUTTERWORTH FILTER ####################
+                # sampling frequency: 250 Hz
+                fs = temp_data.info['sfreq']
 
-                # set filter parameters for band-pass filter
-                filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
-                frequency_cutoff_low = 5 # 5Hz high-pass filter
-                frequency_cutoff_high = 95 # 95 Hz low-pass filter
-                fs = temp_data.info['sfreq'] # sample frequency: 250 Hz
+                # only if filter == "band-pass"
+                if filter == "band-pass":
 
-                # create the filter
-                b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
- 
+                    # set filter parameters for band-pass filter
+                    filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
+                    frequency_cutoff_low = 5 # 5Hz high-pass filter
+                    frequency_cutoff_high = 95 # 95 Hz low-pass filter
 
-                #################### RENAME CHANNELS ####################
-                # all channel names of one loaded file (one session, one task)
-                ch_names_original = temp_data.info.ch_names
-
-                # select only relevant keys and values from the mapping dictionary to rename channels
-                mappingSelected = dict((key, mapping[key]) for key in ch_names_original if key in mapping)
-
-                # rename channels using mne and the new selected mapping dictionary
-                mne.rename_channels(info=temp_data.info, mapping=mappingSelected, allow_duplicates=False)
-
+                    # create the filter
+                    b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
+    
+                else:
+                    print("no filter applied")
+                 
+                
                 # get new channel names
-                ch_names_renamed = temp_data.info.ch_names
+                ch_names = temp_data.info.ch_names
 
 
                 #################### PICK CHANNELS ####################
                 include_channelList = [] # this will be a list with all channel names selected
                 exclude_channelList = []
 
-                for n, names in enumerate(ch_names_renamed):
+                for n, names in enumerate(ch_names):
                     
                     # add all channel names that contain the picked channels: e.g. 02, 13, etc given in the input pickChannels
                     for picked in pickChannels:
@@ -265,19 +197,23 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
                     continue
 
                 # pick channels of interest: mne.pick_channels() will output the indices of included channels in an array
-                ch_names_indices = mne.pick_channels(ch_names_renamed, include=include_channelList)
+                ch_names_indices = mne.pick_channels(ch_names, include=include_channelList)
 
                 
-                for i, ch in enumerate(ch_names_renamed):
+                for i, ch in enumerate(ch_names):
                     
                     # only get picked channels
                     if i not in ch_names_indices:
                         continue
 
                     #################### FILTER ####################
+                    if filter == "band-pass":
 
-                    # filter the signal by using the above defined butterworth filter
-                    filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
+                        # filter the signal by using the above defined butterworth filter
+                        signal = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
+                    
+                    elif filter == "unfiltered": 
+                        signal = temp_data.get_data()[i, :]
 
                     #################### PERFORM FOURIER TRANSFORMATION AND CALCULATE POWER SPECTRAL DENSITY ####################
 
@@ -288,7 +224,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
                     # compute spectrogram with Fourier Transforms
                     
-                    f,time_sectors,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
+                    f,time_sectors,Sxx = scipy.signal.spectrogram(x=signal, fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
                     # f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
                     # time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (in total 21 time sectors)
                     # Sxx = 126 arrays with 21 values each of PSD [µV^2/Hz], for each frequency bin PSD values of each time sector
@@ -555,7 +491,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
     fig.tight_layout()
 
     plt.show()
-    fig.savefig(figures_path + f"\\PSDspectrogram_sub{incl_sub}_{hemisphere}_{normalization}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\\PSDspectrogram_sub{incl_sub}_{hemisphere}_{normalization}_{filter}_{pickChannels}.png")
     
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
@@ -593,21 +529,21 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
     # save Dataframes as csv in the results folder
     
-    rawPSDDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMrawPSD_{hemisphere}"), sep=",")
-    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToTotalSum_{hemisphere}"), sep=",")
-    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_1to100Hz_{hemisphere}"), sep=",")
-    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_40to90Hz_{hemisphere}"), sep=",")
-    psdAverageDF.to_csv(os.path.join(results_path,f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"), sep=",")
-    highestPEAKDF.to_csv(os.path.join(results_path,f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}"), sep=",")
+    rawPSDDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMrawPSD_{hemisphere}_{filter}"), sep=",")
+    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToTotalSum_{hemisphere}_{filter}"), sep=",")
+    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_1to100Hz_{hemisphere}_{filter}"), sep=",")
+    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_40to90Hz_{hemisphere}_{filter}"), sep=",")
+    psdAverageDF.to_csv(os.path.join(results_path,f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}_{filter}"), sep=",")
+    highestPEAKDF.to_csv(os.path.join(results_path,f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}_{filter}"), sep=",")
 
 
     return {
-        "rawPsdDataFrame":rawPSDDataFrame,
-        "normPsdToTotalSumDataFrame":normPsdToTotalSumDataFrame,
-        "normPsdToSum1to100HzDataFrame":normPsdToSum1to100HzDataFrame,
-        "normPsdToSum40to90HzDataFrame":normPsdToSum40to90DataFrame,
-        f"averaged{normalization}": psdAverageDF,
-        f"highestPEAK{normalization}": highestPEAKDF,
+        f"rawPsdDataFrame_{filter}":rawPSDDataFrame,
+        f"normPsdToTotalSumDataFrame_{filter}":normPsdToTotalSumDataFrame,
+        f"normPsdToSum1to100HzDataFrame_{filter}":normPsdToSum1to100HzDataFrame,
+        f"normPsdToSum40to90HzDataFrame_{filter}":normPsdToSum40to90DataFrame,
+        f"averaged{normalization}_{filter}": psdAverageDF,
+        f"highestPEAK{normalization}_{filter}": highestPEAKDF,
     }
 
 
@@ -643,6 +579,10 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
 #                     # calculate the SEM of psd values and store sem of each channel in dictionary
 #                     semRawPsd = np.std(average_Sxx)/np.sqrt(len(average_Sxx)) # SEM = standard deviation / square root of sample size
+
+
+
+
 
 
 
