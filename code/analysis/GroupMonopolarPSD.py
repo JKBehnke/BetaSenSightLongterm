@@ -14,7 +14,7 @@ def group_monopolarPSDaverageAndRanks(incl_sub:list, incl_hemisphere:list, norma
 
     """
 
-    
+    This function concatenates the result DataFrames of each subject into a group DataFrame
 
     Input:
 
