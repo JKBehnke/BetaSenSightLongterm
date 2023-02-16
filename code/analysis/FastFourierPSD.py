@@ -529,15 +529,21 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, inc
 
     # save Dataframes as csv in the results folder
     
-    rawPSDDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMrawPSD_{hemisphere}_{filter}"), sep=",")
-    normPsdToTotalSumDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToTotalSum_{hemisphere}_{filter}"), sep=",")
-    normPsdToSum1to100HzDataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_1to100Hz_{hemisphere}_{filter}"), sep=",")
-    normPsdToSum40to90DataFrame.to_csv(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_40to90Hz_{hemisphere}_{filter}"), sep=",")
-    psdAverageDF.to_csv(os.path.join(results_path,f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}_{filter}"), sep=",")
-    highestPEAKDF.to_csv(os.path.join(results_path,f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}_{filter}"), sep=",")
+    # rawPSDDataFrame.to_json(os.path.join(results_path,f"SPECTROGRAMrawPSD_{hemisphere}_{filter}"), sep=",")
+    # normPsdToTotalSumDataFrame.to_json(os.path.join(results_path,f"SPECTROGRAMnormPsdToTotalSum_{hemisphere}_{filter}"), sep=",")
+    # normPsdToSum1to100HzDataFrame.to_json(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_1to100Hz_{hemisphere}_{filter}"), sep=",")
+    # normPsdToSum40to90DataFrame.to_json(os.path.join(results_path,f"SPECTROGRAMnormPsdToSum_40to90Hz_{hemisphere}_{filter}"), sep=",")
+    psdAverageDF.to_json(os.path.join(results_path,f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}_{filter}.json"))
+    highestPEAKDF.to_json(os.path.join(results_path,f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}_{filter}.json"))
+
+    # concatenate the PSD Dataframes to one and take out the Duplicated columns
+    PSD_Dataframe = pd.concat([rawPSDDataFrame, normPsdToTotalSumDataFrame, normPsdToSum1to100HzDataFrame, normPsdToSum40to90DataFrame], axis=1)
+    PSD_Dataframe = PSD_Dataframe.loc[:,~PSD_Dataframe.columns.duplicated()]
+    PSD_Dataframe.to_json(os.path.join(results_path,f"SPECTROGRAMPSD_{hemisphere}_{filter}.json"))
 
 
     return {
+        f"PSD_Dataframe": PSD_Dataframe,
         f"rawPsdDataFrame_{filter}":rawPSDDataFrame,
         f"normPsdToTotalSumDataFrame_{filter}":normPsdToTotalSumDataFrame,
         f"normPsdToSum1to100HzDataFrame_{filter}":normPsdToSum1to100HzDataFrame,

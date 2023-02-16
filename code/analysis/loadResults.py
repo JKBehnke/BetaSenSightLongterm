@@ -3,7 +3,71 @@
 
 import os
 import pandas as pd
+import json
 import PerceiveImport.methods.find_folders as find_folder
+
+
+def load_PSDjson(sub: str, result: str, hemisphere: str, normalization: str, filter: str):
+
+    """
+    Reads result CSV file of the initial SPECTROGRAM method
+
+    Input:
+        - subject = str, e.g. "024"
+        - result = str "PowerSpectrum", "PSDaverageFrequencyBands", "PeakParameters"
+        - normalization =  str "rawPSD" or "normPsdToTotalSum" or "normPsdToSum1_100Hz" or "normPsdToSum40_90Hz"
+        - hemisphere = str, "Right" or "Left"
+        - filter = str "band-pass" or "unfiltered"
+
+
+    Returns: 
+        - data: loaded CSV file as a Dataframe 
+
+    """
+
+
+    
+    # Error check: 
+    # Error if sub str is not exactly 3 letters e.g. 024
+    assert len(sub) == 3, f'Subject string ({sub}) INCORRECT' 
+    
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folder.get_local_path(folder="results", sub=sub)
+
+
+    # create Filename out of input 
+    filename = ""
+
+    if result == "PowerSpectrum":
+        filebase = "SPECTROGRAMPSD"
+    
+    elif result == "PSDaverageFrequencyBands":
+        filebase = f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}"
+    
+    elif result == "PeakParameters":
+        filebase = f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}"
+
+    
+    
+    hem = f"_{hemisphere}"
+    filt = f"_{filter}.json"
+    
+
+    string_list = [filebase, hem, filt]
+    filename = "".join(string_list)
+
+
+    # Error if filename doesn´t end with .mat
+    # assert filename[-4:] == '.csv', (
+    #     f'filename no .csv INCORRECT extension: {filename}'
+    # )
+
+    with open(os.path.join(local_results_path, filename)) as file:
+        data = json.load(file)
+
+    return data
+
 
 
 def load_PSDresultCSV(sub: str, psdMethod: str, normalization: str, hemisphere: str, filter: str):
@@ -59,7 +123,7 @@ def load_PSDresultCSV(sub: str, psdMethod: str, normalization: str, hemisphere: 
     # )
 
 
-    df = pd.read_csv(os.path.join(local_results_path, filename))
+    df = pd.read_csv(os.path.join(local_results_path, filename), sep= ",")
 
     return df
 

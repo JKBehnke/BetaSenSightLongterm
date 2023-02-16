@@ -19,7 +19,7 @@ import mne
 # PyPerceive Imports
 import PerceiveImport.methods.find_folders as findfolders
 
-import analysis.loadCSVresults as loadcsv
+# import analysis.loadResults as loadcsv
 
 
 def compareMonopolarPSDaverage_freqBand(incl_sub:list, freq_band: str):
