@@ -9,7 +9,7 @@ from numpy import array
 
 import analysis.find_folders as find_folders
 import analysis.loadResults as loadResults
-import analysis.classesResults.metadata_class as metadata
+import analysis.classes.metadata_class as metadata
 
 
 

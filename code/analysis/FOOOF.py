@@ -19,7 +19,7 @@ import mne
 # PyPerceive Imports
 import PerceiveImport.classes.main_class as mainclass
 import PerceiveImport.methods.find_folders as findfolders
-import analysis.loadCSVresults as loadcsv
+import analysis.loadResults as loadcsv
 
 
 import fooof
