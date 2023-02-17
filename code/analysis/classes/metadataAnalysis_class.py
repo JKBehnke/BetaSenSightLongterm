@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass(init=True, repr=True) 
-class AnalysisMetadataClass:
+class MetadataClass:
     """
     Metadata class to store repetitive variables that are changing constantly throughout the hierarchy
     
@@ -22,6 +22,19 @@ class AnalysisMetadataClass:
         - filter: str "unfiltered", "band-pass"
         - result: str "PowerSpectrum", "PSDaverageFrequencyBands", "PeakParameters"
 
+        - feature: list of features you want to extract from the json file, depending on chosen result
+            "PowerSpectrum": 
+                ["frequency", "time_sectors", "averagedPSD", "SEM_rawPSD", 
+                 "normPsdToTotalSum", "SEM_normPsdToTotalSum", "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
+                "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
+
+            "PSDaverageFrequencyBands": 
+                ["frequencyBand", "averagedrawPSD"] 
+            
+            "PeakParameters":
+                ["PEAK_frequency", "highest_peak_height_5HzAverage"]
+
+
     post-initialized parameters:
         
     Returns:
@@ -34,12 +47,8 @@ class AnalysisMetadataClass:
     filter: str
     normalization: str
     result: str
-    incl_session: list = field(default_factory=lambda: ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]) # default:_ if no input is given -> automatically input the full list
-    incl_condition: list = field(default_factory=lambda: ["m0s0", "m1s0"])
-    incl_contact: list = field(default_factory=lambda: ["RingR", "SegmIntraR", "SegmInterR", 
-                                                        "RingL", "SegmIntraL", "SegmInterL"])
-    pickChannels: list = field(default_factory=lambda: ['03', '13', '02', '12', '01', '23', 
-                                                        '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
-                                                        '1A2A', '1B2B', '1C2C'])
-    
-    
+    incl_session:  list
+    pickChannels: list       
+    freqBands: list  
+    feature: list
+    original_Result_DF: any

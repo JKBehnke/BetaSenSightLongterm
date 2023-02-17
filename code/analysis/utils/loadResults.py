@@ -38,6 +38,7 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, normalization: str, fil
 
     # create Filename out of input 
     filename = ""
+    filebase = ""
 
     if result == "PowerSpectrum":
         filebase = "SPECTROGRAMPSD"
