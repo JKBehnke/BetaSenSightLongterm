@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 
 @dataclass(init=True, repr=True) 
-class MetadataClass:
+class AnalysisMetadataClass:
     """
     Metadata class to store repetitive variables that are changing constantly throughout the hierarchy
     

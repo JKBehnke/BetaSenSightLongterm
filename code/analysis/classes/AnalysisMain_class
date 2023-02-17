@@ -9,12 +9,12 @@ from numpy import array
 
 import analysis.find_folders as find_folders
 import analysis.loadResults as loadResults
-import analysis.classes.metadata_class as metadata
+import analysis.classes.AnalysisMetadata_class as metadata
 
 
 
 @dataclass(init=True, repr=True) 
-class mainAnalysisClass:
+class AnalysisMainClass:
     """
     Main analysis class to store results
     
