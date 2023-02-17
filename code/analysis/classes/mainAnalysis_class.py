@@ -17,14 +17,39 @@ import analysis.classes.sessionAnalysis_class as session_class
 @dataclass(init=True, repr=True) 
 class MainClass:
     """
-    Main analysis class to store results
+    Main analysis class to extract results from the saved json files with Power Spectra, PSD averages and Peak results
+
+    1) There are 3 different json files from which you can extract data: 
+        - filepath: c:\\Users\\jebe12\\Research\\Longterm_beta_project\\Code\\BetaSenSightLongterm\\results\\sub-0XX
+        - filename for result of PowerSpectrum: "SPECTROGRAMPSD_{hemisphere}_{filter}.json"
+        - filename for result of PSDaverageFrequencyBands: "SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}_{filter}.json"
+        - filename for result of PeakParameters: "SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}_{filter}.json"
+    
+    2) depending on input of sub, hemispere, filter and result:
+        - one json file is being loaded
+        - the json file will be transformed to a Dataframe and saved in its original format in metadata class
+
+    3) main_class selects the rows for each session and sets the attribute for session class
+    4) session_class selects the rows for each channel and sets the attribute for channel class
+    5) channel_class:
+        if result = "PowerSpectrum"
+            - selects directly the value of each feature and sets the attribute for feature_class
+        
+        if result = "PSDaverageFrequencyBands" or "PeakParameters"
+            - first selects rows for each frequency band and sets the attribute for freqBand_class
+    
+    6) frequencyBand_class only relevant if result = "PSDaverageFrequencyBands" or "PeakParameters"
+        selects the value for each feature sets the attribute for feature_class
+    
+    7) feature_class:
+        sets an attribute "data" to itself containing the value = output
+
+        
     
     parameters:
  
         - incl_sub: str e.g. "024"
         - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
-        - incl_condition: list e.g. ["m0s0", "m1s0"]
-        - incl_contact: a list of contacts to include ["RingR", "SegmIntraR", "SegmInterR", "RingL", "SegmIntraL", "SegmInterL"]
         - pickChannels: list of bipolar channels, depending on which incl_contact was chosen
                         Ring: ['03', '13', '02', '12', '01', '23']
                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
@@ -46,7 +71,11 @@ class MainClass:
             "PeakParameters":
                 ["PEAK_frequency", "highest_peak_height_5HzAverage"]
 
-    post-initialized parameters:
+    TODO: 
+        - fix .json files for PSDaverageFrequencyBands and PeakParameters: should contain all normalization variants! 
+        - then take out normalization in main_class and metadata_class
+        - add normalization features in frequency band class
+        - make sure column names are useful: instead of averagedPSD -> rawPsd
     
     Returns:
         - 
