@@ -64,7 +64,7 @@ class MainClass:
         - feature: list of features you want to extract from the json file, depending on chosen result
             "PowerSpectrum": 
                 ["frequency", "time_sectors", 
-                "rawPSD", "SEM_rawPSD", 
+                "rawPsd", "SEM_rawPsd", 
                 "normPsdToTotalSum", "SEM_normPsdToTotalSum", 
                 "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
                 "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
