@@ -18,10 +18,10 @@ class featureClass:
                 "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
 
             "PSDaverageFrequencyBands": 
-                ["averagedrawPSD"] 
+                ["averagedPSD"] 
             
             "PeakParameters":
-                ["PEAK_frequency", "highest_peak_height_5HzAverage"]
+                ["PEAK_frequency", "PEAK_amplitude", "PEAK_5HzAverage"]
 
         - metaClass: all original attributes set in Main_Class
         - resultValue: selected meta_table set in modality_class
@@ -39,8 +39,6 @@ class featureClass:
 
     def __post_init__(self,):        
         
-
-        print("FEATURECLASS:", self.resultValue)
         # set the attribute for the single value from the Dataframe , so self.data will output for example the array of one single Power Spectrum
         setattr(
             self,

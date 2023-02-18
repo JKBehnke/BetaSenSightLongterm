@@ -34,7 +34,7 @@ class freqBandClass:
 
         if self.metaClass.result == "PSDaverageFrequencyBands":
 
-            allowed_features =  ["averagedrawPSD"] 
+            allowed_features =  ["averagedPSD"] 
                 
                 
             # continue to next class: feature Class and set the attribute of the new selection of metaClass
@@ -48,10 +48,10 @@ class freqBandClass:
                 
                 # there is only one row left in the result dataframe, now get the value from the feature column 
                 sel_feature = self.Result_DF[feat].iloc[0] 
-                print("FREQBANDCLASS1:", sel_feature)
+        
 
-                if len(sel_feature) == 0:
-                    continue
+                # if len(sel_feature) == 0:
+                #     continue
                     
                 # set the channel value for each channel in channelClass 
                 setattr(
@@ -68,7 +68,7 @@ class freqBandClass:
 
         elif self.metaClass.result == "PeakParameters":
 
-            allowed_features =  ["PEAK_frequency", "highest_peak_height_5HzAverage"] 
+            allowed_features =  ["PEAK_frequency", "PEAK_amplitude", "PEAK_5HzAverage"] 
                 
                 
             # continue to next class: feature Class and set the attribute of the new selection of metaClass
@@ -82,10 +82,10 @@ class freqBandClass:
                 
                 # there is only one row left in the result dataframe, now get the value from the feature column 
                 sel_feature = self.Result_DF[feat].iloc[0] 
-                print("FREQBANDCLASS2:", sel_feature)
+        
 
-                if len(sel_feature) == 0:
-                    continue
+                # if len(sel_feature) == 0:
+                #     continue
                     
                 # set the value for each feature in featureClass 
                 setattr(
@@ -99,5 +99,7 @@ class freqBandClass:
                     ),
                 )   
         
+        else: 
+            print("result is not defined")
 
 

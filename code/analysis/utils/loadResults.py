@@ -7,7 +7,7 @@ import json
 import PerceiveImport.methods.find_folders as find_folder
 
 
-def load_PSDjson(sub: str, result: str, hemisphere: str, normalization: str, filter: str):
+def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
 
     """
     Reads result CSV file of the initial SPECTROGRAM method
@@ -44,10 +44,10 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, normalization: str, fil
         filebase = "SPECTROGRAMPSD"
     
     elif result == "PSDaverageFrequencyBands":
-        filebase = f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}"
+        filebase = f"SPECTROGRAMpsdAverageFrequencyBands"
     
     elif result == "PeakParameters":
-        filebase = f"SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}"
+        filebase = f"SPECTROGRAM_highestPEAK_FrequencyBands"
 
     
     

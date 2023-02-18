@@ -22,12 +22,14 @@ class MainClass:
     1) There are 3 different json files from which you can extract data: 
         - filepath: c:\\Users\\jebe12\\Research\\Longterm_beta_project\\Code\\BetaSenSightLongterm\\results\\sub-0XX
         - filename for result of PowerSpectrum: "SPECTROGRAMPSD_{hemisphere}_{filter}.json"
-        - filename for result of PSDaverageFrequencyBands: "SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}_{filter}.json"
-        - filename for result of PeakParameters: "SPECTROGRAM_highestPEAK_FrequencyBands_{normalization}_{hemisphere}_{filter}.json"
+        - filename for result of PSDaverageFrequencyBands: "SPECTROGRAMpsdAverageFrequencyBands_{hemisphere}_{filter}.json"
+        - filename for result of PeakParameters: "SPECTROGRAM_highestPEAK_FrequencyBands_{hemisphere}_{filter}.json"
     
     2) depending on input of sub, hemispere, filter and result:
         - one json file is being loaded
         - the json file will be transformed to a Dataframe and saved in its original format in metadata class
+        - for results PSDaverageFrequencyBands or PeakParameters: filter the Dataframe already for correct normalization before storing in metadata
+        
 
     3) main_class selects the rows for each session and sets the attribute for session class
     4) session_class selects the rows for each channel and sets the attribute for channel class
@@ -55,21 +57,23 @@ class MainClass:
                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
                         SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
-        - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
         - filter: str "unfiltered", "band-pass"
         - result: str "PowerSpectrum", "PSDaverageFrequencyBands", "PeakParameters"
 
         - feature: list of features you want to extract from the json file, depending on chosen result
             "PowerSpectrum": 
-                ["frequency", "time_sectors", "averagedPSD", "SEM_rawPSD", 
-                "normPsdToTotalSum", "SEM_normPsdToTotalSum", "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
+                ["frequency", "time_sectors", 
+                "rawPSD", "SEM_rawPSD", 
+                "normPsdToTotalSum", "SEM_normPsdToTotalSum", 
+                "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
                 "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
 
             "PSDaverageFrequencyBands": 
-                ["frequencyBand", "averagedrawPSD"] 
+                ["frequencyBand", "averagedPSD"] 
             
             "PeakParameters":
-                ["PEAK_frequency", "highest_peak_height_5HzAverage"]
+                ["PEAK_frequency", "PEAK_amplitude", "PEAK_5HzAverage"]
 
     TODO: 
         - fix .json files for PSDaverageFrequencyBands and PeakParameters: should contain all normalization variants! 
@@ -78,26 +82,51 @@ class MainClass:
         - make sure column names are useful: instead of averagedPSD -> rawPsd
     
     Returns:
-        - 
+     
+        after running the class and saving it in a variable, 
+            e.g. sub-029 = mainAnalysis_class.MainClass(
+                        sub="029",
+                        hemisphere = "Right",
+                        filter = "band-pass",
+                        result = "PSDaverageFrequencyBands",
+                        incl_session = ["postop", "fu3m", "fu12m", "fu18m"],
+                        pickChannels = ['03', '13', '02', '12', '01', '23', 
+                                        '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
+                                        '1A2A', '1B2B', '1C2C'],
+                        normalization = ["rawPsd", "normPsdToSum1_100Hz"],
+                        freqBands = ["beta", "highBeta", "lowBeta"],
+                        feature= ["averagedPSD"]
+                        )
+
+        call one single feature by this codeline structure,
+        
+        - result="PowerSpectrum": 
+            sub029.postop.BIP_03.rawPsd.data
+
+        - result="PSDaverageFrequencyBands": 
+            sub-029.postop.BIP_03.rawPsd.highBeta.averagedPSD.data
+
+        - result="PeakParameters": 
+            sub-029.postop.BIP_03.rawPsd.beta.PEAK_5HzAverage.data
     """
 
     # these fields will be initialized 
     sub: str             # note that : is used, not =  
     hemisphere: str 
     filter: str
-    normalization: str
     result: str
     incl_session: list = field(default_factory=lambda: ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]) # default:_ if no input is given -> automatically input the full list
     pickChannels: list = field(default_factory=lambda: ['03', '13', '02', '12', '01', '23', 
                                                         '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
                                                         '1A2A', '1B2B', '1C2C'])
+    normalization: list = field(default_factory=lambda: ["rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"])
     freqBands: list = field(default_factory=lambda: ["beta", "lowBeta", "highBeta", "alpha", "narrowGamma"])
-    feature: list = field(default_factory=lambda: ["frequency", "time_sectors", "averagedPSD", "SEM_rawPsd", 
+    feature: list = field(default_factory=lambda: ["frequency", "time_sectors", "rawPsd", "SEM_rawPsd", 
                                                    "normPsdToTotalSum", "SEM_normPsdToTotalSum", 
                                                    "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
                                                    "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz",
-                                                   "frequencyBand", "averagedrawPSD", 
-                                                   "PEAK_frequency", "highest_peak_height_5HzAverage", 
+                                                   "frequencyBand", "averagedPSD", 
+                                                   "PEAK_frequency", "PEAK_amplitude", "PEAK_5HzAverage", 
                                                    ])
     
     
@@ -123,14 +152,12 @@ class MainClass:
         self.jsonResult = loadResults.load_PSDjson(
             sub = self.sub,
             result = self.result, # self.result has to be a list, because the loading function is 
-            normalization = self.normalization,
             hemisphere = self.hemisphere,
             filter = self.filter
         )
 
         # make a Dataframe from the JSON file to further select
         self.Result_DF = pd.DataFrame(self.jsonResult)
-
     
         # define and store all variables in self.metaClass, from where they can continuously be called and modified from further subclasses
         self.metaClass = metadata.MetadataClass(
@@ -148,6 +175,7 @@ class MainClass:
         )
 
 
+
         # loop through every session input in the incl_session list 
         # and set the session value for each session
         for ses in self.incl_session:
@@ -163,8 +191,7 @@ class MainClass:
             # sel_Result_DF = self.Result_DF[sel].reset_index(drop=True) # reset index of the new meta_table 
             
             sel_Result_DF = self.metaClass.original_Result_DF[self.metaClass.original_Result_DF.session == ses]
-            print("RESULTMAIN:", sel_Result_DF)
-
+            
             # if no files are left after selecting, dont make new class
             if len(sel_Result_DF) == 0:
                 continue

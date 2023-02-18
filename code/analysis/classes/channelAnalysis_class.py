@@ -4,7 +4,7 @@ import pandas as pd
 from dataclasses import dataclass
 
 import analysis.classes.featureAnalysis_class as feature_class
-import analysis.classes.frequencyBand_class as freqBand_class
+import analysis.classes.normalizationAnalysis_class as normalization_class
 
 
 @dataclass (init=True, repr=True)
@@ -18,7 +18,7 @@ class channelClass:
                             '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
                             '1A2A', '1B2B', '1C2C' set in session_class
         - metaClass: all original attributes set in main_Class
-        - resultDataFrame: selected meta_table set in session_class
+        - Result_DF: selected meta_table set in session_class
 
     Returns:
         - sel_Result_DF: channel selected meta_table 
@@ -35,9 +35,12 @@ class channelClass:
         
 
         if self.metaClass.result == "PowerSpectrum":
+            ############### FEATURE SELECTION ###############
 
-            allowed_features = ["frequency", "time_sectors", "averagedPSD", "SEM_rawPsd", 
-                                "normPsdToTotalSum", "SEM_normPsdToTotalSum", "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
+            allowed_features = ["frequency", "time_sectors", 
+                                "rawPsd", "SEM_rawPsd", 
+                                "normPsdToTotalSum", "SEM_normPsdToTotalSum", 
+                                "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
                                 "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
             
             
@@ -52,7 +55,7 @@ class channelClass:
                 
                 # there is only one row left in the result dataframe, now get the value from the feature column 
                 sel_feature = self.Result_DF[feat].iloc[0] 
-                print("FEATURE from channel Class", sel_feature)
+                
 
                 if len(sel_feature) == 0:
                     continue
@@ -73,33 +76,38 @@ class channelClass:
         # for results "PSDaverageFrequencyBands" and "PeakParameters": first go to frequency Band Class and then extract feature! 
         elif self.metaClass.result == "PSDaverageFrequencyBands" or "PeakParameters":
 
-            allowed_freqBands = ["beta", "lowBeta", "highBeta", "alpha", "narrowGamma"]
+            ############### NORMALIZATION SELECTION ###############
+            allowed_normalization = ["rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"]
 
-            # continue to next class: feature Class and set the attribute of the new selection of metaClass
-            for freq in self.metaClass.freqBands:
+            # Error checking: if normalization is not in allowed_features -> Error message
+            for norm in self.metaClass.normalization:
 
-                # Error checking: if feature is not in allowed_features -> Error message
-                assert freq.lower() in [fq.lower() for fq in allowed_freqBands], (
-                    f'inserted frequency Band ({freq}) should'
-                    f' be in {allowed_freqBands}'
-                )
+                assert norm in [n for n in allowed_normalization], (
+                    f'inserted normalization ({norm}) should'
+                    f' be in {allowed_normalization}'
+                )            
+
+                # select the correct normalization rows first
+                sel_Result_DF = self.Result_DF[self.Result_DF.absoluteOrRelativePSD == norm]
                 
-                # select from the Dataframe the correct frequency band
-                sel_Result_DF = self.Result_DF[self.Result_DF.frequencyBand == freq]
-                print("Freq Band from Channel Class:", sel_Result_DF)
 
                 if len(sel_Result_DF) == 0:
                     continue
                     
-                # set the channel value for each channel in channelClass 
+                # set the normalization value for each normalization in normalizationClass 
                 setattr(
                     self,
-                    freq,
-                    freqBand_class.freqBandClass(
+                    norm,
+                    normalization_class.normalizationClass(
                         sub=self.sub,
-                        freqBand = freq,
+                        normalization = norm,
                         metaClass=self.metaClass,
-                        Result_DF=sel_Result_DF
-                    ),
+                        Result_DF=sel_Result_DF)
                 )  
 
+        else: 
+            print("result is not defined")
+
+
+
+    

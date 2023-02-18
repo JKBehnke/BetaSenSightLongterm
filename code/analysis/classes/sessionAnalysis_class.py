@@ -48,7 +48,6 @@ class sessionClass:
             # sel_meta_table = self.meta_table[sel].reset_index(drop=True) # reset index of the new meta_table 
             
             sel_Result_DF = self.Result_DF[self.Result_DF.bipolarChannel.str.contains(chan)]
-            print("RESULTSESSION:", sel_Result_DF)
 
 
             # if no files are left after selecting, dont make new class

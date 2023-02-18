@@ -18,7 +18,7 @@ class MetadataClass:
                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
                         SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
-        - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - normalization: list, e.g. ["rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"]
         - filter: str "unfiltered", "band-pass"
         - result: str "PowerSpectrum", "PSDaverageFrequencyBands", "PeakParameters"
 
@@ -45,10 +45,10 @@ class MetadataClass:
     sub: str             # note that : is used, not =  
     hemisphere: str 
     filter: str
-    normalization: str
     result: str
     incl_session:  list
-    pickChannels: list       
+    pickChannels: list      
+    normalization: list 
     freqBands: list  
     feature: list
     original_Result_DF: any
