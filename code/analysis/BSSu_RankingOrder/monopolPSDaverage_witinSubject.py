@@ -26,7 +26,7 @@ def compareMonopolarPSDaverage_freqBand(incl_sub:list, freq_band: str):
 
 
     """
-    Compare the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C)
+    Compare the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C) within a subject at different timepoints
 
     Input:
         - incl_sub: str, e.g. "024"
