@@ -73,10 +73,22 @@ def get_local_path(folder: str, sub: str = None):
     """
     find_project_folder is a function to find the folder "Longterm_beta_project" on your local computer
 
+    Input:
+        - folder: str
+            'Research': path to Research folder
+            'Longterm_beta_project': path to Project folder
+            'GroupResults': path to results folder, without going in subject level
+            'results': subject folder of results
+            'GroupFigures': path to figures folder, without going in subject level 
+            'figures': figure folder of results
+        
+        - sub: str, e.g. "029"
+    
+
     """
 
     folder_options = [
-        'Research', 'Longterm_beta_project', 'GroupResults', 'results', 'figures'
+        'Research', 'Longterm_beta_project', 'GroupResults', 'results', 'GroupFigures', 'figures'
         ]
 
     # Error checking, if folder input is in folder options
@@ -108,6 +120,9 @@ def get_local_path(folder: str, sub: str = None):
 
     elif folder == 'results':
         return os.path.join(path, "Longterm_beta_project", "results", f"sub-{sub}")
+    
+    elif folder == 'GroupFigures':
+        return os.path.join(path, "Longterm_beta_project", "figures")
 
     elif folder == 'figures':
         return os.path.join(path, "Longterm_beta_project", "figures", f"sub-{sub}")
