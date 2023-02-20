@@ -87,7 +87,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
     """
 
     # sns.set()
-    # plt.style.use('seaborn-whitegrid')  
+    plt.style.use('seaborn-whitegrid')  
 
     # depending on hemisphere: define incl_contact
     incl_contact = {}

@@ -52,6 +52,7 @@ def PsdAverage_RingSegmGroups(
 
 
     """
+    plt.style.use('seaborn-whitegrid')  
 
     figures_path = find_folders.get_local_path(folder="GroupFigures")
     results_path = find_folders.get_local_path(folder="GroupResults")
@@ -246,7 +247,7 @@ def PsdAverage_RingSegmGroups(
     
     
     for f in freqBands:
-        fig = plt.figure(figsize=(5, 10), layout="tight")
+        fig = plt.figure(figsize=(15, 25), layout="tight")
         channelGroup_DF = {}
 
         for g, group in enumerate(channelGroup):
@@ -261,7 +262,7 @@ def PsdAverage_RingSegmGroups(
         
             plt.subplot(3,1,g+1)
 
-            #sns.lineplot(data=channelGroup_DF[group], x='session', y='PSDaverage_beta_ChannelsPerHemisphere', size_order=sessions)
+            # sns.lineplot(data=channelGroup_DF[group], x='session', y='PSDaverage_ChannelsPerHemisphere', size_order=sessions)
     
             sns.boxplot(data=channelGroup_DF[group], 
                         x='session', 
@@ -275,13 +276,24 @@ def PsdAverage_RingSegmGroups(
                 y = 'PSDaverage_ChannelsPerHemisphere',
                 hue = "subject_hemisphere",
                 order=sessions,
-                size=5,
+                size=15,
                 jitter=True,
                 data = channelGroup_DF[group],
                 )
             
-            plt.title(f"{group} Channels: PSD in {f} band")
-            plt.legend(loc= "upper right", bbox_to_anchor=(1.4, 1))
+            
+            plt.title(f"{group} Channels: PSD in {f} band",fontdict={"size": 30})
+
+            # legend should only be shown in first plot
+            plt.legend(loc= "upper right", bbox_to_anchor=(1.4, 1), prop={"size":20})
+
+            if group == "SegmIntra":
+                plt.legend().remove()
+            
+            elif group == "SegmInter":
+                plt.legend().remove()
+            
+
     
             # y label depends on normalization:
             if normalization == "rawPsd":
@@ -300,12 +312,17 @@ def PsdAverage_RingSegmGroups(
                 print(normalization, "has to be in ['rawPsd', 'normPsdToTotalSum', 'normPsdToSum1_100Hz', 'normPsdToSum40_90Hz']")
 
 
-            plt.ylabel(ylabel)
+            plt.ylabel(ylabel, fontdict={"size":25})
+            plt.xlabel("session", fontdict={"size":25})
+            plt.xticks(fontsize= 25), plt.yticks(fontsize= 25)
+
+            
 
 
         fig.tight_layout()
 
-        fig.savefig(figures_path + f"\\BIP_PsdAverage_RingSegmGroups_{f}_{normalization}_{signalFilter}.png")
+        fig.savefig(figures_path + f"\\BIP_PsdAverage_RingSegmGroups_{f}_{normalization}_{signalFilter}.png",
+                    bbox_inches = "tight")
         
     
     return {
