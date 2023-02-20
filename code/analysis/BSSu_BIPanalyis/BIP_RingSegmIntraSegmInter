@@ -1,0 +1,160 @@
+""" BIP comparisons within Ring, SegmIntra and SegmInter groups """
+
+
+######### PUBLIC PACKAGES #########
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from cycler import cycler
+
+
+######### PRIVATE PACKAGES #########
+import analysis.classes.mainAnalysis_class as mainAnalysis_class
+import analysis.utils.find_folders as find_folders
+
+
+def PsdAverage_compareRingSegmGroups(
+        incl_sub: list, 
+        signalFilter: str,
+        normalization: str,
+        freqBands: list
+        ):
+    
+    """
+    Plot the mean PSD average of all channels of an electrode within a frequency band (alpha, beta, highBeta, lowBeta)
+    in 3 seperate groups: Ring (6 channels), SegmIntra (6 channels), SegmInter (3 channels)
+
+    Input:
+        - sub: list e.g. ["017", "019", "024", "025", "026", "029", "030"]
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBands: list e.g. ["beta", "highBeta", "lowBeta"]
+
+
+    """
+
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    hemispheres = ["Right", "Left"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+    Ring = ['03', '13', '02', '12', '01', '23']
+    SegmIntra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C'] 
+    SegmInter = ['1A2A', '1B2B', '1C2C']
+
+    data = {}
+    freqBand_norm_session_DF = {} # keys with f"{sub}_{hem}_{freq}": value = sub_hem DF selected for correct session, normalization and frequency band
+    Ring_DF = {}
+    SegmIntra_DF = {}
+    SegmInter_DF = {}
+
+
+    #### load the data for all subject hemispheres ####
+    for sub in incl_sub:
+        for hem in hemispheres:
+
+            # load the data from each subject hemisphere
+            data[f"{sub}_{hem}"] = mainAnalysis_class.MainClass(
+                sub = sub,
+                hemisphere = hem,
+                filter = signalFilter,
+                result = "PSDaverageFrequencyBands",
+                incl_session = sessions,
+                pickChannels = ['03', '13', '02', '12', '01', '23', 
+                                '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
+                                '1A2A', '1B2B', '1C2C'],
+                normalization = [normalization],
+                freqBands = freqBands,
+                feature= ["averagedPSD"]
+            )
+
+
+                
+            # for each timepoint and frequency band seperately, get the Dataframes of the correct normalization and frequency band
+            for ses in sessions:
+                for freq in freqBands:
+
+                    # get the Dataframe
+                    if ses == "postop":
+                        # Error check: check if session exists as an attribute of one subject_hemisphere object
+                        try: 
+                            data[f"{sub}_{hem}"].postop
+                        
+                        except AttributeError:
+                            continue
+                            
+                        session_DF = data[f"{sub}_{hem}"].postop.Result_DF # select for session
+                        norm_session_DF = session_DF[session_DF.absoluteOrRelativePSD == normalization] # select for correct normalization e.g. absolute PSD instead of relative
+                        freqBand_norm_session_DF = norm_session_DF[norm_session_DF.frequencyBand == freq] # select  for correct frequency band
+                    
+                    # get the Dataframe
+                    if ses == "fu3m":
+                        # Error check: check if session exists as an attribute of one subject_hemisphere object
+                        try: 
+                            data[f"{sub}_{hem}"].fu3m
+                        
+                        except AttributeError:
+                            continue
+                            
+                        session_DF = data[f"{sub}_{hem}"].fu3m.Result_DF # select for session
+                        norm_session_DF = session_DF[session_DF.absoluteOrRelativePSD == normalization] # select for absolute PSD instead of relative
+                        freqBand_norm_session_DF = norm_session_DF[norm_session_DF.frequencyBand == freq] # select  for beta frequency band
+                    
+                    # get the Dataframe
+                    if ses == "fu12m":
+                        # Error check: check if session exists as an attribute of one subject_hemisphere object
+                        try: 
+                            data[f"{sub}_{hem}"].fu12m
+                        
+                        except AttributeError:
+                            continue
+                            
+                        session_DF = data[f"{sub}_{hem}"].fu12m.Result_DF # select for session
+                        norm_session_DF = session_DF[session_DF.absoluteOrRelativePSD == normalization] # select for absolute PSD instead of relative
+                        freqBand_norm_session_DF = norm_session_DF[norm_session_DF.frequencyBand == freq] # select  for beta frequency band
+                    
+                    # get the Dataframe
+                    if ses == "fu18m":
+                        # Error check: check if session exists as an attribute of one subject_hemisphere object
+                        try: 
+                            data[f"{sub}_{hem}"].fu18m
+                        
+                        except AttributeError:
+                            continue
+                            
+                        session_DF = data[f"{sub}_{hem}"].fu18m.Result_DF # select for session
+                        norm_session_DF = session_DF[session_DF.absoluteOrRelativePSD == normalization] # select for absolute PSD instead of relative
+                        freqBand_norm_session_DF = norm_session_DF[norm_session_DF.frequencyBand == freq] # select  for beta frequency band
+
+
+                    ############# divide each Dataframe in 3 groups: Ring, SegmIntra, SegmInter #############
+                
+                    # Dataframe with all Ring Channels
+                    Ring_DF[f"{sub}_{hem}_{ses}_{freq}"] = pd.DataFrame()
+                    for chan in Ring:
+                        channel_DF = freqBand_norm_session_DF[freqBand_norm_session_DF.bipolarChannel.str.contains(chan)]
+                        Ring_DF[f"{sub}_{hem}_{ses}_{freq}"] = pd.concat([Ring_DF[f"{sub}_{hem}_{ses}_{freq}"], channel_DF] )
+
+                    # Dataframe with all SegmIntra Channels
+                    SegmIntra_DF[f"{sub}_{hem}_{ses}_{freq}"] = pd.DataFrame()
+                    for chan in SegmIntra:
+                        channel_DF = freqBand_norm_session_DF[freqBand_norm_session_DF.bipolarChannel.str.contains(chan)]
+                        SegmIntra_DF[f"{sub}_{hem}_{ses}_{freq}"] = pd.concat([SegmIntra_DF[f"{sub}_{hem}_{ses}_{freq}"], channel_DF])
+
+                    # Dataframe with all SegmInter Channels
+                    SegmInter_DF[f"{sub}_{hem}_{ses}_{freq}"] = pd.DataFrame()
+                    for chan in SegmInter:
+                        channel_DF = freqBand_norm_session_DF[freqBand_norm_session_DF.bipolarChannel.str.contains(chan)]
+                        SegmInter_DF[f"{sub}_{hem}_{ses}_{freq}"] = pd.concat([SegmInter_DF[f"{sub}_{hem}_{ses}_{freq}"], channel_DF])
+    
+
+
+    return {
+        "Ring_DF": Ring_DF
+    }
+                    
+
+
+
+
+
