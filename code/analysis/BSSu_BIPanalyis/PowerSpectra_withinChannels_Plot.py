@@ -124,6 +124,7 @@ def PowerSpectra_perChannel(sub: str,
                     psd = {}
                     sem = {}
 
+                    # psd and sem must be an array, it won´t work as a list
                     if norm == "rawPsd":
                         psd[norm] = np.array(PowerSpectrum.rawPsd.data)
                         sem[norm] = np.array(PowerSpectrum.SEM_rawPsd.data)
