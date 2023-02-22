@@ -156,6 +156,19 @@ def PowerSpectra_perChannel(sub: str,
                     plt.xlabel("Frequency [Hz]", fontdict={"size": 30})
                     plt.xlim(2, 50)
 
+                    # different y limit depending on absolute or relative PSD
+                    if norm == "rawPsd":
+                        plt.ylim(0, 3) 
+                
+                    elif norm == "normPsdToTotalSum":
+                        plt.ylim(0, 17)
+                    
+                    elif norm == "normPsdToSum1_100Hz":
+                        plt.ylim(0, 17)
+
+                    elif norm == "normPsdToSum40_90Hz":
+                        plt.ylim(0, 150)
+
                     # different y label depending on absolute or relative PSD
                     y_label = {}
                     if norm == "rawPsd":
@@ -335,6 +348,20 @@ def PowerSpectra_perChannelGroup(sub: str,
 
                     plt.xlabel("Frequency [Hz]", fontdict={"size": 30})
                     plt.xlim(2, 50)
+
+                    # different y limit depending on absolute or relative PSD
+                    if norm == "rawPsd":
+                        plt.ylim(0, 3) 
+                
+                    elif norm == "normPsdToTotalSum":
+                        plt.ylim(0, 17)
+                    
+                    elif norm == "normPsdToSum1_100Hz":
+                        plt.ylim(0, 17)
+
+                    elif norm == "normPsdToSum40_90Hz":
+                        plt.ylim(0, 150)
+
 
                     # different y label depending on absolute or relative PSD
                     y_label = {}
