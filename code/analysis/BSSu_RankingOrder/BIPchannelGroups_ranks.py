@@ -141,11 +141,11 @@ def Rank_BIPRingSegmGroups(
     
 
 
-    ##################### PERMUTATION ANALYSIS #####################
+    ##################### RESTRUCTURE DATAFRAMES #####################
 
     # Restructure Dataframes into different session_channelGroup Dataframes 
 
-    Rank_permutation_dict = {}
+    Rank_channelGroup_dict = {}
 
     postop_dict = {}
     fu3m_dict = {}
@@ -202,35 +202,38 @@ def Rank_BIPRingSegmGroups(
 
 
             # add the complete session dictionary into the channelGroup dictionary
-            Rank_permutation_dict[ses] = session_dict # storing all channel Group Dataframes as values from session keys
+            Rank_channelGroup_dict[ses] = session_dict # storing all channel Group Dataframes as values from session keys
     
 
 
-    ###### FROM RANK_PERMUTATION_DICT CREATE FINAL VERSION OF DATAFRAMES CHANNELGROUP_SESSION ######
+    ###### FROM Rank_channelGroup_dict CREATE FINAL VERSION OF DATAFRAMES CHANNELGROUP_SESSION ######
 
-    Final_Permutation_dictionary = {}
+    ranks_channelGroup_session_dictionary = {}
 
     for group in channelGroups:
         for ses in sessions:
 
             # get a ses_dictionary e.g. postop dictionary containing all RankDF: Ring+SegmInter+SegmIntra
-            ses_dictionary = Rank_permutation_dict[ses]
+            ses_dictionary = Rank_channelGroup_dict[ses]
 
             # only get keys and values from the ses_dictionary if the correct group e.g. Ring is in keys
             select_dictionary = {key:value for key, value in ses_dictionary.items() if group in key}
 
-            Final_Permutation_dictionary[f"{group}_{ses}"] = pd.concat(select_dictionary.values(), ignore_index=True)
+            ranks_channelGroup_session_dictionary[f"{group}_{ses}"] = pd.concat(select_dictionary.values(), ignore_index=True)
 
 
     ### save the Dataframes with pickle 
     # Final_Permutation_dictionary: keys(f"{group}_{ses}") and values(Dataframes)
-    Permutation_filepath = os.path.join(results_path, f"BIPranksPermutation_dict_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
-    with open(Permutation_filepath, "wb") as file:
-        pickle.dump(Final_Permutation_dictionary, file)
+    channelgroup_ses_filepath = os.path.join(results_path, f"BIPranksChannelGroup_session_dict_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(channelgroup_ses_filepath, "wb") as file:
+        pickle.dump(ranks_channelGroup_session_dictionary, file)
+    
+    print("new file: ", f"BIPranksChannelGroup_session_dict_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",
+          "\nin: ", results_path)
     
 
     return {
-        "Final_Permutation_dictionary": Final_Permutation_dictionary,
+        "ranks_channelGroup_session_dictionary": ranks_channelGroup_session_dictionary,
         "Ring_rankDF": Ring_rankDF,
         "SegmIntra_rankDF": SegmIntra_rankDF,
         "SegmInter_rankDF": SegmInter_rankDF
@@ -296,7 +299,7 @@ def Permutation_BIPranksRingSegmGroups(
     results_path = find_folders.get_local_path(folder="GroupResults")
     
     # load the correct pickle file 
-    data = loadResults.load_permutation_BIPchannelGroupsPickle(
+    data = loadResults.load_BIPchannelGroup_sessionPickle(
         result=result,
         freqBand=freqBand,
         normalization=normalization,

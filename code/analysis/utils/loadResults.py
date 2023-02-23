@@ -245,7 +245,7 @@ def load_BIPchannelGroupsPickle(result: str,  channelGroup: list, normalization:
 
 
 
-def load_permutation_BIPchannelGroupsPickle(result: str,  freqBand: str, normalization: str, filterSignal: str):
+def load_BIPchannelGroup_sessionPickle(result: str,  freqBand: str, normalization: str, filterSignal: str):
 
     """
     Reads pickle file written with function Rank_BIPRingSegmGroups() in BIPchannelGroups_ranks.py 
@@ -279,7 +279,7 @@ def load_permutation_BIPchannelGroupsPickle(result: str,  freqBand: str, normali
     filt = f"_{filterSignal}.pickle"
 
     
-    string_list = ["BIPranksPermutation_dict_", result, freq, norm, filt]
+    string_list = ["BIPranksChannelGroup_session_dict_", result, freq, norm, filt]
     filename = "".join(string_list)
     print("pickle file loaded: ",filename, "\nloaded from: ", local_results_path)
 
