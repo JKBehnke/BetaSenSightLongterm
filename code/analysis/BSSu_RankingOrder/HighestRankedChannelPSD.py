@@ -5,8 +5,8 @@ import os
 import pandas as pd
 
 
-# PyPerceive Imports
-import PerceiveImport.methods.find_folders as findfolders
+# internal Imports
+import analysis.utils.find_folders as find_folders
 
 
 def compareHighestRankedPsd(incl_sub:list, incl_hemisphere:list, normalization:str,):
@@ -32,7 +32,7 @@ def compareHighestRankedPsd(incl_sub:list, incl_hemisphere:list, normalization:s
         for hem, hemisphere in enumerate(incl_hemisphere):
 
             # get path to results folder of each subject
-            local_results_path = findfolders.get_local_path(folder="results", sub=subject)
+            local_results_path = find_folders.get_local_path(folder="results", sub=subject)
 
             # Get all csv filenames from each subject
             filenames = [

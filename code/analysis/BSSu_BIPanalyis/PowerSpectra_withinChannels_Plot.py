@@ -234,7 +234,7 @@ def PowerSpectra_perChannelGroup(sub: str,
     subject_figures_path = find_folders.get_local_path(folder="figures", sub=sub)
 
     # Lists for for-looping
-    Ring = ['BIP_12', 'BIP_01', 'BIP_23']
+    Ring = ['BIP_03', 'BIP_02', 'BIP_13', 'BIP_12', 'BIP_01', 'BIP_23']
     SegmIntra = ['BIP_1A1B', 'BIP_1B1C', 'BIP_1A1C', 'BIP_2A2B', 'BIP_2B2C', 'BIP_2A2C']
     SegmInter = ['BIP_1A2A', 'BIP_1B2B', 'BIP_1C2C']
 
@@ -269,7 +269,7 @@ def PowerSpectra_perChannelGroup(sub: str,
         filter=signalFilter,
         result="PowerSpectrum",
         incl_session=incl_session,
-        pickChannels=['12', '01', '23', 
+        pickChannels=['03', '02', '13', '12', '01', '23',
                         '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
                         '1A2A', '1B2B', '1C2C'],
         normalization=normalization,
@@ -406,8 +406,8 @@ def PowerSpectra_perChannelGroup(sub: str,
         plt.show()
 
         # Save figure to subject result path
-        # fig.savefig(subject_figures_path + f"\\PowerSpectraPerChannelGroup_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png", 
-        #             bbox_inches = "tight") # bbox_inches makes sure that the title won´t be cut off
+        fig.savefig(subject_figures_path + f"\\PowerSpectraPerChannelGroup_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png", 
+                    bbox_inches = "tight") # bbox_inches makes sure that the title won´t be cut off
 
 
 

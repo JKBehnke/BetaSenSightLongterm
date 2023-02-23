@@ -331,6 +331,10 @@ def PsdAverage_RingSegmGroups(
     
     return {
         "meanChannelRing_freqBand": meanChannelRing_freqBand,
+        "Ring_DF": Ring_DF,
+        "SegmIntra_DF": SegmIntra_DF,
+        "SegmInter_DF": SegmInter_DF,
+
 
 
     }
@@ -504,9 +508,9 @@ def PsdAverage_specificRingSegmGroups(
     
 
 
-    ### save the Dataframes with pickle 
-    # # Ring_DF is a dictionary containing DF for each key f"{sub}_{hem}_{ses}_{freq}"
-    # Ring_filepath = os.path.join(results_path, f"BIPpsdAverage_Ring_{normalization}_{signalFilter}.pickle")
+    ## save the Dataframes with pickle 
+    # Ring_DF is a dictionary containing DF for each key f"{sub}_{hem}_{ses}_{freq}"
+    # Ring_filepath = os.path.join(results_path, f"BIPpsdAverage_Ring3_{normalization}_{signalFilter}.pickle")
     # with open(Ring_filepath, "wb") as file:
     #     pickle.dump(Ring_DF, file)
     
@@ -1025,10 +1029,10 @@ def PeakPowerOrFrequency_specificRingSegmGroups(
     
     """
     Plot the mean Peak Power (5 Hz average) or the Peak Frequency of only specific channels of an electrode within a frequency band (alpha, beta, highBeta, lowBeta)
-    in 3 seperate groups: Ring (01,12,23), SegmIntra (highest 3 channels), SegmInter (3 channels)
+    in 3 seperate groups: Ring (01,12,23), SegmIntra (6 channels), SegmInter (3 channels)
 
     Input:
-        - sub: list e.g. ["017", "019", "024", "025", "026", "029", "030"]
+        - sub: list e.g. ["017", "019", "021", "024", "025", "026", "029", "030", "033"]
         - signalFilter: str "unfiltered", "band-pass"
         - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
         - freqBands: list e.g. ["beta", "highBeta", "lowBeta"]

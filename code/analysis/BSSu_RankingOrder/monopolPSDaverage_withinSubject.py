@@ -16,8 +16,8 @@ import json
 import os
 import mne
 
-# PyPerceive Imports
-import PerceiveImport.methods.find_folders as findfolders
+# Internal Imports
+import analysis.utils.find_folders as find_folders
 
 # import analysis.loadResults as loadcsv
 
@@ -31,7 +31,7 @@ def compareMonopolarPSDaverage_freqBand(incl_sub:list, freq_band: str):
     Input:
         - incl_sub: str, e.g. "024"
         - freq_band: str, e.g. "beta","lowBeta", "highBeta"
-        - normalization: str, e.g. "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - normalization: str, e.g. "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
 
 
             

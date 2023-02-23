@@ -1,10 +1,12 @@
-""" Load .csv files from results folder"""
+""" Load result files from results folder"""
 
 
 import os
 import pandas as pd
+import pickle
 import json
-import PerceiveImport.methods.find_folders as find_folder
+
+import analysis.utils.find_folders as find_folders
 
 
 def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
@@ -15,7 +17,6 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
     Input:
         - subject = str, e.g. "024"
         - result = str "PowerSpectrum", "PSDaverageFrequencyBands", "PeakParameters"
-        - normalization =  str "rawPSD" or "normPsdToTotalSum" or "normPsdToSum1_100Hz" or "normPsdToSum40_90Hz"
         - hemisphere = str, "Right" or "Left"
         - filter = str "band-pass" or "unfiltered"
 
@@ -33,7 +34,7 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
     
 
     # find the path to the results folder of a subject
-    local_results_path = find_folder.get_local_path(folder="results", sub=sub)
+    local_results_path = find_folders.get_local_path(folder="results", sub=sub)
 
 
     # create Filename out of input 
@@ -70,7 +71,6 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
     return data
 
 
-
 def load_PSDresultCSV(sub: str, psdMethod: str, normalization: str, hemisphere: str, filter: str):
 
     """
@@ -97,7 +97,7 @@ def load_PSDresultCSV(sub: str, psdMethod: str, normalization: str, hemisphere: 
     
 
     # find the path to the results folder of a subject
-    local_results_path = find_folder.get_local_path(folder="results", sub=sub)
+    local_results_path = find_folders.get_local_path(folder="results", sub=sub)
 
 
     # create Filename out of input 
@@ -155,7 +155,7 @@ def load_freqBandsCSV(sub: str, parameters: str, normalization: str, hemisphere:
     
 
     # find the path to the results folder of a subject
-    local_results_path = find_folder.get_local_path(folder="results", sub=sub)
+    local_results_path = find_folders.get_local_path(folder="results", sub=sub)
 
 
     # create Filename out of input 
@@ -188,6 +188,111 @@ def load_freqBandsCSV(sub: str, parameters: str, normalization: str, hemisphere:
     df = pd.read_csv(os.path.join(local_results_path, filename))
 
     return df
+
+
+def load_BIPchannelGroupsPickle(result: str,  channelGroup: list, normalization: str, filterSignal: str):
+
+    """
+    Reads pickle file written with functions in BIP_channelGroups.py 
+
+    Input:
+        - result = str "psdAverage", "peak"
+        - channelGroup = list, ["Ring", "SegmInter", "SegmIntra"]
+        - normalization =  str "rawPsd" or "normPsdToTotalSum" or "normPsdToSum1_100Hz" or "normPsdToSum40_90Hz"
+        - filterSignal = str "band-pass" or "unfiltered"
+
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+
+    # Error check: 
+    # Error if sub str is not exactly 3 letters e.g. 024
+    assert result in [ "psdAverage", "peak"], f'Result ({result}) INCORRECT' 
+
+    
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folders.get_local_path(folder="GroupResults")
+    data = {}
+
+    # create Filename out of input for each channel Group
+    norm = f"_{normalization}"
+    filt = f"_{filterSignal}.pickle"
+
+    for g in channelGroup:
+        group = f"_{g}"
+
+        string_list = ["BIP", result, group, norm, filt]
+        filename = "".join(string_list)
+        print("pickle file: ",filename, "\nloaded from: ", local_results_path)
+
+        filepath = os.path.join(local_results_path, filename)
+       
+
+
+        # Error if filename doesn´t end with .mat
+        # assert filename[-4:] == '.csv', (
+        #     f'filename no .csv INCORRECT extension: {filename}'
+        # )
+
+    
+        with open(filepath, "rb") as file:
+            data[g] = pickle.load(file)
+
+    return data
+
+
+
+def load_permutation_BIPchannelGroupsPickle(result: str,  freqBand: str, normalization: str, filterSignal: str):
+
+    """
+    Reads pickle file written with function Rank_BIPRingSegmGroups() in BIPchannelGroups_ranks.py 
+
+    Input:
+        - result = str "psdAverage", "peak"
+        - freqBand = str, e.g. "beta"
+        - normalization =  str "rawPsd" or "normPsdToTotalSum" or "normPsdToSum1_100Hz" or "normPsdToSum40_90Hz"
+        - filterSignal = str "band-pass" or "unfiltered"
+
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+
+    # Error check: 
+    # Error if sub str is not exactly 3 letters e.g. 024
+    assert result in [ "psdAverage", "peak"], f'Result ({result}) INCORRECT' 
+
+    
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create Filename out of input for each channel Group
+    # example: BIPranksPermutation_dict_peak_beta_rawPsd_band-pass.pickle
+
+    freq = f"_{freqBand}"
+    norm = f"_{normalization}"
+    filt = f"_{filterSignal}.pickle"
+
+    
+    string_list = ["BIPranksPermutation_dict_", result, freq, norm, filt]
+    filename = "".join(string_list)
+    print("pickle file: ",filename, "\nloaded from: ", local_results_path)
+
+    filepath = os.path.join(local_results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    return data
+
+
+
+
 
 
 

@@ -9,8 +9,9 @@ import json
 import os
 import mne
 
-# PyPerceive Imports
-import PerceiveImport.methods.find_folders as findfolders
+# internal Imports
+import analysis.utils.find_folders as find_folders
+
 
 # import analysis.loadResults as loadcsv
 
@@ -100,7 +101,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
 
     ############# READ CSV FILE WITH AVERAGED PSD as Dataframe #############
     # get path to .csv file
-    results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
+    results_path = find_folders.get_local_path(folder="results", sub=incl_sub)
 
     # read .csv file as Dataframe
     psdAverageDataframe = pd.read_csv(os.path.join(results_path, f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"))
