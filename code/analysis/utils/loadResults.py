@@ -281,7 +281,7 @@ def load_permutation_BIPchannelGroupsPickle(result: str,  freqBand: str, normali
     
     string_list = ["BIPranksPermutation_dict_", result, freq, norm, filt]
     filename = "".join(string_list)
-    print("pickle file: ",filename, "\nloaded from: ", local_results_path)
+    print("pickle file loaded: ",filename, "\nloaded from: ", local_results_path)
 
     filepath = os.path.join(local_results_path, filename)
 

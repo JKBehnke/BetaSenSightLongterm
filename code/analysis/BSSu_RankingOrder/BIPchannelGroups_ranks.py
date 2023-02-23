@@ -245,7 +245,7 @@ def Permutation_BIPranksRingSegmGroups(
         result: str,
         filterSignal: str,
         normalization: str,
-        freqBand: str
+        freqBand: str,
         ):
     
     """
@@ -263,6 +263,19 @@ def Permutation_BIPranksRingSegmGroups(
         - one pickle file contains either the psdAverage or peak Values from a specific freqband, normalization and filter.
         - opened pickle file is a dictionary storing several Dataframes e.g. each for Ring_postop, Ring_fu3m, Ring_fu12m, Ring_18m 
         - columns: session, bipolarChannel, freqBand, absoluteOrRelativePSD, averagedPSD, rank, subject_hemisphere
+    
+    2) Restructure Dataframes:
+        - in total 3 channelgroups x 4 sessions = 12 Dataframes 
+        ('Ring_postop', 'Ring_fu3m', 'Ring_fu12m', 'Ring_fu18m', 
+        'SegmInter_postop', 'SegmInter_fu3m', 'SegmInter_fu12m', 'SegmInter_fu18m', 
+        'SegmIntra_postop', 'SegmIntra_fu3m', 'SegmIntra_fu12m', 'SegmIntra_fu18m')
+
+        - each Dataframe will be changed, so only 3 columns are left: "session", "rank", "averagedPSD", "sub_hem_BIPchannel"
+
+    3) Merge Dataframes that should be compared, only keep rows with matching sub_hem_BIPchannel values
+        - postop - fu3m
+        - fu3m - fu12m
+        - fu3m - fu18m
 
     
 
@@ -271,11 +284,12 @@ def Permutation_BIPranksRingSegmGroups(
 
     """
     channelGroups = ["Ring", "SegmInter", "SegmIntra"]
+    Ring_channels = ["12", "01", "23"]
+    SegmIntra_channels = ["1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C",]
+    SegmInter_channels = ["1A2A", "1B2B", "1C2C"]
     sessions = ["postop", "fu3m", "fu12m", "fu18m"]
-    Ring_rankDF = {} # same keys as in sub_hem_ses_freqBand_list
-    SegmIntra_rankDF = {}
-    SegmInter_rankDF = {}
 
+    
 
     ##################### LOAD PICKLE FILES WITH PSD AVERAGES OR PEAK VALUES FROM RESULTS FOLDER #####################
 
@@ -290,26 +304,96 @@ def Permutation_BIPranksRingSegmGroups(
         )
 
     # data = dictionary with keys(['Ring_postop', 'Ring_fu3m', 'Ring_fu12m', 'Ring_fu18m', 'SegmInter_postop', 'SegmInter_fu3m', 'SegmInter_fu12m', 'SegmInter_fu18m', 'SegmIntra_postop', 'SegmIntra_fu3m', 'SegmIntra_fu12m', 'SegmIntra_fu18m'])
+    data_keys = data.keys()
+
+
+    ##################### RESTRUCTURE DATAFRAMES AND STORE IN DICTIONARY DF_storage #####################
+    DF_storage = {}
+
+
+    # Permutation test for each channelGroup seperately
+    for group in channelGroups:
+
+        comb_keys = [i for i in data_keys if group in i] # e.g. ['Ring_postop', 'Ring_fu3m', 'Ring_fu12m', 'Ring_fu18m']
+
+
+        for group_ses in comb_keys: # e.g. ['Ring_postop', 'Ring_fu3m', 'Ring_fu12m', 'Ring_fu18m']
+            DF_storage[f"{group_ses}"] = data[group_ses]
+
+
+            #problem with merging!! not all channel names are the same: therefore exchange ch_name each by structure "BIP_03"
+            # rename channels to BIP_xx
+
+            if group == "Ring":
+                channelnames = Ring_channels
+
+            elif group == "SegmIntra":
+                channelnames = SegmIntra_channels
+            
+            elif group == "SegmInter":
+                channelnames = SegmInter_channels
+
+        
+            # rename each channel: make sure the original DF is changed globally!!??
+            for chan in channelnames:
+
+                # replace the str in column bipolarChannel, if it contains chan e.g. "12"
+                DF_storage[f"{group_ses}"].loc[DF_storage[f"{group_ses}"].bipolarChannel.str.contains(chan), "bipolarChannel"] = f"BIP_{chan}"
+
+
+            # add new column "sub_hem_BIPchannel" by aggregating columns
+            DF_storage[f"{group_ses}"]["sub_hem_BIPchannel"] = DF_storage[f"{group_ses}"][['subject_hemisphere', 'bipolarChannel']].agg('_'.join, axis=1)
+
+            # drop unnecessary columns
+            DF_storage[f"{group_ses}"].drop(columns=["frequencyBand", "absoluteOrRelativePSD", "subject_hemisphere", "bipolarChannel"], inplace=True)
+
+
+
+    ##################### MERGE DATAFRAMES TO PAIRED DATAFRAMES #####################
+
+    # 3 comparisons for each channel group: store all channel groups in comparison dictionary
+    comparePostop_Fu3m = {}
+    compareFu3m_Fu12m = {}
+    compareFu12m_Fu18m = {}
+
+
+    for group in channelGroups:
+
+        # merge DF postop and fu3m, only keep matching rows in column "sub_hem_BIPchannel"
+        comparePostop_Fu3m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu3m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu3m_Fu12m[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu12m_Fu18m[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+
+
+    ## save the Permutation structured Dataframes with pickle 
+    # Ring_DF is a dictionary containing DF for each key f"{sub}_{hem}_{ses}_{freq}"
+    comparePostop_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(comparePostop_Fu3m_filepath, "wb") as file:
+        pickle.dump(comparePostop_Fu3m, file)
+
+    compareFu3m_Fu12m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu3m_Fu12m_filepath, "wb") as file:
+        pickle.dump(compareFu3m_Fu12m, file)
+    
+    compareFu12m_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu12m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu12m_Fu18m_filepath, "wb") as file:
+        pickle.dump(compareFu12m_Fu18m, file)
+    
+    print("files: ", 
+          f"\nBIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
+          f"\nBIPpermutationDF_Fu3m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
+          f"\nBIPpermutationDF_Fu12m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",
+          "\nwritten in: ", results_path
+          )
     
 
 
-
-
-                   
-
-
-
-            
-            
-
-
-
-
-
-
-
-
-    
+    return {
+        "DF_storage": DF_storage,
+        "comparePostop_Fu3m": comparePostop_Fu3m,
+        "compareFu3m_Fu12m": compareFu3m_Fu12m,
+        "compareFu12m_Fu18m": compareFu12m_Fu18m
+    }
 
 
 
