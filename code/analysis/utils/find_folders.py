@@ -88,7 +88,7 @@ def get_local_path(folder: str, sub: str = None):
     """
 
     folder_options = [
-        'Research', 'Longterm_beta_project', 'GroupResults', 'results', 'GroupFigures', 'figures'
+        'Research', 'Longterm_beta_project', 'GroupResults', 'results', 'GroupFigures', 'figures', 'data'
         ]
 
     # Error checking, if folder input is in folder options
@@ -126,3 +126,6 @@ def get_local_path(folder: str, sub: str = None):
 
     elif folder == 'figures':
         return os.path.join(path, "Longterm_beta_project", "figures", f"sub-{sub}")
+    
+    elif folder == 'data':
+        return os.path.join(path, "Longterm_beta_project", "data")

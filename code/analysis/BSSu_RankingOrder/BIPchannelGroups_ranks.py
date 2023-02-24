@@ -418,6 +418,18 @@ def Permutation_BIPranksRingSegmGroups(
                 mean_differenceOfComparison[f"meanDiff_peak_{group}_{c}"] = comparison_DF['Difference_peak5Hz_x_y'].mean()
             
 
+    # perform different Permutation tests depending on what difference you choose
+    mean_difference_keys = mean_differenceOfComparison.keys()
+    
+    if difference == "rank":
+        mean_diff_list = [i for i in mean_difference_keys if "rank" in i] # list of 3 channel groups x 3 comparisons (postop-3, 3-12, 12-18)
+
+    elif difference == "psdAverage":
+        mean_diff_list = [i for i in mean_difference_keys if "psdAverage" in i]
+    
+    elif difference == "peak":
+        mean_diff_list = [i for i in mean_difference_keys if "peak" in i]
+
 
 
 

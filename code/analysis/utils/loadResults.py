@@ -292,6 +292,35 @@ def load_BIPchannelGroup_sessionPickle(result: str,  freqBand: str, normalizatio
 
 
 
+def load_BestClinicalStimulation_excel():
+
+    """
+    Reads Excel file from the results folder: BestClinicalStimulation.xlsx
+    loaded file = dictionary
+        - all sheets are loaded as different keys 
+
+    Input:
+        
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder of a subject
+    data_path = find_folders.get_local_path(folder="data")
+    
+    filename = "BestClinicalStimulation.xlsx"
+    filepath = os.path.join(data_path, filename)
+
+    data = pd.read_excel(filepath, keep_default_na=True, sheet_name=None) # all sheets are loaded
+    print("Excel file loaded: ",filename, "\nloaded from: ", data_path)
+
+
+    return data
+
+
 
 
 
