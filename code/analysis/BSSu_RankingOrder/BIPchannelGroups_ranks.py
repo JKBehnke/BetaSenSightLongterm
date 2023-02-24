@@ -246,6 +246,7 @@ def Rank_BIPRingSegmGroups(
 
 def Permutation_BIPranksRingSegmGroups(
         result: str,
+        difference: str,
         filterSignal: str,
         normalization: str,
         freqBand: str,
@@ -258,6 +259,7 @@ def Permutation_BIPranksRingSegmGroups(
 
     Input:
         - result: str "psdAverage" or "peak" -> this decides what you want to rank 
+        - difference: str "rank", "psdAverage", "peak" -> decide what you want to compare, ranks will only compare the ranks of psdAverage or peaks
         - filterSignal: str, "band-pass" or "unfiltered"
         - normalization: str, ""rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
         - freqBand: str, "alpha", "beta", "lowBeta", "highBeta"
@@ -286,6 +288,16 @@ def Permutation_BIPranksRingSegmGroups(
     Watch out !! doesn't work for peak files, somehow not all channels have a peak value, sometimes only 2 channels in one dataframe.... not sure why
 
     """
+
+    # Error check:
+    assert result in [ "psdAverage", "peak"], f'Result ({result}) INCORRECT' 
+    assert difference in ["rank", "psdAverage", "peak"], f'difference ({difference}) INCORRECT' 
+    assert filterSignal in ["band-pass", "unfiltered"], f'filterSignal ({filterSignal}) INCORRECT' 
+    assert normalization in ["rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"], f'normalization ({normalization}) INCORRECT' 
+    assert freqBand in ["alpha", "beta", "lowBeta", "highBeta"], f'freqBand ({freqBand}) INCORRECT' 
+    
+
+
     channelGroups = ["Ring", "SegmInter", "SegmIntra"]
     Ring_channels = ["12", "01", "23"]
     SegmIntra_channels = ["1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C",]
@@ -352,12 +364,16 @@ def Permutation_BIPranksRingSegmGroups(
 
 
 
-    ##################### MERGE DATAFRAMES TO PAIRED DATAFRAMES #####################
+    ##################### MERGE DATAFRAMES TO PAIRED DATAFRAMES AND GET DIFFERENCES OF RANKS/psdAverage/peaks #####################
 
     # 3 comparisons for each channel group: store all channel groups in comparison dictionary
-    comparePostop_Fu3m = {}
+    comparisons = ["comparePostop_Fu3m", "compareFu3m_Fu12m", "compareFu12m_Fu18m"]
+
+    # dictionaries to store DF of each channel Group
+    comparePostop_Fu3m = {} # keys: Ring, SegmIntra, SegmInter
     compareFu3m_Fu12m = {}
     compareFu12m_Fu18m = {}
+    mean_differenceOfComparison = {}
 
 
     for group in channelGroups:
@@ -368,8 +384,45 @@ def Permutation_BIPranksRingSegmGroups(
         compareFu12m_Fu18m[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
 
 
+        # add new column to each DF: Difference_rank_x_y, 
+        # or depending on result: Difference_averagedPSD_x_y or Difference_peak_x_y
+        
+        for c in comparisons:
+
+            if c == "comparePostop_Fu3m":
+                comparison_DF = comparePostop_Fu3m[group] 
+            
+            elif c == "compareFu3m_Fu12m":
+                comparison_DF = compareFu3m_Fu12m[group]
+            
+            elif c == "compareFu12m_Fu18m":
+                comparison_DF = compareFu12m_Fu18m[group]
+            
+            # new column calculating difference between ranks (abs only gives absolute values, so no negative values)
+            comparison_DF['Difference_rank_x_y']  = (comparison_DF["rank_x"] - comparison_DF["rank_y"]).apply(abs)
+
+            if result == "psdAverage":
+                comparison_DF['Difference_psdAverage_x_y'] = (comparison_DF["averagedPSD_x"] - comparison_DF["averagedPSD_y"]).apply(abs)
+            
+            elif result == "peak":
+                comparison_DF['Difference_peak5Hz_x_y'] = (comparison_DF["PEAK_5HzAverage_x"] - comparison_DF["PEAK_5HzAverage_y"]).apply(abs)
+            
+
+            # calculate the mean of each Difference column and store into dictionary
+            mean_differenceOfComparison[f"meanDiff_rank_{group}_{c}"] = comparison_DF['Difference_rank_x_y'].mean()
+
+            if result == "psdAverage":
+                mean_differenceOfComparison[f"meanDiff_psdAverage_{group}_{c}"] = comparison_DF['Difference_psdAverage_x_y'].mean() 
+            
+            elif result == "peak":
+                mean_differenceOfComparison[f"meanDiff_peak_{group}_{c}"] = comparison_DF['Difference_peak5Hz_x_y'].mean()
+            
+
+
+
+
     ## save the Permutation structured Dataframes with pickle 
-    # Ring_DF is a dictionary containing DF for each key f"{sub}_{hem}_{ses}_{freq}"
+    
     comparePostop_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(comparePostop_Fu3m_filepath, "wb") as file:
         pickle.dump(comparePostop_Fu3m, file)
@@ -395,7 +448,8 @@ def Permutation_BIPranksRingSegmGroups(
         "DF_storage": DF_storage,
         "comparePostop_Fu3m": comparePostop_Fu3m,
         "compareFu3m_Fu12m": compareFu3m_Fu12m,
-        "compareFu12m_Fu18m": compareFu12m_Fu18m
+        "compareFu12m_Fu18m": compareFu12m_Fu18m, 
+        "mean_differenceOfComparison": mean_differenceOfComparison
     }
 
 
