@@ -291,6 +291,61 @@ def load_BIPchannelGroup_sessionPickle(result: str,  freqBand: str, normalizatio
     return data
 
 
+def load_BIPpermutationComparisonsPickle(result: str,  freqBand: str, normalization: str, filterSignal: str):
+
+    """
+    Reads pickle file written with function Rank_BIPRingSegmGroups() in BIPchannelGroups_ranks.py 
+
+    Input:
+        - result = str "psdAverage", "peak"
+        - freqBand = str, e.g. "beta"
+        - normalization =  str "rawPsd" or "normPsdToTotalSum" or "normPsdToSum1_100Hz" or "normPsdToSum40_90Hz"
+        - filterSignal = str "band-pass" or "unfiltered"
+
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+
+    # Error check: 
+    # Error if sub str is not exactly 3 letters e.g. 024
+    assert result in [ "psdAverage", "peak"], f'Result ({result}) INCORRECT' 
+
+    
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create Filename out of input for each channel Group
+    # example: BIPranksPermutation_dict_peak_beta_rawPsd_band-pass.pickle
+
+    comparison = ["Postop_Fu3m", "Fu3m_Fu12m", "Fu12m_Fu18m"]
+
+    res = f"_{result}"
+    freq = f"_{freqBand}"
+    norm = f"_{normalization}"
+    filt = f"_{filterSignal}.pickle"
+
+    data = {}
+
+    for c in comparison:
+        string_list = ["BIPpermutationDF_", c, res, freq, norm, filt]
+        filename = "".join(string_list)
+
+        filepath = os.path.join(local_results_path, filename)
+
+        with open(filepath, "rb") as file:
+            data[c] = pickle.load(file)
+
+        print("pickle file loaded: ",filename, "\nloaded from: ", local_results_path)
+
+
+    return data
+
+
+
+
 
 def load_BestClinicalStimulation_excel():
 

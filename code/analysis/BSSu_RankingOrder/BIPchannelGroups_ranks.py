@@ -466,3 +466,136 @@ def Permutation_BIPranksRingSegmGroups(
 
 
 
+def BIPranks_plotDifferenceBetweenSessions(
+        data2plot: str,
+        filterSignal: str,
+        normalization: str,
+        freqBand: str,
+    ):
+
+    """
+    Plot comparisons of ranks or absolute values of either psdAverage or peak 5Hz average amplitude
+        - Postop - Fu3m
+        - Fu3m - Fu12m
+        - Fu12m - Longterm (18, 20, 22MFU)
+    
+    Input: 
+        - data: str "psdAverageRank", "psdAverageAbsolute",  "peakRank",  "peakAbsolute" -> this decides what you want to plot 
+        - filterSignal: str, "band-pass" or "unfiltered"
+        - normalization: str, ""rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBand: str, "alpha", "beta", "lowBeta", "highBeta"
+    
+    
+
+
+    
+    """
+
+    # Error check:
+    assert data2plot in ["psdAverageRank", "psdAverageAbsolute",  "peakRank",  "peakAbsolute"], f'data ({data2plot}) INCORRECT' 
+    assert filterSignal in ["band-pass", "unfiltered"], f'filterSignal ({filterSignal}) INCORRECT' 
+    assert normalization in ["rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"], f'normalization ({normalization}) INCORRECT' 
+    assert freqBand in ["alpha", "beta", "lowBeta", "highBeta"], f'freqBand ({freqBand}) INCORRECT' 
+
+
+    ##################### LOAD PICKLE FILES WITH PSD AVERAGES OR PEAK VALUES FROM RESULTS FOLDER #####################
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    if "psdAverage" in data2plot:
+        result = "psdAverage"
+    
+    elif "peak" in data2plot:
+        result = "peak"
+
+    
+    # load the correct pickle file 
+    data = loadResults.load_BIPpermutationComparisonsPickle(
+        result=result,
+        filterSignal=filterSignal,
+        normalization=normalization,
+        freqBand=freqBand
+        )
+
+    # data = dictionary with keys(['Postop_Fu3m', 'Fu3m_Fu12m', 'Fu12m_Fu18m'])
+    comparisons = data.keys() # ['Postop_Fu3m', 'Fu3m_Fu12m', 'Fu12m_Fu18m']
+    channelGroups = ["Ring", "SegmIntra", "SegmInter"]
+
+
+    fontdict = {"size": 25}
+
+    # plot one figure each for comparison
+    for comp in comparisons:
+
+        fig, axes = plt.subplots(3,1,figsize=(10,15))
+
+        # 3 rows: Ring, SegmIntra, SegmInter
+        for g, group in enumerate(channelGroups):
+
+            # get data
+            comparison_group_dataframe = data[comp][group]
+
+            colors = sns.color_palette("viridis", n_colors=len(comparison_group_dataframe.index))
+
+            if group == "Ring":
+                BIP_number = 3
+            
+            elif group == "SegmIntra":
+                BIP_number = 6
+            
+            elif group == "SegmInter":
+                BIP_number = 3
+
+
+            # plot per group
+            sns.histplot(data=comparison_group_dataframe, x="Difference_rank_x_y", stat="count", bins=np.arange(-0.25, BIP_number, 0.5),
+                         #hue="sub_hem_BIPchannel", multiple="stack", 
+                         palette=colors, ax=axes[g])
+            
+
+            axes[g].set_title(f"{group}", fontdict=fontdict)
+            
+            # legend = axes[g].get_legend()
+            # handles = legend.legendHandles
+
+            # legend_list = list(comparison_group_dataframe.sub_hem_BIPchannel.values)
+            # axes[g].legend(handles, legend_list, title='subject, hemisphere, BIP channel',  title_fontsize=15, fontsize=15)
+
+        ##################### ADJUST THE PLOTS #####################
+
+        for ax in axes:
+
+            ax.set_xlabel(f"difference between {data2plot}",  fontsize=25)
+            ax.set_ylabel("Count", fontsize=25)
+        
+            ax.tick_params(axis="x", labelsize=25)
+            ax.tick_params(axis="y", labelsize=25)
+
+
+        fig.suptitle(f"{comp} Difference of {data2plot}", fontsize=30)
+        fig.subplots_adjust(wspace=0, hspace=0)
+        # fig.tight_layout()
+        #plt.show()
+
+        #fig.savefig(figures_path + f"\\BIP{data}_comparisons_{group}.png")
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
