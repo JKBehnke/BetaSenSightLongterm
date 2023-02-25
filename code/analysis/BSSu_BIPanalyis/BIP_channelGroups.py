@@ -14,6 +14,7 @@ import seaborn as sns
 ######### PRIVATE PACKAGES #########
 import analysis.classes.mainAnalysis_class as mainAnalysis_class
 import analysis.utils.find_folders as find_folders
+import analysis.utils.loadResults as loadResults
 
 
 def PsdAverage_RingSegmGroups(
@@ -53,7 +54,7 @@ def PsdAverage_RingSegmGroups(
 
     """
     plt.style.use('seaborn-whitegrid')  
-    colors = sns.color_palette("Spectral", n_colors=25)
+    colors = sns.color_palette("viridis", n_colors=20)
 
     figures_path = find_folders.get_local_path(folder="GroupFigures")
     results_path = find_folders.get_local_path(folder="GroupResults")
@@ -274,6 +275,7 @@ def PsdAverage_RingSegmGroups(
                         linewidth=3
                         )
             # whis = whiskers are makers to define outliers
+            
             sns.stripplot(x = "session",
                 y = 'PSDaverage_ChannelsPerHemisphere',
                 hue = "subject_hemisphere",
@@ -282,8 +284,9 @@ def PsdAverage_RingSegmGroups(
                 size=15,
                 jitter=True,
                 data = channelGroup_DF[group],
+                
                 )
-            
+        
             
             plt.title(f"{group} Channels: PSD in {f} band",fontdict={"size": 30})
 
@@ -324,6 +327,7 @@ def PsdAverage_RingSegmGroups(
 
         plt.tight_layout()
         plt.subplots_adjust(wspace=0, hspace=0)
+        plt.show()
 
         fig.savefig(figures_path + f"\\BIP_PsdAverage_RingSegmGroups_{f}_{normalization}_{signalFilter}.png",
                     bbox_inches = "tight")
@@ -385,7 +389,7 @@ def PsdAverage_specificRingSegmGroups(
     # cycler_colors = cycler("color", ["tab:blue", "tab:pink", "tab:brown", "tab:green", "tab:olive", "tab:cyan", "navy", "purple", "darkolivegreen", "orange", "red", "darkred", "gold",  "yellow", "lime"])
     # plt.rc('axes', prop_cycle=cycler_colors)
 
-    colors = sns.color_palette("Paired", n_colors=25)
+    colors = sns.color_palette("Spectral", n_colors=25)
 
     figures_path = find_folders.get_local_path(folder="GroupFigures")
     results_path = find_folders.get_local_path(folder="GroupResults")
@@ -1062,7 +1066,7 @@ def PeakPowerOrFrequency_specificRingSegmGroups(
     # cycler_colors = cycler("color", ["tab:blue", "tab:pink", "tab:brown", "tab:green", "tab:olive", "tab:cyan", "navy", "purple", "darkolivegreen", "orange", "red", "darkred", "gold",  "yellow", "lime"])
     # plt.rc('axes', prop_cycle=cycler_colors)
 
-    colors = sns.color_palette("Paired", n_colors=25)
+    colors = sns.color_palette("Spectral", n_colors=25)
 
     figures_path = find_folders.get_local_path(folder="GroupFigures")
     results_path = find_folders.get_local_path(folder="GroupResults")
@@ -1346,7 +1350,7 @@ def PeakPowerOrFrequency_specificRingSegmGroups(
             if feature == "PEAK_frequency":
 
                 if f == "alpha":
-                    plt.ylim(8, 12) 
+                    plt.ylim(8, 13) 
             
                 elif f == "beta":
                     plt.ylim(13, 35)
@@ -1389,6 +1393,284 @@ def PeakPowerOrFrequency_specificRingSegmGroups(
     
     return {
         "meanChannelRing_freqBand": meanChannelRing_freqBand,
+
+
+    }
+         
+    
+    
+
+def PeakPowerOrFrequencyNormalizedLinePlot_specificRingSegmGroups(
+        incl_sub: list, 
+        signalFilter: str,
+        normalization: str,
+        freqBands: list,
+        feature: str
+        ):
+    
+    """
+    Plot the mean Peak Power (5 Hz average) or the Peak Frequency of only specific channels of an electrode within a frequency band (alpha, beta, highBeta, lowBeta)
+    in 3 seperate groups: Ring (01,12,23), SegmIntra (6 channels), SegmInter (3 channels)
+    Normalize to Postop: 
+        - 
+
+    Input:
+        - sub: list e.g. ["017", "019", "021", "024", "025", "026", "029", "030", "033"]
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBands: list e.g. ["beta", "highBeta", "lowBeta"]
+        - feature: str e.g. "PEAK_frequency", "PEAK_5HzAverage"
+    
+    1) Load the JSON files in the correct format of all subject hemispheres from MainClass
+        - example of filename in sub_results folder: "SPECTROGRAMpsdAverageFrequencyBands_Left_band-pass.json"
+
+    2) select the correct normalization and divide the dataframes into 3 groups: 
+        - Ring_DF 
+        - SegmIntra_DF
+        - SegmInter_DF
+
+        each is a dict 
+            - with keys (f"{sub}_{hem}_{ses}_{freq}") 
+            - and values (DataFrame with columns: session, bipolarChannel, frequencyBand, absoluteOrRelativePSD, averagedPSD)
+            - each Dataframe with length of rows depending on Channels in the group
+
+    3) Calculate the mean of column "averagedPSD" of each Dataframe
+
+    4) 
+
+
+    """
+    plt.style.use('seaborn-whitegrid')  
+    # Create a list of 15 colors and add it to the cycle of matplotlib 
+    # cycler_colors = cycler("color", ["tab:blue", "tab:pink", "tab:brown", "tab:green", "tab:olive", "tab:cyan", "navy", "purple", "darkolivegreen", "orange", "red", "darkred", "gold",  "yellow", "lime"])
+    # plt.rc('axes', prop_cycle=cycler_colors)
+
+    colors = sns.color_palette("Spectral", n_colors=25)
+
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    hemispheres = ["Right", "Left"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+    channelGroup = ["Ring", "SegmIntra", "SegmInter"]
+    Ring = ['12', '01', '23']
+    SegmIntra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C'] 
+    SegmInter = ['1A2A', '1B2B', '1C2C']
+    
+    data = {}
+    freqBand_norm_session_DF = {} # keys with f"{sub}_{hem}_{freq}": value = sub_hem DF selected for correct session, normalization and frequency band
+   
+    # depending on feature:
+    columnName = {}
+    y_label = {}
+    fname_base = {}
+
+
+    ##################### LOAD DATA from the saved pickle file #####################
+    
+    channelGroup_dict = loadResults.load_BIPchannelGroupsPickle(
+        result= "peak",
+        channelGroup=["Ring", "SegmIntra", "SegmInter"],
+        normalization=normalization,
+        filterSignal=signalFilter
+    )
+
+    Ring_DF = channelGroup_dict["Ring"]
+
+    SegmIntra_DF = channelGroup_dict["SegmIntra"]
+
+    SegmInter_DF = channelGroup_dict["SegmInter"]
+     
+
+
+
+    ############# get the AVERAGE of channelGroup of a sub_hem_session_freq combination #############
+    # e.g. average of all Ring channels (n=6) of sub-24, Right, postop, beta
+
+    meanPSD_RingChannels_dict = {}
+    meanPSD_SegmIntraChannels_dict = {}
+    meanPSD_SegmInterChannels_dict = {}
+
+    # list of all existing combinations, e.g. ["024_Right_postop", "024_Right_fu3m"]
+    sub_hem_ses_freq_combinations = list(Ring_DF.keys())
+
+    # get the mean from column averagedPSD of each combination for Ring, SegmIntra, SegmInter
+    # also get Standard deviation for each sub_hem_ses ???
+    for combination in sub_hem_ses_freq_combinations:
+
+        # split the sub_hem_ses_freq combinations into sub_hem (will be label of plot), ses (will be x axis) and freq (select)
+        combination_split = combination.split("_")
+        subject_hemisphere = "".join([combination_split[0], "_", combination_split[1]]) # e.g. "029_Right" will be used for labels
+        tp = combination_split[2] # e.g. "postop" will be used as x axis
+        freq_band = combination_split[3] # e.g. "beta"
+
+        if feature == "PEAK_frequency":
+            # for each group, calculate the mean over the averagedPSD column, add to dictionary together with subject_hemisphere and session 
+            meanPSD_RingChannels_dict[combination] = [Ring_DF[combination].PEAK_frequency.mean(), subject_hemisphere, tp, freq_band]
+            meanPSD_SegmIntraChannels_dict[combination] = [SegmIntra_DF[combination].PEAK_frequency.mean(), subject_hemisphere, tp, freq_band]
+            meanPSD_SegmInterChannels_dict[combination] = [SegmInter_DF[combination].PEAK_frequency.mean(), subject_hemisphere, tp, freq_band]
+            
+
+        elif feature == "PEAK_5HzAverage":
+            # for each group, calculate the mean over the averagedPSD column, add to dictionary together with subject_hemisphere and session 
+            meanPSD_RingChannels_dict[combination] = [Ring_DF[combination].PEAK_5HzAverage.mean(), subject_hemisphere, tp, freq_band]
+            meanPSD_SegmIntraChannels_dict[combination] = [SegmIntra_DF[combination].PEAK_5HzAverage.mean(), subject_hemisphere, tp, freq_band]
+            meanPSD_SegmInterChannels_dict[combination] = [SegmInter_DF[combination].PEAK_5HzAverage.mean(), subject_hemisphere, tp, freq_band]
+            
+
+    # define column Name and ylabel depending on feature outside of the for loop
+    if feature == "PEAK_frequency":
+        columnName[feature] = "PeakFrequency_ChannelsPerHemisphere"
+        y_label[feature] = "mean Peak Frequency [Hz]"
+        fname_base[feature] = "PeakFrequency"
+    
+    if feature == "PEAK_5HzAverage":
+        columnName[feature] = "PEAK_5HzAverage_ChannelsPerHemisphere"
+        y_label[feature] = f"mean Peak amplitude (5Hz average) \n{normalization}"
+        fname_base[feature] = "PeakAmp5HzAverage"
+    
+    print("COLUMNNAME", columnName[feature])
+
+    # new Dataframes for averaged PSD over all Channels per group Ring, SegmIntra, SegmInter
+    Ring_DF_meanChannels = pd.DataFrame.from_dict(meanPSD_RingChannels_dict, orient="index", columns=[columnName[feature], "subject_hemisphere", "session", "freqBand"]) # keys of the dictionary will be indeces
+    #Ring_DF_meanChannels.session.replace("postop", "fu0m", inplace=True)
+
+    SegmIntra_DF_meanChannels = pd.DataFrame.from_dict(meanPSD_SegmIntraChannels_dict, orient="index", columns=[columnName[feature], "subject_hemisphere", "session", "freqBand"]) # keys of the dictionary will be indeces
+    #SegmIntra_DF_meanChannels.session.replace("postop", "fu0m", inplace=True)
+
+    SegmInter_DF_meanChannels = pd.DataFrame.from_dict(meanPSD_SegmInterChannels_dict, orient="index", columns=[columnName[feature], "subject_hemisphere", "session", "freqBand"]) # keys of the dictionary will be indeces
+    #SegmInter_DF_meanChannels.session.replace("postop", "fu0m", inplace=True)
+
+
+
+    ############# Divide the meanChannel dataframes in different freq band subgroups #############
+    meanChannelRing_freqBand = {}
+    meanChannelSegmIntra_freqBand = {}
+    meanChannelSegmInter_freqBand = {}
+
+
+    for f in freqBands:
+        meanChannelRing_freqBand[f"{f}"] = Ring_DF_meanChannels[Ring_DF_meanChannels.freqBand == f]
+        meanChannelSegmIntra_freqBand[f"{f}"] = SegmIntra_DF_meanChannels[SegmIntra_DF_meanChannels.freqBand == f]
+        meanChannelSegmInter_freqBand[f"{f}"] = SegmInter_DF_meanChannels[SegmInter_DF_meanChannels.freqBand == f]
+
+        ############# Plot the average of each Channel group at every session timepoint #############
+    
+        fig = plt.figure(figsize=(15, 25), layout="tight")
+        channelGroup_DF = {}
+
+        for g, group in enumerate(channelGroup):
+            if group == "Ring":
+                channelGroup_DF[group] = meanChannelRing_freqBand[f]
+                
+            elif group == "SegmIntra":
+                channelGroup_DF[group] = meanChannelSegmIntra_freqBand[f]
+                
+            elif group == "SegmInter":
+                channelGroup_DF[group] = meanChannelSegmInter_freqBand[f]
+        
+            plt.subplot(3,1,g+1)
+
+            # sns.lineplot(data=channelGroup_DF[group], x='session', y='PSDaverage_ChannelsPerHemisphere', size_order=sessions)
+    
+            sns.boxplot(data=channelGroup_DF[group], 
+                        x='session', 
+                        y=columnName[feature], 
+                        palette = "Blues",
+                        order=sessions,  
+                        width=0.8,
+                        linewidth= 3
+                        )
+            # whis = whiskers are makers to define outliers
+
+            sns.stripplot(x = "session",
+                y = columnName[feature],
+                hue = "subject_hemisphere",
+                palette = colors, # str of sns.color_palette
+                order=sessions,
+                size=15,
+                jitter=True,
+                data = channelGroup_DF[group],
+                )
+            
+            # sns.lineplot(
+            #     data=channelGroup_DF[group], 
+            #     x="session",
+            #     y="PSDaverage_ChannelsPerHemisphere", 
+            #     units="subject_hemisphere", 
+            #     estimator=None
+            #     )
+            
+            # sns.swarmplot(x='session',
+            #               y='PSDaverage_ChannelsPerHemisphere',
+            #               hue='subject_hemisphere',
+            #               data=channelGroup_DF[group],
+            #               s=15,)
+            
+            
+            plt.title(f"{group} Channels: {f} band",fontdict={"size": 40})
+
+            # legend should only be shown in first plot
+            plt.legend(loc= "upper right", bbox_to_anchor=(1.3, 1), fontsize=20, prop={"size":20})
+
+            if group == "SegmIntra":
+                plt.legend().remove()
+            
+            elif group == "SegmInter":
+                plt.legend().remove()
+            
+
+
+            # different y limit depending feature and frequency band
+            if feature == "PEAK_frequency":
+
+                if f == "alpha":
+                    plt.ylim(8, 13) 
+            
+                elif f == "beta":
+                    plt.ylim(13, 35)
+                
+                elif f == "highBeta":
+                    plt.ylim(21, 35)
+
+                elif f == "lowBeta":
+                    plt.ylim(13, 20)
+
+            # different y limit depending feature and frequency band
+            elif feature == "PEAK_5HzAverage":
+                print("no ylim defined")
+
+                # if f == "alpha":
+                #     plt.ylim(8, 12) 
+            
+                # elif f == "beta":
+                #     plt.ylim(13, 35)
+                
+                # elif f == "highBeta":
+                #     plt.ylim(21, 35)
+
+                # elif f == "lowBeta":
+                #     plt.ylim(13, 20)
+
+            plt.ylabel(y_label[feature], fontdict={"size":25})
+            plt.xlabel("session", fontdict={"size":25})
+            plt.xticks(fontsize= 25), plt.yticks(fontsize= 25)
+
+            
+
+
+        plt.tight_layout()
+        plt.subplots_adjust(wspace=0, hspace=0)
+
+        # fig.savefig(figures_path + f"\\BIP_{fname_base[feature]}_specificRingSegmGroups_{f}_{normalization}_{signalFilter}.png",
+        #             bbox_inches = "tight")
+        
+    
+    return {
+        "meanChannelRing_freqBand": meanChannelRing_freqBand,
+        "meanChannelSegmIntra_freqBand": meanChannelSegmIntra_freqBand,
+        "meanChannelSegmInter_freqBand": meanChannelSegmInter_freqBand
 
 
     }
