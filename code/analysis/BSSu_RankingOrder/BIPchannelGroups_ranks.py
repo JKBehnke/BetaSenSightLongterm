@@ -429,6 +429,10 @@ def Permutation_BIPranksRingSegmGroups(
     
     elif difference == "peak":
         mean_diff_list = [i for i in mean_difference_keys if "peak" in i]
+    
+
+    
+    
 
 
 

@@ -310,21 +310,25 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                             chosenPsd = average_Sxx
                             chosenSem = semRawPsd
                             chosen_ylabel = "uV^2/Hz+-SEM"
+                            chosen_ylim = [0, 3]
                         
                         elif norm == "normPsdToTotalSum":
                             chosenPsd = normToTotalSum_psd
                             chosenSem = semNormToTotalSum_psd
                             chosen_ylabel = "PSD to total sum[%]+-SEM"
+                            chosen_ylim = [0, 14]
 
                         elif norm == "normPsdToSum1_100Hz":
                             chosenPsd = normPsdToSum1to100Hz
                             chosenSem = semNormPsdToSum1to100Hz
                             chosen_ylabel = "PSD to sum 1-100 Hz[%]+-SEM"
+                            chosen_ylim = [0, 14]
 
                         elif norm == "normPsdToSum40_90Hz":
                             chosenPsd = normPsdToSum40to90Hz
                             chosenSem = semNormPsdToSum40to90Hz
                             chosen_ylabel = "PSD to sum 40-90 Hz[%]+-SEM"
+                            chosen_ylim = [0, 150]
                         
                         else:
                             chosenPsd = average_Sxx
@@ -489,6 +493,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
             # ax.set(xlim=[-5, 60] ,ylim=[0,7]) for normalizations to total sum or to sum 1-100Hz set ylim to zoom in
             ax.set_xlabel("Frequency", fontsize=12)
             ax.set_ylabel(chosen_ylabel, fontsize=12)
+            ax.set(ylim=chosen_ylim)
             ax.axvline(x=8, color='black', linestyle='--')
             ax.axvline(x=13, color='black', linestyle='--')
             ax.axvline(x=20, color='black', linestyle='--')
