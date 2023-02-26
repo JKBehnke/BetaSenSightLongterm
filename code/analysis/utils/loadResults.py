@@ -376,6 +376,56 @@ def load_BestClinicalStimulation_excel():
     return data
 
 
+def load_monoRef_weightedPsdCoordinateDistance_pickle(
+        sub: str,
+        hemisphere: str,
+        freqBand: str,
+        normalization: str,
+        filterSignal: str,
+
+
+):
+
+    """
+    Reads Pickle file from the subjects results folder: 
+        - sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle
+    
+    
+    loaded file is a dictionary with keys:
+        - f"{session}_bipolar_Dataframe": bipolar channels, averaged PSD in freq band, coordinates z- and xy-axis of mean point between two contacts
+        - f"{session}_monopolar_Dataframe": 10 monopolar contacts, averaged monopolar PSD in freq band, rank of averagedPsd values
+
+
+
+    Input:
+        
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder of a subject
+    sub_results_path = find_folders.get_local_path(folder="results", sub=sub)
+
+    hem = f"_{hemisphere}"
+    norm = f"_{normalization}"
+    filt = f"_{filterSignal}.pickle"
+
+    string_list = ["sub", sub, hem, "_monoRef_weightedPsdByCoordinateDistance_", freqBand, norm, filt]
+    filename = "".join(string_list)
+
+    filepath = os.path.join(sub_results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", sub_results_path)
+
+    return data
+
+
 
 
 

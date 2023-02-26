@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import plotly
 import plotly.graph_objs as go
 
+import pickle
+
 # utility functions
 import analysis.utils.loadResults as loadResults
 import analysis.utils.find_folders as find_folders
@@ -46,7 +48,7 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
 
     """
 
-    
+    results_paths = find_folders.get_local_path(folder="results", sub=sub)
 
 
     #####################  defining the coordinates of monopolar contacts #####################
@@ -66,6 +68,7 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
                         '2B':[2.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
                         '2C':[2.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)]}
     
+    # contact_coordinates = tuple z-coord + xy-coord
 
     ##################### lets plot the monopolar contact coordinates! #####################
     # Configure Plotly to be rendered inline in the notebook.
@@ -238,15 +241,23 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
 
             # storing the weighted beta for the mono polar contact
             mono_data_psdAverage.loc[contact,f'averaged_monopolar_PSD_{freqBand}'] = np.sum(weighted_beta) # sum of all 15 weighted psdAverages = one monopolar contact psdAverage
-            
-            
+
+        
+
+        # ranking the weighted monopolar psd    
+        mono_data_psdAverage["rank"] = mono_data_psdAverage[f"averaged_monopolar_PSD_{freqBand}"].rank(ascending=False) # rank highest psdAverage as 1.0
 
         # store copied and modified mono data into session dictionary
         session_data[f"{ses}_monopolar_Dataframe"]=mono_data_psdAverage
 
 
-        # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
-        session_data_filepath = os.path.join(results_path, )
+    # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
+    session_data_filepath = os.path.join(results_paths, f"sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(session_data_filepath, "wb") as file:
+        pickle.dump(session_data, file)
+
+    print(f"New file: sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle",
+            f"\nwritten in: {results_paths}" )
 
 
 
@@ -255,8 +266,6 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
 
     return {
         "session_data":session_data,
-        "sessionDF": session_Dataframe
-        
     }
 
 
