@@ -238,6 +238,9 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
             # weighting the beta of bipolar contacts by their similarity to the monopolar contact
             weighted_beta = session_Dataframe_coord['averagedPSD'].values *  similarity #(1/all_dists) 
 
+            print("similarity: ", similarity)
+
+
 
             # storing the weighted beta for the mono polar contact
             mono_data_psdAverage.loc[contact,f'averaged_monopolar_PSD_{freqBand}'] = np.sum(weighted_beta) # sum of all 15 weighted psdAverages = one monopolar contact psdAverage

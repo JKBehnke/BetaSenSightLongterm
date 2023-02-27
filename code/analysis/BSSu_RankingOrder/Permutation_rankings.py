@@ -83,7 +83,7 @@ def PermutationTest_BIPchannelGroups(
             ################# CREATE RANDOMLY SHUFFLED ARRAYS OF RANK-X AND RANK-Y #################
 
             # shuffle repetitions: 1000 times
-            numberOfShuffle = np.arange(1, 1001, 1)
+            numberOfShuffle = np.arange(1, 100001, 1)
 
             # list of differences between rank_x and rank_y
             difference_random_ranks = []
@@ -99,8 +99,7 @@ def PermutationTest_BIPchannelGroups(
 
             
             # plot the distribution of randomized difference MEAN values
-            axes[g].hist(difference_random_ranks)
-
+            axes[g].hist(difference_random_ranks,bins=100)
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_difference, c="r")
 
