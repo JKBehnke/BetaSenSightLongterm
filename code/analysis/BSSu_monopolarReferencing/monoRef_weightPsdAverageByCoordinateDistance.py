@@ -56,17 +56,18 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
     # z coordinates of the vertical axis
     # xy coordinates of the polar plane around the percept device
 
-    r = 1 # change this radius as you wish - needs to be optimised
-    contact_coordinates = {'0': [0.0,0+0*1j],
-                        '1': [1.0,0+0*1j],
-                        '2': [2.0,0+0*1j],
-                        '3': [3.0,0+0*1j],
-                        '1A':[1.0,r*np.cos(0)+r*1j*np.sin(0)],
-                        '1B':[1.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
-                        '1C':[1.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)],
-                        '2A':[2.0,r*np.cos(0)+r*1j*np.sin(0)],
-                        '2B':[2.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
-                        '2C':[2.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)]}
+    d = 2
+    r = 0.65 # change this radius as you wish - needs to be optimised
+    contact_coordinates = {'0': [d*0.0,0+0*1j],
+                        '1': [d*1.0,0+0*1j],
+                        '2': [d*2.0,0+0*1j],
+                        '3': [d*3.0,0+0*1j],
+                        '1A':[d*1.0,r*np.cos(0)+r*1j*np.sin(0)],
+                        '1B':[d*1.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
+                        '1C':[d*1.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)],
+                        '2A':[d*2.0,r*np.cos(0)+r*1j*np.sin(0)],
+                        '2B':[d*2.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
+                        '2C':[d*2.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)]}
     
     # contact_coordinates = tuple z-coord + xy-coord
 
@@ -237,9 +238,6 @@ def monoRef_weightPsdBetaAverageByCoordinateDistance(
             
             # weighting the beta of bipolar contacts by their similarity to the monopolar contact
             weighted_beta = session_Dataframe_coord['averagedPSD'].values *  similarity #(1/all_dists) 
-
-            print("similarity: ", similarity)
-
 
 
             # storing the weighted beta for the mono polar contact

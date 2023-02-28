@@ -90,7 +90,7 @@ def PermutationTest_BIPchannelGroups(
             difference_random_ranks = []
 
             # repeat shuffle 1000 times
-            for shuffle in numberOfShuffle:
+            for s, shuffle in enumerate(numberOfShuffle):
 
                 np.random.shuffle(rank_x)
                 np.random.shuffle(rank_y)
@@ -101,7 +101,7 @@ def PermutationTest_BIPchannelGroups(
 
             
             # plot the distribution of randomized difference MEAN values
-            axes[g].hist(difference_random_ranks,bins=100, density=True)
+            axes[g].hist(difference_random_ranks,bins=100)
 
             # make the normal distribution fit of the data
             # mu, std = norm.fit(difference_random_ranks)
@@ -110,7 +110,7 @@ def PermutationTest_BIPchannelGroups(
             # p = norm.pdf(x, mu, std)
             # axes[g].plot(x, p, 'b', linewidth= 2)
 
-            # sns.displot(difference_random_ranks, color="dodgerblue", ax=axes[g])
+            sns.histplot(difference_random_ranks, color="dodgerblue", ax=axes[g])
 
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_difference, c="r")
@@ -134,6 +134,7 @@ def PermutationTest_BIPchannelGroups(
 
             ax.set_xlabel("distribution of random MEAN values of rank differences", fontsize=25)
             ax.set_ylabel("Count", fontsize=25)
+            #ax.set_ylim(0,25)
 
             ax.tick_params(axis="x", labelsize=25)
             ax.tick_params(axis="y", labelsize=25)
