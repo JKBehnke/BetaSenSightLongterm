@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy
 from scipy.stats import norm
+import statistics
 import os
 import pickle
 import matplotlib.pyplot as plt
@@ -77,19 +78,19 @@ def PermutationTest_BIPchannelGroups(
 
             # columns from the dataframe to shuffle 
             rank_x = list(comp_group_DF.rank_x.values)
-            rank_y = list(comp_group_DF.rank_x.values)
+            rank_y = list(comp_group_DF.rank_y.values)
 
 
             ################# CREATE RANDOMLY SHUFFLED ARRAYS OF RANK-X AND RANK-Y #################
 
             # shuffle repetitions: 1000 times
-            numberOfShuffle = np.arange(1, 100001, 1)
+            numberOfShuffle = np.arange(1, 10001, 1)
 
-            # list of differences between rank_x and rank_y
+            # list of mean differences between shuffled rank_x and rank_y
             difference_random_ranks = []
 
             # repeat shuffle 1000 times
-            for s, shuffle in enumerate(numberOfShuffle):
+            for shuffle in numberOfShuffle:
 
                 np.random.shuffle(rank_x)
                 np.random.shuffle(rank_y)
@@ -97,28 +98,41 @@ def PermutationTest_BIPchannelGroups(
                 # calculate the mean of the difference between random rank_x and rank_y, store in list
                 difference_random_ranks.append(np.mean(abs(np.array(rank_x) - np.array(rank_y))))
 
+
             
             # plot the distribution of randomized difference MEAN values
-            axes[g].hist(difference_random_ranks,bins=100)
+            axes[g].hist(difference_random_ranks,bins=100, density=True)
+
+            # make the normal distribution fit of the data
+            # mu, std = norm.fit(difference_random_ranks)
+            # xmin, xmax = plt.xlim()
+            # x = np.linspace(xmin,xmax,100)
+            # p = norm.pdf(x, mu, std)
+            # axes[g].plot(x, p, 'b', linewidth= 2)
+
+            # sns.displot(difference_random_ranks, color="dodgerblue", ax=axes[g])
+
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_difference, c="r")
 
             axes[g].set_title(f"{group} channels", fontdict=fontdict)
 
             # calculate the distance of the real mean from the mean of all randomized means divided by the standard deviation
-            distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_ranks) / np.std(difference_random_ranks))
+            distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_ranks)) / np.std(difference_random_ranks)
 
             # calculate the p-value 
-            pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom))
+            # pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung
+            pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
+            
             # TODO: save more decimals in pval, only 0.0 is shown...
 
 
             # store all values in dictionary
-            Permutation_BIP[f"{comp}_{group}"] = [comp, group, mean_difference, distanceMeanReal_MeanRandom, pval]
+            Permutation_BIP[f"{comp}_{group}"] = [comp, group, mean_difference, distanceMeanReal_MeanRandom, "{:.15f}".format(pval)]
         
         for ax in axes:
 
-            ax.set_xlabel("distribution of randomized MEAN values of rank differences", fontsize=25)
+            ax.set_xlabel("distribution of random MEAN values of rank differences", fontsize=25)
             ax.set_ylabel("Count", fontsize=25)
 
             ax.tick_params(axis="x", labelsize=25)
