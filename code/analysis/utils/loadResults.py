@@ -426,7 +426,53 @@ def load_monoRef_weightedPsdCoordinateDistance_pickle(
     return data
 
 
+def load_monoRef_JLB_pickle(
+        sub: str,
+        hemisphere: str,
+        normalization: str,
+        filterSignal: str,
 
+
+):
+
+    """
+    Reads Pickle file from the subjects results folder: 
+        - sub{incl_sub}_{hemisphere}_MonoRef_JLB_result_{normalization}_band-pass.pickle"
+    
+    
+    loaded file is a dictionary with keys:
+        - "BIP_psdAverage"
+        - "BIP_directionalPercentage"
+        - "monopolar_psdAverage"
+        - "monopolar_psdRank"
+
+
+    Input:
+        
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder of a subject
+    sub_results_path = find_folders.get_local_path(folder="results", sub=sub)
+
+    hem = f"_{hemisphere}"
+    filt = f"_{filterSignal}.pickle"
+
+    string_list = ["sub", sub, hem, "_MonoRef_JLB_result_", normalization, filt]
+    filename = "".join(string_list)
+
+    filepath = os.path.join(sub_results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", sub_results_path)
+
+    return data
 
 
 

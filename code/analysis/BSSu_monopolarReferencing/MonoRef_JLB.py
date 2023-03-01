@@ -8,15 +8,17 @@ import numpy as np
 import json
 import os
 import mne
+import pickle
 
 # internal Imports
 import analysis.utils.find_folders as find_folders
+import analysis.utils.loadResults as loadResults
 
 
 # import analysis.loadResults as loadcsv
 
 
-def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
+def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str, incl_session: list):
 
     """
     Calculate the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C)
@@ -25,6 +27,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
         - incl_sub: str, e.g. "024"
         - hemisphere: str, e.g. "Right"
         - normalization: str, e.g. "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - incl_session: list, ["postop", "fu3m", "fu12m", "fu18m"]
 
 
     Four different versions of PSD: 
@@ -91,23 +94,42 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     """
 
 
-    time_points = ['postop', 'fu3m', 'fu12m', 'fu18m']
+    time_points = incl_session
     frequency_range = ["lowBeta", "highBeta", "beta"]
     direction_proxy = ["1A2A", "1B2B", "1C2C"]
     level_proxy = ["13", "02"]
     averagedPSD_dict = {}
     percentagePSD_dict = {}
     monopolar_references = {}
+    MonoRef_JLB_result = {}
+
+
+
 
     ############# READ CSV FILE WITH AVERAGED PSD as Dataframe #############
     # get path to .csv file
     results_path = find_folders.get_local_path(folder="results", sub=incl_sub)
 
     # read .csv file as Dataframe
-    psdAverageDataframe = pd.read_csv(os.path.join(results_path, f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"))
+    # psdAverageDataframe = pd.read_csv(os.path.join(results_path, f"SPECTROGRAMpsdAverageFrequencyBands_{normalization}_{hemisphere}"))
+    psdAverageDataframe = loadResults.load_PSDjson(
+        sub = incl_sub,
+        result = "PSDaverageFrequencyBands", # self.result has to be a list, because the loading function is 
+        hemisphere = hemisphere,
+        filter = "band-pass"
+        )
+    
+    # transform dictionary to Dataframe
+    psdAverageDataframe = pd.DataFrame(psdAverageDataframe)
+
+    # select the correct normalization
+    psdAverageDataframe = psdAverageDataframe[psdAverageDataframe.absoluteOrRelativePSD == normalization]
 
     
     for t, tp in enumerate(time_points):
+
+        # check if timepoint exists
+        
 
         for f, fq in enumerate(frequency_range):
 
@@ -122,6 +144,7 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
                 directionDF = session_frequency_Dataframe[session_frequency_Dataframe["bipolarChannel"].str.contains(dir)]
 
                 # store these 3 averaged psd values (in fifth column pf the initial DF) in the dictionary
+                # averagedPSD_dict[f"averagedPSD_{tp}_{fq}_{dir}"] = [tp, fq, dir, directionDF.iloc[:,4].item()]
                 averagedPSD_dict[f"averagedPSD_{tp}_{fq}_{dir}"] = [tp, fq, dir, directionDF.iloc[:,4].item()]
 
 
@@ -195,20 +218,30 @@ def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str):
     monopolRankDF = monopolRefDF.rank(ascending=False) # new Dataframe ranking monopolar values from monopolRefDF from high to low
 
 
-    # save Dataframes as csv in the results folder
-    psdAverageDF.to_csv(os.path.join(results_path,f"averagedPSD_{normalization}_{hemisphere}"), sep=",")
-    psdPercentageDF.to_csv(os.path.join(results_path,f"percentagePsdDirection_{normalization}_{hemisphere}"), sep=",")
-    monopolRefDF.to_csv(os.path.join(results_path,f"monopolarReference_{normalization}_{hemisphere}"), sep=",")
-    monopolRankDF.to_csv(os.path.join(results_path,f"monopolarRanks_{normalization}_{hemisphere}"), sep=",")
+    # store all Dataframes into dictionary
+    MonoRef_JLB_result["BIP_psdAverage"] = psdAverageDF
+    MonoRef_JLB_result["BIP_directionalPercentage"] = psdPercentageDF
+    MonoRef_JLB_result["monopolar_psdAverage"] = monopolRefDF
+    MonoRef_JLB_result["monopolar_psdRank"] = monopolRankDF
+
+    # # save Dataframes as csv in the results folder
+    # psdAverageDF.to_csv(os.path.join(results_path,f"averagedPSD_{normalization}_{hemisphere}"), sep=",")
+    # psdPercentageDF.to_csv(os.path.join(results_path,f"percentagePsdDirection_{normalization}_{hemisphere}"), sep=",")
+    # monopolRefDF.to_csv(os.path.join(results_path,f"monopolarReference_{normalization}_{hemisphere}"), sep=",")
+    # monopolRankDF.to_csv(os.path.join(results_path,f"monopolarRanks_{normalization}_{hemisphere}"), sep=",")
+
+    # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
+    MonoRef_JLB_result_filepath = os.path.join(results_path, f"sub{incl_sub}_{hemisphere}_MonoRef_JLB_result_{normalization}_band-pass.pickle")
+    with open(MonoRef_JLB_result_filepath, "wb") as file:
+        pickle.dump(MonoRef_JLB_result, file)
+
+    print(f"New file: sub{incl_sub}_{hemisphere}_MonoRef_JLB_result_{normalization}_band-pass.pickle",
+            f"\nwritten in: {results_path}" )
+
     
 
     
-    return {
-        "psdAverageDataframe":psdAverageDF,
-        "psdPercentagePerDirection":psdPercentageDF,
-        "monopolarReference":monopolRefDF,
-        "monopolarRanks":monopolRankDF,
-    }
+    return MonoRef_JLB_result
 
 
     # ################ Restructure the Dataframes ################ 

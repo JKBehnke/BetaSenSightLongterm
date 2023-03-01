@@ -168,23 +168,218 @@ def PermutationTest_BIPchannelGroups(
 
 
 
+def Permutation_monopolarRanks_compareMethods(
+        incl_sub: list,
+        freqBand: str,
 
+):
+    """
+    
+    1) Load and restructure Dataframes from 
+        - Robert's method: monoRef_weightPsdAverageByCoordinateDistance and 
+        - Johannes method: MonoRef_JLB.py
+
+
+    """
+
+    hemispheres = ["Right", "Left"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    data_weightedByCoordinates = {}
+    keys_weightedByCoordinates = {}
+    JLB_mono = {}
+    comparisonDataframe = {}
+    
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+
+    ###################### LOAD ROBERTS AND JOHANNES METHOD RESULTS ######################
+
+
+    for sub in incl_sub:
+
+        for hem in hemispheres:
+
+            data_weightedByCoordinates[f"{sub}_{hem}"] = loadResults.load_monoRef_weightedPsdCoordinateDistance_pickle(
+                sub=sub,
+                hemisphere=hem,
+                freqBand=freqBand,
+                normalization="rawPsd",
+                filterSignal="band-pass"
+                )
+            
+            # to check, which sessions exist
+            keys_weightedByCoordinates[f"{sub}_{hem}"] = data_weightedByCoordinates[f"{sub}_{hem}"].keys()
 
             
-
-
+            data_JLB_mono_directional = loadResults.load_monoRef_JLB_pickle(
+                sub=sub,
+                hemisphere=hem,
+                normalization="rawPsd",
+                filterSignal="band-pass"
+                )
             
+            # get monopolar ranks and filter only for correct freqBand in column
+            JLB_ranks = data_JLB_mono_directional["monopolar_psdRank"].filter(like=f"_{freqBand}", axis=1) 
+
+            # copy in order to modify
+            JLB_ranks_copy = JLB_ranks.copy()
+
+            # add column subject_hemisphere_monoChannel
+            JLB_ranks_copy["subject_hemisphere"] = f"{sub}_{hem}"
+            JLB_ranks_copy["monopolarChannels"] = np.array(["1A", "1B", "1C", "2A", "2B", "2C"])
+            JLB_ranks_copy["subject_hemisphere_monoChannel"] = JLB_ranks_copy[["subject_hemisphere", "monopolarChannels"]].agg("_".join, axis=1)
+            JLB_ranks_copy.drop(["subject_hemisphere", "monopolarChannels"], axis=1, inplace=True)
+
+            # store in dictionary
+            JLB_mono[f"{sub}_{hem}"] = JLB_ranks_copy
 
 
 
+            for ses in sessions:
+
+                # first check, if session exists in keys
+                if f"{ses}_monopolar_Dataframe" in keys_weightedByCoordinates[f"{sub}_{hem}"]:
+                    print(f"{sub}_{hem}_{ses}")
+                
+                else:
+                    continue
+                
+                # get the dataframe per session
+                session_weightedByCoordinates = data_weightedByCoordinates[f"{sub}_{hem}"][f"{ses}_monopolar_Dataframe"]
+
+                # choose only directional contacts and rank again only the directional contacts
+                session_weightedByCoordinates = session_weightedByCoordinates.loc[["1A", "1B", "1C", "2A", "2B", "2C"]]
+                session_weightedByCoordinates["directionalRank"] = session_weightedByCoordinates["averaged_monopolar_PSD_beta"].rank(ascending=False)
+                session_weightedByCoordinates_copy = session_weightedByCoordinates.copy()
+
+                # add column subject_hemisphere_monoChannel
+                session_weightedByCoordinates_copy["monopolarChannels"] = np.array(["1A", "1B", "1C", "2A", "2B", "2C"])
+                session_weightedByCoordinates_copy["subject_hemisphere_monoChannel"] = session_weightedByCoordinates_copy[["subject_hemisphere", "monopolarChannels"]].agg("_".join, axis=1)
+                session_weightedByCoordinates_copy.drop(["subject_hemisphere", "monopolarChannels", "rank", "coord_z", "coord_xy"], axis=1, inplace=True)
 
 
+                # merge together Roberts session Dataframe and Johannes dataframe
+                compare_DF = JLB_mono[f"{sub}_{hem}"].merge(session_weightedByCoordinates_copy, left_on="subject_hemisphere_monoChannel", right_on="subject_hemisphere_monoChannel")
 
+                # add new column and calculate Difference between ranks
+                compare_DF["Difference_ranks"] = (compare_DF[f"monoRef_{ses}_beta"] - compare_DF["directionalRank"]).apply(abs)
 
-
-
-
-
+                # store finished Dataframe in dictionary
+                comparisonDataframe[f"{sub}_{hem}_{ses}"] = compare_DF
 
 
     
+    # from every Dataframe only keep 3 relevant columns: "subject_hemisphere_monoChannel", "session", "Difference_ranks"
+    comparison_sub_hem_ses = list(comparisonDataframe.keys())
+
+    Dataframe_all_sub_hem_ses = pd.DataFrame()
+
+    for c, comp in enumerate(comparison_sub_hem_ses):
+        
+        combination_DF = comparisonDataframe[comp]
+        filtered_combination_DF = combination_DF[["subject_hemisphere_monoChannel", "session", "directionalRank", "Difference_ranks"]]
+
+        # concatenate all Dataframes to one
+        Dataframe_all_sub_hem_ses = pd.concat([Dataframe_all_sub_hem_ses, filtered_combination_DF], ignore_index=True)
+
+
+    ###################### CALCULATE THE MEAN OF ALL DIFFERENCES ######################
+
+    Mean_differences_monoRanks_JLB_vs_weightedCoordinates = Dataframe_all_sub_hem_ses["Difference_ranks"].mean()
+
+
+
+    ###################### PERMUTATION TEST ######################
+
+
+    # column to shuffle
+    directional_rank_x = list(Dataframe_all_sub_hem_ses.directionalRank.values)
+    directional_rank_y = list(Dataframe_all_sub_hem_ses.directionalRank.values)
+
+    # shuffle repetitions: 
+    numberOfShuffle = np.arange(1, 1001, 1)
+
+    # list of mean differences between shuffled rank_x and rank_y
+    difference_random_ranks = []
+
+    # repeat shuffle 1000 times
+    for s, shuffle in enumerate(numberOfShuffle):
+
+        np.random.shuffle(directional_rank_x)
+        np.random.shuffle(directional_rank_y)
+
+        # calculate the mean of the difference between random rank_x and rank_y, store in list: 1000 MEAN values after all
+        difference_random_ranks.append(np.mean(abs(np.array(directional_rank_x) - np.array(directional_rank_y))))
+
+
+    # calculate the distance of the real mean from the mean of all randomized means divided by the standard deviation
+    distanceMeanReal_MeanRandom = (Mean_differences_monoRanks_JLB_vs_weightedCoordinates - np.mean(difference_random_ranks)) / np.std(difference_random_ranks)
+
+    # calculate the p-value 
+    # pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung
+    pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
+    
+
+    # store all Permutation values
+    Permutation_monopolarMethods = [Mean_differences_monoRanks_JLB_vs_weightedCoordinates, distanceMeanReal_MeanRandom, "{:.15f}".format(pval)]
+    # Permutation_BIP transform from dictionary to Dataframe
+    Permutation_monopolarMethods = pd.DataFrame(Permutation_monopolarMethods)
+    Permutation_monopolarMethods.rename(index={0: "MEAN_differenceRanks_JLB_vs_weightedByCoordinates", 1: "distanceMeanReal_MeanRandom", 2: "p-value"}, inplace=True)
+    Permutation_monopolarMethods = Permutation_monopolarMethods.transpose()
+
+    fig = plt.figure()
+    fontdict = {"size": 25} 
+
+    # plot the distribution of randomized difference MEAN values
+    sns.histplot(difference_random_ranks, color="dodgerblue", stat="count", label="1000 Permutation repetitions", kde=True, bins=40)
+
+    # mark with red line: real mean of the rank differences of comp_group_DF
+    plt.axvline(Mean_differences_monoRanks_JLB_vs_weightedCoordinates, c="r")
+    plt.text(Mean_differences_monoRanks_JLB_vs_weightedCoordinates +0.02, 2, 
+             "Mean difference between \nranks of both methods \n\n p-value: {:.2f}".format(pval),
+             c="r")
+
+
+
+    plt.title(f"Difference between two methods: \nbeta psd ranks of directional contacts ", fontdict=fontdict)
+
+    plt.legend(loc="upper center")
+
+    plt.xlabel("MEAN difference of ranks", fontsize=25)
+    plt.ylabel("Count", fontsize=25)
+    #ax.set_ylim(0,25)
+
+    plt.tick_params(axis="x", labelsize=25)
+    plt.tick_params(axis="y", labelsize=25)
+
+    fig.tight_layout()
+
+    fig.savefig(figures_path + f"\\Permutation_monopolarMethods_{freqBand}_rawPsd_band-pass.png", bbox_inches="tight")
+
+
+    ## save all Permutation Dataframes with pickle 
+    Permutation_results = {
+        "comparisonDataframe_per_sub_hem_ses": comparisonDataframe,
+        "Dataframe_all_sub_hem_ses": Dataframe_all_sub_hem_ses,
+        "Permutation_monopolarMethods": Permutation_monopolarMethods
+    }
+
+    Permutation_monopolardirectionalRanks_filepath = os.path.join(results_path, f"Permutation_monopolarMethods_{freqBand}_rawPsd_band-pass.pickle")
+    with open(Permutation_monopolardirectionalRanks_filepath, "wb") as file:
+        pickle.dump(Permutation_results, file)
+
+    print("file: ", 
+          f"Permutation_monopolarMethods_{freqBand}_rawPsd_band-pass.pickle",
+          "\nwritten in: ", results_path
+          )
+
+
+
+            
+    return {
+        "comparisonDataframe_per_sub_hem_ses": comparisonDataframe,
+        "Dataframe_all_sub_hem_ses": Dataframe_all_sub_hem_ses,
+        "Permutation_monopolarMethods": Permutation_monopolarMethods
+    }

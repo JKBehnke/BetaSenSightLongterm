@@ -42,7 +42,7 @@ class freqBandClass:
 
                 # Error checking: if feature is not in allowed_features -> Error message
                 assert feat.lower() in [f.lower() for f in allowed_features], (
-                    f'inserted contact ({feat}) should'
+                    f'inserted feature ({feat}) should'
                     f' be in {allowed_features}'
                 )
                 
