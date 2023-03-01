@@ -84,7 +84,7 @@ def PermutationTest_BIPchannelGroups(
             ################# CREATE RANDOMLY SHUFFLED ARRAYS OF RANK-X AND RANK-Y #################
 
             # shuffle repetitions: 1000 times
-            numberOfShuffle = np.arange(1, 10001, 1)
+            numberOfShuffle = np.arange(1, 1001, 1)
 
             # list of mean differences between shuffled rank_x and rank_y
             difference_random_ranks = []
@@ -100,8 +100,21 @@ def PermutationTest_BIPchannelGroups(
 
 
             
+            # calculate the distance of the real mean from the mean of all randomized means divided by the standard deviation
+            distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_ranks)) / np.std(difference_random_ranks)
+
+            # calculate the p-value 
+            # pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung
+            pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
+            
+
+            # store all values in dictionary
+            Permutation_BIP[f"{comp}_{group}"] = [comp, group, mean_difference, distanceMeanReal_MeanRandom, "{:.15f}".format(pval)]
+        
+
+
             # plot the distribution of randomized difference MEAN values
-            axes[g].hist(difference_random_ranks,bins=100)
+            # axes[g].hist(difference_random_ranks,bins=100)
 
             # make the normal distribution fit of the data
             # mu, std = norm.fit(difference_random_ranks)
@@ -110,31 +123,31 @@ def PermutationTest_BIPchannelGroups(
             # p = norm.pdf(x, mu, std)
             # axes[g].plot(x, p, 'b', linewidth= 2)
 
-            sns.histplot(difference_random_ranks, color="dodgerblue", ax=axes[g])
+            sns.histplot(difference_random_ranks, color="dodgerblue", ax=axes[g], stat="count", element="step", label="1000 Permutation repetitions", kde=True, bins="sturges", fill=True)
 
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_difference, c="r")
+            axes[g].text(mean_difference +0.02, 50, 
+             "Mean difference between \nranks of both sessions \n\n p-value: {:.2f}".format(pval),
+             c="r", fontsize=15)
 
             axes[g].set_title(f"{group} channels", fontdict=fontdict)
 
-            # calculate the distance of the real mean from the mean of all randomized means divided by the standard deviation
-            distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_ranks)) / np.std(difference_random_ranks)
-
-            # calculate the p-value 
-            # pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung
-            pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
-            
-            # TODO: save more decimals in pval, only 0.0 is shown...
-
-
-            # store all values in dictionary
-            Permutation_BIP[f"{comp}_{group}"] = [comp, group, mean_difference, distanceMeanReal_MeanRandom, "{:.15f}".format(pval)]
-        
         for ax in axes:
 
-            ax.set_xlabel("distribution of random MEAN values of rank differences", fontsize=25)
+            ax.set_xlabel("MEAN Difference between beta ranks", fontsize=25)
             ax.set_ylabel("Count", fontsize=25)
-            #ax.set_ylim(0,25)
+            ax.legend(loc="upper right", bbox_to_anchor=(1.5, 1.0), fontsize=15)
+            
+            # if group == "Ring":
+            #     ax.set_xlim(0,1.3)
+            
+            # elif group == "SegmInter":
+            #     ax.set_xlim(0,1.3)
+            
+            # elif group =="SegmIntra":
+            #     ax.set_xlim(0, 2.6)
+
 
             ax.tick_params(axis="x", labelsize=25)
             ax.tick_params(axis="y", labelsize=25)
