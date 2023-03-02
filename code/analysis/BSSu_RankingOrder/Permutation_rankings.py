@@ -123,7 +123,7 @@ def PermutationTest_BIPchannelGroups(
             # p = norm.pdf(x, mu, std)
             # axes[g].plot(x, p, 'b', linewidth= 2)
 
-            sns.histplot(difference_random_ranks, color="dodgerblue", ax=axes[g], stat="count", element="step", label="1000 Permutation repetitions", kde=True, bins="sturges", fill=True)
+            sns.histplot(difference_random_ranks, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
 
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_difference, c="r")
@@ -137,7 +137,7 @@ def PermutationTest_BIPchannelGroups(
 
             ax.set_xlabel("MEAN Difference between beta ranks", fontsize=25)
             ax.set_ylabel("Count", fontsize=25)
-            ax.legend(loc="upper right", bbox_to_anchor=(1.5, 1.0), fontsize=15)
+            #ax.legend(loc="upper right", bbox_to_anchor=(1.5, 1.0), fontsize=15)
             
             # if group == "Ring":
             #     ax.set_xlim(0,1.3)
@@ -187,10 +187,30 @@ def Permutation_monopolarRanks_compareMethods(
 
 ):
     """
+
+    Permutation analysis of differences between two methods resulting in beta ranks for directional contacts (1A,1B,1C,2A,2B,2C)
+
+    Input: 
+        - incl_sub: list of all subjects
+        - freqBand: str e.g. "beta"
     
     1) Load and restructure Dataframes from 
-        - Robert's method: monoRef_weightPsdAverageByCoordinateDistance and 
+        - Robert's method: monoRef_weightPsdAverageByCoordinateDistance.py and 
         - Johannes method: MonoRef_JLB.py
+    
+    2) Calculate the Difference between ranks of both methods for each directional contact and the MEAN of differences
+
+    3) Create a normally distributed permutation of ranks by shuffling the ranks extracted from one method
+        - 1000 repetitions
+        - shuffle existing ranks twice and get the difference between two shuffled ranks
+        - get the mean of differences of all shuffled pairs
+    
+    4) Plot the normally distributed shuffled Means of differences 
+        - Mark with red line the real Mean of differences between the two methods
+        - calculate the distance from the real Mean to the random mean and divide by the standard deviation
+        - with this distance calculate the p-value: 
+            zweiseitig: pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom))
+            oder einseitig: pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom))
 
 
     """

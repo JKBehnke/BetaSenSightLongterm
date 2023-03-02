@@ -16,6 +16,23 @@ import analysis.utils.find_folders as find_folders
 import analysis.utils.loadResults as loadResults
 
 
+
+
+def correlateActiveClinicalContacts_monopolarPSDRanks():
+    """
+    Using the monopolar rank results from the monoRef_weightPsdAverageByCoordinateDistance.py
+
+
+
+
+    """
+
+    
+
+
+
+
+
 def bestClinicalStimContacts_LevelsComparison():
     
     """
