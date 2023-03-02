@@ -236,32 +236,46 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
     if rank_or_psd == "rank":
         y_values = "Rank8contacts"
         y_label = "Beta rank of contact"
-        title = "Beta rank of clinically active stimulation contacts"
+        title = "Beta rank of clinically active vs. nonactive stimulation contacts"
+        y_lim = 10, -1
        
     
     elif rank_or_psd == "rawPsd":
         y_values = "averaged_monopolar_PSD_beta"
         y_label = "Beta PSD of contact [uV^2/Hz]"
-        title = "Beta PSD of clinically active stimulation contacts"
+        title = "Beta PSD of clinically active vs. nonactive stimulation contacts"
+        y_lim = -0.3, 1.8
 
 
 
 
     fig =plt.figure()
 
-    ax = sns.violinplot(data=active_and_nonactive_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", inner="quartile", palette="Set2")
+    ax = sns.violinplot(data=active_and_nonactive_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", palette="Set2")
     ax = sns.despine(left=True, bottom=True) # get rid of figure frame
 
 
 
     plt.title(title)
     plt.ylabel(y_label)
-    plt.legend(loc="upper right")
+    plt.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
+
+    plt.ylim(y_lim)
 
     plt.show()
+    fig.savefig(figures_path + f"\\ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}.png", bbox_inches="tight")
 
 
+    # save dictionaries
+    ClinicalActiveVsNonactiveContacts_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}.pickle")
+    with open(ClinicalActiveVsNonactiveContacts_filepath, "wb") as file:
+        pickle.dump(active_and_nonactive_MonoBeta8Ranks, file)
 
+    
+    print("new file: ", f"ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}.pickle",
+          "\nwritten in in: ", results_path,
+          f"\nnew figure: ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}.png",
+          "\nwritten in: ", figures_path)
 
     
 
@@ -386,7 +400,7 @@ def bestClinicalStimContacts_LevelsComparison():
     fig.tight_layout()
 
     
-    fig.savefig(figures_path + "\\ActiveClinicalStimContact_Levels_fu3m_fu12m_and_fu12m_longterm.png")
+    fig.savefig(figures_path + "\\ActiveClinicalStimContact_Levels_fu3m_fu12m_and_fu12m_longterm.png", bbox_inches="tight")
 
 
     ### save the Dataframes with pickle 
