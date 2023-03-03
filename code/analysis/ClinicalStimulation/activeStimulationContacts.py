@@ -335,14 +335,27 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
 
     fig =plt.figure()
 
-    ax = sns.violinplot(data=data_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", palette="Set2")
+    ax = sns.violinplot(data=data_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", palette="Set2", inner="box")
+    ax = sns.stripplot(
+        data=data_MonoBeta8Ranks,
+        x="session",
+        y=y_values,
+        hue="clinicalUse",
+        size=7,
+        color="black",
+        alpha=0.4, # Transparency of dots
+        dodge=True, # datapoints of groups active, inactive are plotted next to each other
+    )
     ax = sns.despine(left=True, bottom=True) # get rid of figure frame
 
     plt.title(title)
     plt.ylabel(y_label)
+    plt.ylim(y_lim)
+
+    
     plt.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
 
-    plt.ylim(y_lim)
+    
 
     plt.show()
     fig.savefig(figures_path + f"\\ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.png", bbox_inches="tight")
@@ -360,13 +373,13 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
 
 
     # statistical test
-    # order= ["fu3m", "fu12m", "fu18m"]
+    order= ["fu3m", "fu12m", "fu18m"]
     # groups_to_compare = ["inactive", "active"]
-    # pairs = list(combinations(order, 2))
+    pairs = list(combinations(order, 2))
 
-    # annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session', y=y_values, order=order)
-    # annotator.configure(test='Wilcoxon', text_format='star')
-    # annotator.apply_and_annotate()
+    annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session', y=y_values, order=order)
+    annotator.configure(test='Wilcoxon', text_format='star')
+    annotator.apply_and_annotate()
 
 
     # save statistical information in Dataframe
