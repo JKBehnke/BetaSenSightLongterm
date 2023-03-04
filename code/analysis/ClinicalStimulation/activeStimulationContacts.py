@@ -348,44 +348,29 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
     )
     ax = sns.despine(left=True, bottom=True) # get rid of figure frame
 
+    # statistical test
+    order= ["fu3m", "fu12m", "fu18m"]
+    groups_to_compare = ["inactive", "active"]
+    pairs = list(combinations(order, 2))
+
+    annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session', y=y_values)
+    annotator.configure(test='Wilcoxon', text_format='star')
+    annotator.apply_and_annotate()
+
     plt.title(title)
     plt.ylabel(y_label)
     plt.ylim(y_lim)
-
-    
     plt.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
 
-    
-
-    plt.show()
-    fig.savefig(figures_path + f"\\ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.png", bbox_inches="tight")
-
-    
-    # # test for normality: shapiro-wilk test
-    # norm_shapiro_wilk = {}
-    # norm_shapiro_wilk["fu3m_active"] = scipy.stats.shapiro(fu3m_activeContacts.Rank8contacts.values)
-    # norm_shapiro_wilk["fu12m_active"] = scipy.stats.shapiro(fu12m_activeContacts.Rank8contacts.values)
-    # norm_shapiro_wilk["fu18m_active"] = scipy.stats.shapiro(fu18m_activeContacts.Rank8contacts.values)
-
-    # norm_shapiro_wilk["fu3m_inactive"] = scipy.stats.shapiro(fu3m_inactiveContacts.Rank8contacts.values)
-    # norm_shapiro_wilk["fu12m_inactive"] = scipy.stats.shapiro(fu12m_inactiveContacts.Rank8contacts.values)
-    # norm_shapiro_wilk["fu18m_inactive"] = scipy.stats.shapiro(fu18m_inactiveContacts.Rank8contacts.values)
-
-
-    # statistical test
-    order= ["fu3m", "fu12m", "fu18m"]
-    # groups_to_compare = ["inactive", "active"]
-    pairs = list(combinations(order, 2))
-
-    annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session', y=y_values, order=order)
-    annotator.configure(test='Wilcoxon', text_format='star')
-    annotator.apply_and_annotate()
 
 
     # save statistical information in Dataframe
     statistics_Dataframe = pd.DataFrame(describe_arrays)
     statistics_Dataframe.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
     statistics_Dataframe = statistics_Dataframe.transpose()
+
+    
+    fig.savefig(figures_path + f"\\ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.png", bbox_inches="tight")
 
     # save as pickle
     statistics_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_statistics_{freqBand}_{singleContacts_or_average}.pickle")
