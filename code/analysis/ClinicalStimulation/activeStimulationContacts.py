@@ -148,25 +148,6 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
     activeMonoBeta8Ranks["clinicalUse"] = "active"
 
 
-    ##################### GET STATISTICALLY IMPORTANT FEATURES FPR CLINICALLY ACTIVE CONTACTS #####################
-    statistics_dict = {}
-
-    # clinically active contacts
-    fu3m_activeContacts = activeMonoBeta8Ranks.loc[(activeMonoBeta8Ranks.session=="fu3m")]
-    fu12m_activeContacts = activeMonoBeta8Ranks.loc[(activeMonoBeta8Ranks.session=="fu12m")]
-    fu18m_activeContacts = activeMonoBeta8Ranks.loc[(activeMonoBeta8Ranks.session=="fu18m")]
-
-
-    # describe the arrays using scipy
-    describe_arrays = {}
-    describe_arrays["fu3m_active_ranks"] = scipy.stats.describe(fu3m_activeContacts.Rank8contacts.values)
-    describe_arrays["fu12m_active_ranks"] = scipy.stats.describe(fu12m_activeContacts.Rank8contacts.values)
-    describe_arrays["fu18m_active_ranks"] = scipy.stats.describe(fu18m_activeContacts.Rank8contacts.values)
-
-    describe_arrays["fu3m_active_psd"] = scipy.stats.describe(fu3m_activeContacts.averaged_monopolar_PSD_beta.values)
-    describe_arrays["fu12m_active_psd"] = scipy.stats.describe(fu12m_activeContacts.averaged_monopolar_PSD_beta.values)
-    describe_arrays["fu18m_active_psd"] = scipy.stats.describe(fu18m_activeContacts.averaged_monopolar_PSD_beta.values)
-
 
     ##################### FILTER THE MONOBETA8RANKS_DF: clinically INACTIVE contacts #####################
     inactiveMonoBeta8Ranks = pd.DataFrame()
@@ -190,22 +171,6 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
     # add a column "clinicalUse" to the Dataframe and fill with "non_active"
     inactiveMonoBeta8Ranks["clinicalUse"] = "inactive"
 
-    ##################### GET STATISTICALLY IMPORTANT FEATURES FPR CLINICALLY ACTIVE CONTACTS #####################
-    
-    # clinically active contacts
-    fu3m_inactiveContacts = inactiveMonoBeta8Ranks.loc[(inactiveMonoBeta8Ranks.session=="fu3m")]
-    fu12m_inactiveContacts = inactiveMonoBeta8Ranks.loc[(inactiveMonoBeta8Ranks.session=="fu12m")]
-    fu18m_inactiveContacts = inactiveMonoBeta8Ranks.loc[(inactiveMonoBeta8Ranks.session=="fu18m")]
-
-    
-    describe_arrays["fu3m_inactive_ranks"] = scipy.stats.describe(fu3m_inactiveContacts.Rank8contacts.values)
-    describe_arrays["fu12m_inactive_ranks"] = scipy.stats.describe(fu12m_inactiveContacts.Rank8contacts.values)
-    describe_arrays["fu18m_inactive_ranks"] = scipy.stats.describe(fu18m_inactiveContacts.Rank8contacts.values)
-
-    describe_arrays["fu3m_inactive_psd"] = scipy.stats.describe(fu3m_inactiveContacts.averaged_monopolar_PSD_beta.values)
-    describe_arrays["fu12m_inactive_psd"] = scipy.stats.describe(fu12m_inactiveContacts.averaged_monopolar_PSD_beta.values)
-    describe_arrays["fu18m_inactive_psd"] = scipy.stats.describe(fu18m_inactiveContacts.averaged_monopolar_PSD_beta.values)
-
   
 
     ##################### CONCATENATE BOTH DATAFRAMES: CLINICALLY ACTIVE and INACTIVE CONTACTS #####################
@@ -215,7 +180,11 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
     ##################### CHOOSE BETWEEN USING EACH SINGLE CONTACT OR AVERAGE OF ACTIVE OR INACTIVE CONTACTS #####################
 
     if singleContacts_or_average == "singleContacts":
+
         data_MonoBeta8Ranks = active_and_inactive_MonoBeta8Ranks
+
+        # add another column with session and clinical aggregated for statistical tests (Annotatator)
+        data_MonoBeta8Ranks["session_clinicalUse"] = data_MonoBeta8Ranks[["session", "clinicalUse"]].agg('_'.join, axis=1)
 
     
     # average for each STN: ranks and psd of active or inactive contacts
@@ -263,36 +232,103 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
     	# use the dataframe with MEAN values for plotting
         data_MonoBeta8Ranks = STN_average_activeVsInactive_DF
 
-        ##################### GET STATISTICALLY IMPORTANT FEATURES FPR BETA MEAN OF CLINICAL CONTACTS #####################
-    
-        # clinically active contacts
-        fu3m_activeMEANContacts = STN_average_activeVsInactive_DF.loc[(STN_average_activeVsInactive_DF.session=="fu3m") & (STN_average_activeVsInactive_DF.clinicalUse=="active")]
-        fu12m_activeMEANContacts = STN_average_activeVsInactive_DF.loc[(STN_average_activeVsInactive_DF.session=="fu12m") & (STN_average_activeVsInactive_DF.clinicalUse=="active")]
-        fu18m_activeMEANContacts = STN_average_activeVsInactive_DF.loc[(STN_average_activeVsInactive_DF.session=="fu18m") & (STN_average_activeVsInactive_DF.clinicalUse=="active")]
-
-        describe_arrays["fu3m_active_MEANranks"] = scipy.stats.describe(fu3m_activeMEANContacts.MEAN_beta_rank.values)
-        describe_arrays["fu12m_active_MEANranks"] = scipy.stats.describe(fu12m_activeMEANContacts.MEAN_beta_rank.values)
-        describe_arrays["fu18m_active_MEANranks"] = scipy.stats.describe(fu18m_activeMEANContacts.MEAN_beta_rank.values)
-
-        describe_arrays["fu3m_active_MEANpsd"] = scipy.stats.describe(fu3m_activeMEANContacts.MEAN_beta_psd.values)
-        describe_arrays["fu12m_active_MEANpsd"] = scipy.stats.describe(fu12m_activeMEANContacts.MEAN_beta_psd.values)
-        describe_arrays["fu18m_active_MEANpsd"] = scipy.stats.describe(fu18m_activeMEANContacts.MEAN_beta_psd.values)
-
-        # clinically inactive contacts
-        fu3m_inactiveMEANContacts = STN_average_activeVsInactive_DF.loc[(STN_average_activeVsInactive_DF.session=="fu3m") & (STN_average_activeVsInactive_DF.clinicalUse=="inactive")]
-        fu12m_inactiveMEANContacts = STN_average_activeVsInactive_DF.loc[(STN_average_activeVsInactive_DF.session=="fu12m") & (STN_average_activeVsInactive_DF.clinicalUse=="inactive")]
-        fu18m_inactiveMEANContacts = STN_average_activeVsInactive_DF.loc[(STN_average_activeVsInactive_DF.session=="fu18m") & (STN_average_activeVsInactive_DF.clinicalUse=="inactive")]
+        # add another column with session and clinical aggregated for statistical tests (Annotatator)
+        data_MonoBeta8Ranks["session_clinicalUse"] = data_MonoBeta8Ranks[["session", "clinicalUse"]].agg('_'.join, axis=1)
 
 
-        describe_arrays["fu3m_inactive_MEANranks"] = scipy.stats.describe(fu3m_inactiveMEANContacts.MEAN_beta_rank.values)
-        describe_arrays["fu12m_inactive_MEANranks"] = scipy.stats.describe(fu12m_inactiveMEANContacts.MEAN_beta_rank.values)
-        describe_arrays["fu18m_inactive_MEANranks"] = scipy.stats.describe(fu18m_inactiveMEANContacts.MEAN_beta_rank.values)
 
-        describe_arrays["fu3m_inactive_MEANpsd"] = scipy.stats.describe(fu3m_inactiveMEANContacts.MEAN_beta_psd.values)
-        describe_arrays["fu12m_inactive_MEANpsd"] = scipy.stats.describe(fu12m_inactiveMEANContacts.MEAN_beta_psd.values)
-        describe_arrays["fu18m_inactive_MEANpsd"] = scipy.stats.describe(fu18m_inactiveMEANContacts.MEAN_beta_psd.values)
+    ##################### PERFORM MANN-WHITNEY TEST  #####################
+
+    ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+    ses_clinicalUse_wilcoxon= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18m_active", "fu18m_inactive")]
+    pairs = list(combinations(ses_clinicalUse, 2))
+    all_results_mwu = []
+    describe_arrays = {}
+
+    # pair = tuple e.g. fu3m_active, fu3m_inactive
+    # for pair in pairs:
+    for s_c_wcx in ses_clinicalUse_wilcoxon:
+
+        firstInPair = data_MonoBeta8Ranks.loc[(data_MonoBeta8Ranks.session_clinicalUse == s_c_wcx[0])]
+        secondInPair = data_MonoBeta8Ranks.loc[(data_MonoBeta8Ranks.session_clinicalUse == s_c_wcx[1])]
+
+        if rank_or_psd == "rank":
+            if singleContacts_or_average == "singleContacts":
+                firstInPair = np.array(firstInPair.Rank8contacts.values)
+                secondInPair = np.array(secondInPair.Rank8contacts.values)
 
             
+            elif singleContacts_or_average == "averageContacts":
+                firstInPair = np.array(firstInPair.MEAN_beta_rank.values)
+                secondInPair = np.array(secondInPair.MEAN_beta_rank.values)
+
+        elif rank_or_psd == "rawPsd":
+            if singleContacts_or_average == "singleContacts":
+                firstInPair = np.array(firstInPair.averaged_monopolar_PSD_beta.values)
+                secondInPair = np.array(secondInPair.averaged_monopolar_PSD_beta.values)
+
+            
+            elif singleContacts_or_average == "averageContacts":
+                firstInPair = np.array(firstInPair.MEAN_beta_psd.values)
+                secondInPair = np.array(secondInPair.MEAN_beta_psd.values)
+
+        
+        # Perform Mann-Whitney Test
+        results_mwu = pg.wilcoxon(firstInPair, secondInPair) # pair is always a tuple, comparing first and second component of this tuple
+        results_mwu[f'comparison_{rank_or_psd}_{singleContacts_or_average}'] = '_'.join(s_c_wcx) # new column "comparison" with the pair being compared e.g. fu3m_active and fu3m_inactive
+
+        all_results_mwu.append(results_mwu)
+
+    significance_results = pd.concat(all_results_mwu)
+
+
+
+    ##################### GET STATISTICAL IMPORTANT FEATURES #####################
+    # describe all 6 groups
+    for s_c in ses_clinicalUse:
+
+        # get array of each group
+        group = data_MonoBeta8Ranks.loc[(data_MonoBeta8Ranks.session_clinicalUse == s_c)]
+
+        if rank_or_psd == "rank":
+            if singleContacts_or_average == "singleContacts":
+                group = np.array(group.Rank8contacts.values)
+
+            
+            elif singleContacts_or_average == "averageContacts":
+                group = np.array(group.MEAN_beta_rank.values)
+
+        elif rank_or_psd == "rawPsd":
+            if singleContacts_or_average == "singleContacts":
+                group = np.array(group.averaged_monopolar_PSD_beta.values)
+
+            
+            elif singleContacts_or_average == "averageContacts":
+                group = np.array(group.MEAN_beta_psd.values)
+
+        description = scipy.stats.describe(group)
+
+        describe_arrays[f"{s_c}_{rank_or_psd}_{singleContacts_or_average}"] = description
+
+    description_results = pd.DataFrame(describe_arrays)
+    description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_results = description_results.transpose()
+
+
+    ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
+
+    results_dictionary = {
+        "significance_results": significance_results,
+        "description_results": description_results
+    }
+
+    # save as pickle
+    results_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_statistics_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.pickle")
+    with open(results_filepath, "wb") as file:
+        pickle.dump(results_dictionary, file)    
+    
+
+
 
 
     ##################### PLOT VIOLINPLOT OF RANKS OR RAWPSD OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
@@ -333,52 +369,46 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
 
 
 
-    fig =plt.figure()
+    fig=plt.figure()
+    ax = fig.add_subplot()
 
-    ax = sns.violinplot(data=data_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", palette="Set2", inner="box")
-    ax = sns.stripplot(
+    # sns.violinplot(data=data_MonoBeta8Ranks, x="session_clinicalUse", y=y_values, hue="clinicalUse", palette="Set2", inner="box", ax=ax)
+    sns.violinplot(data=data_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", palette="Set3", inner="box", ax=ax)
+    
+    # statistical test
+    # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+    # pairs = list(combinations(ses_clinicalUse, 2))
+
+    # annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session_clinicalUse', y=y_values)
+    # annotator.configure(test='Wilcoxon', text_format='star')
+    # annotator.apply_and_annotate()
+    
+    sns.stripplot(
         data=data_MonoBeta8Ranks,
         x="session",
         y=y_values,
         hue="clinicalUse",
-        size=7,
+        ax=ax,
+        size=6,
         color="black",
         alpha=0.4, # Transparency of dots
         dodge=True, # datapoints of groups active, inactive are plotted next to each other
     )
-    ax = sns.despine(left=True, bottom=True) # get rid of figure frame
+    
+    sns.despine(left=True, bottom=True) # get rid of figure frame
 
-    # statistical test
-    order= ["fu3m", "fu12m", "fu18m"]
-    groups_to_compare = ["inactive", "active"]
-    pairs = list(combinations(order, 2))
-
-    annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session', y=y_values)
-    annotator.configure(test='Wilcoxon', text_format='star')
-    annotator.apply_and_annotate()
+   
 
     plt.title(title)
     plt.ylabel(y_label)
     plt.ylim(y_lim)
     plt.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
 
-
-
-    # save statistical information in Dataframe
-    statistics_Dataframe = pd.DataFrame(describe_arrays)
-    statistics_Dataframe.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
-    statistics_Dataframe = statistics_Dataframe.transpose()
-
     
     fig.savefig(figures_path + f"\\ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.png", bbox_inches="tight")
 
-    # save as pickle
-    statistics_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_statistics_{freqBand}_{singleContacts_or_average}.pickle")
-    with open(statistics_filepath, "wb") as file:
-        pickle.dump(statistics_Dataframe, file)
-
-
-    # save dictionaries
+    
+    # save Dataframe with data 
     ClinicalActiveVsNonactiveContacts_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_{freqBand}_{singleContacts_or_average}.pickle")
     with open(ClinicalActiveVsNonactiveContacts_filepath, "wb") as file:
         pickle.dump(data_MonoBeta8Ranks, file)
@@ -388,7 +418,7 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
 
     
     print("new files: ", f"ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.pickle",
-          f"\nand: ClinicalActiveVsNonactiveContacts_statistics_{freqBand}_{singleContacts_or_average}.pickle",
+          f"\nand: ClinicalActiveVsNonactiveContacts_statistics_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.pickle",
           "\nwritten in in: ", results_path,
           f"\nnew figure: ClinicalActiveVsNonactiveContacts_{freqBand}_{rank_or_psd}_{singleContacts_or_average}.png",
           "\nwritten in: ", figures_path)
@@ -397,7 +427,9 @@ def correlateActiveClinicalContacts_monopolarPSDRanks(
 
     return {
         "data_MonoBeta8Ranks": data_MonoBeta8Ranks,
-        "statistics_Dataframe": statistics_Dataframe, 
+        "description_results": description_results, 
+        "significance_results": significance_results
+
     }
 
 
