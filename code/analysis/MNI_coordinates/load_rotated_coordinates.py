@@ -115,9 +115,9 @@ def calculate_mean_coordinates_bipolarRecordings(incl_sub:list, coordinates:str)
         - reco_scrf
         - reco_mni 
 
-    Write an Excel file: SenSightElectrode_coordinates.xlsx into imagingData folder
+    Write an Excel file: SenSightElectrode_MEANcoordinates_{coordinates}.xlsx into imagingData folder
 
-    watchout !! sub017 and sub034 only have native coordinates !! scrf and native coordinates are missing
+    watchout !! sub019 and sub034 only have native coordinates !! scrf and native coordinates are missing
     
     """
 
@@ -227,11 +227,12 @@ def calculate_mean_coordinates_bipolarRecordings(incl_sub:list, coordinates:str)
     contact_list = ["0", "1A", "1B", "1C", "2A", "2B", "2C", "3"]
     reco_concat["electrode_contact"] = contact_list * repeat # now there is a column with contact information
 
+
     recording_montage_list = ["0_3", "1_3", "0_2", "1_2", "0_1", "2_3", "1A_1B", "1B_1C", "1A_1C", "2A_2B", "2B_2C", "2A_2C", "1A_2A", "1B_2B", "1C_2C"]
 
     # calculate the mean coordinate between contacts per recording montage
 
-        
+
     x_val = {}
     y_val = {}
     z_val = {}
@@ -308,6 +309,21 @@ def calculate_mean_coordinates_bipolarRecordings(incl_sub:list, coordinates:str)
 
     # add columns subject_hemisphere and recording montage to dataframe
     mean_xyz_coord["subject_hemisphere_recording"] = sub_hem_rec_tocolumn  
+
+    # add 2 columns specifying the montageType: montageType_regular, montageType_specific 
+    montageType_regular = ["circular", "circular", "circular", "circular", "circular", "circular",
+                           "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel",
+                           "segm_interlevel", "segm_interlevel", "segm_interlevel"]
+    
+    montageType_specific = ["circular_ring_ring", "circular_ring_segm_long", "circular_ring_segm_long", 
+                            "circular_segm_segm", "circular_ring_segm_short", "circular_ring_segm_short",
+                            "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel",
+                            "segm_interlevel", "segm_interlevel", "segm_interlevel"] 
+    
+    mean_xyz_coord["montageType_regular"] = montageType_regular * repeat
+    mean_xyz_coord["montageType_specific"] = montageType_specific * repeat
+
+
 
 
     # merge 2 dataframes: mean coordinates and psd together
