@@ -636,13 +636,13 @@ def PsdAverage_specificRingSegmGroups(
             # legend should only be shown in first plot
             plt.legend(loc= "upper right", bbox_to_anchor=(1.3, 1), fontsize=20, prop={"size":20})
 
-            if group == "SegmIntra":
-                plt.legend().remove()
+            # if group == "SegmIntra":
+            #     plt.legend().remove()
             
-            elif group == "SegmInter":
-                plt.legend().remove()
+            # elif group == "SegmInter":
+            #     plt.legend().remove()
             
-
+            plt.legend().remove()
     
             # y label depends on normalization:
             if normalization == "rawPsd":
@@ -665,6 +665,22 @@ def PsdAverage_specificRingSegmGroups(
             plt.xlabel("session", fontdict={"size":25})
             plt.xticks(fontsize= 25), plt.yticks(fontsize= 25)
 
+
+            # y-lim depends on frequency band
+            if f == "alpha":
+                y_lim = -0.5, 8
+            
+            elif f == "beta":
+                y_lim = -0.5, 4
+            
+            elif f == "lowBeta":
+                y_lim = -0.5, 7
+            
+            elif f == "highBeta":
+                y_lim = -0.5, 4
+
+
+            plt.ylim(y_lim)
             
 
 

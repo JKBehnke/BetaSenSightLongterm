@@ -326,7 +326,8 @@ def Permutation_BIPranksRingSegmGroups(
 
 
     ##################### RESTRUCTURE DATAFRAMES AND STORE IN DICTIONARY DF_storage #####################
-    DF_storage = {}
+    DF_storage = {} # this will store single Dataframes stored as values in a dictionary
+    DF_all_in_one = pd.DataFrame() # this will store all Dataframes concatenated together
 
 
     # Permutation test for each channelGroup seperately
@@ -362,10 +363,55 @@ def Permutation_BIPranksRingSegmGroups(
             # add new column "sub_hem_BIPchannel" by aggregating columns
             DF_storage[f"{group_ses}"]["sub_hem_BIPchannel"] = DF_storage[f"{group_ses}"][['subject_hemisphere', 'bipolarChannel']].agg('_'.join, axis=1)
 
+            # add new column: recording_type
+            DF_storage[f"{group_ses}"].insert(0, "recording_type", group)
+
             # drop unnecessary columns
             DF_storage[f"{group_ses}"].drop(columns=["frequencyBand", "absoluteOrRelativePSD", "subject_hemisphere", "bipolarChannel"], inplace=True)
 
 
+            ################### NORMALIZE PSD TO RANK 1 ###################
+            sub_hem_BIPchannel = [] # stores all values from this column
+            sub_hem_all = [] # stores all sub_hem combinations
+            sub_hem_unique = [] # stores only unique sub_hem combinations
+ 
+            
+            # get all values in column "sub_hem_BIPchannel"
+            for idx, row in DF_storage[f"{group_ses}"].iterrows():
+                sub_hem_BIPchannel.append(row["sub_hem_BIPchannel"])
+            
+            # split each string into 4 parts, only extract 0, 1 = sub, hem
+            for c, comb in enumerate(sub_hem_BIPchannel):
+                four_parts_split = comb.split("_")
+
+                sub_hem = "_".join([four_parts_split[0], four_parts_split[1]]) # e.g. 017_Right
+                sub_hem_all.append(sub_hem)
+
+            # now only take unique sub_hem combinations
+            for s_h in sub_hem_all:
+                if s_h not in sub_hem_unique:
+                    sub_hem_unique.append(s_h)
+            
+            # for each unique sub_hem combination - calculate the PSD relative to the ranked 1 beta
+            for s_h_unique in sub_hem_unique:
+
+                df_to_edit = DF_storage[f"{group_ses}"][DF_storage[f"{group_ses}"].sub_hem_BIPchannel.str.contains(s_h_unique)]
+
+                # if rank = 1.0 define averagedPSD value of the same row as beta_rank_1
+                beta_rank_1 = df_to_edit[df_to_edit["rank"] == 1.0] # taking the row containing 1.0 in rank
+                beta_rank_1 = beta_rank_1["averagedPSD"].values[0] # just taking psdAverage of rank 1.0
+                
+                # create a new column and fill the rows by calculating averagedPSD / beta_rank_1
+                df_to_edit_copy = df_to_edit.copy() # somehow copying is needed, otherwise warning
+                df_to_edit_copy["relative_to_rank1"] = df_to_edit_copy.apply(lambda row: row.averagedPSD / beta_rank_1, axis=1) # in each row add to new column psd/beta_rank1
+
+                DF_all_in_one = pd.concat([DF_all_in_one, df_to_edit_copy], ignore_index=True) # all dataframes will be added up together to one big dataframe
+
+
+    # save DF_all_in_one as pickle
+    DF_all_in_one_filepath = os.path.join(results_path, f"BIP_relativeToRankPsd_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(DF_all_in_one_filepath, "wb") as file:
+        pickle.dump(DF_all_in_one, file)
 
     ##################### MERGE DATAFRAMES TO PAIRED DATAFRAMES AND GET DIFFERENCES OF RANKS/psdAverage/peaks #####################
 
@@ -482,6 +528,7 @@ def Permutation_BIPranksRingSegmGroups(
         pickle.dump(compareFu12m_Fu18m, file)
     
     print("files: ", 
+          f"BIP_relativeToRankPsd_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",
           f"\nBIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
           f"\nBIPpermutationDF_Postop_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
           f"\nBIPpermutationDF_Postop_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
@@ -494,12 +541,12 @@ def Permutation_BIPranksRingSegmGroups(
 
 
     return {
-        "DF_storage": DF_storage,
+        "DF_all_in_one": DF_all_in_one,
         "comparePostop_Fu3m": comparePostop_Fu3m,
-        "comparePostop_Fu3m": comparePostop_Fu12m,
-        "comparePostop_Fu3m": comparePostop_Fu18m,
+        "comparePostop_Fu12m": comparePostop_Fu12m,
+        "comparePostop_Fu18m": comparePostop_Fu18m,
         "compareFu3m_Fu12m": compareFu3m_Fu12m,
-        "compareFu3m_Fu12m": compareFu3m_Fu18m,
+        "compareFu3m_Fu18m": compareFu3m_Fu18m,
         "compareFu12m_Fu18m": compareFu12m_Fu18m, 
         "mean_differenceOfComparison": mean_differenceOfComparison
     }
