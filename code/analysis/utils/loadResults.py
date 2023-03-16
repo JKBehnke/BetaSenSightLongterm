@@ -320,7 +320,7 @@ def load_BIPpermutationComparisonsPickle(result: str,  freqBand: str, normalizat
     # create Filename out of input for each channel Group
     # example: BIPranksPermutation_dict_peak_beta_rawPsd_band-pass.pickle
 
-    comparison = ["Postop_Fu3m", "Fu3m_Fu12m", "Fu12m_Fu18m"]
+    comparison = ["Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu12m", "Fu3m_Fu18m", "Fu12m_Fu18m"]
 
     res = f"_{result}"
     freq = f"_{freqBand}"

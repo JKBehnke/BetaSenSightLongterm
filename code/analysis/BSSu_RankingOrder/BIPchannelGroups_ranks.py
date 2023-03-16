@@ -207,7 +207,7 @@ def Rank_BIPRingSegmGroups(
 
 
     ###### FROM Rank_channelGroup_dict CREATE FINAL VERSION OF DATAFRAMES CHANNELGROUP_SESSION ######
-
+    
     ranks_channelGroup_session_dictionary = {}
 
     for group in channelGroups:
@@ -279,8 +279,11 @@ def Permutation_BIPranksRingSegmGroups(
 
     3) Merge Dataframes that should be compared, only keep rows with matching sub_hem_BIPchannel values
         - postop - fu3m
+        - postop - fu12m
+        - postop - fu18m
         - fu3m - fu12m
         - fu3m - fu18m
+        - fu12m - fu18m
 
     
 
@@ -367,11 +370,14 @@ def Permutation_BIPranksRingSegmGroups(
     ##################### MERGE DATAFRAMES TO PAIRED DATAFRAMES AND GET DIFFERENCES OF RANKS/psdAverage/peaks #####################
 
     # 3 comparisons for each channel group: store all channel groups in comparison dictionary
-    comparisons = ["comparePostop_Fu3m", "compareFu3m_Fu12m", "compareFu12m_Fu18m"]
+    comparisons = ["comparePostop_Fu3m", "comparePostop_Fu12m", "comparePostop_Fu18m", "compareFu3m_Fu12m", "compareFu3m_Fu18m", "compareFu12m_Fu18m"]
 
     # dictionaries to store DF of each channel Group
     comparePostop_Fu3m = {} # keys: Ring, SegmIntra, SegmInter
+    comparePostop_Fu12m = {}
+    comparePostop_Fu18m = {}
     compareFu3m_Fu12m = {}
+    compareFu3m_Fu18m = {}
     compareFu12m_Fu18m = {}
     mean_differenceOfComparison = {}
 
@@ -380,7 +386,10 @@ def Permutation_BIPranksRingSegmGroups(
 
         # merge DF postop and fu3m, only keep matching rows in column "sub_hem_BIPchannel"
         comparePostop_Fu3m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu3m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        comparePostop_Fu12m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        comparePostop_Fu18m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         compareFu3m_Fu12m[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu3m_Fu18m[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         compareFu12m_Fu18m[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
 
 
@@ -390,10 +399,19 @@ def Permutation_BIPranksRingSegmGroups(
         for c in comparisons:
 
             if c == "comparePostop_Fu3m":
-                comparison_DF = comparePostop_Fu3m[group] 
+                comparison_DF = comparePostop_Fu3m[group]
+
+            elif c == "comparePostop_Fu12m":
+                comparison_DF = comparePostop_Fu12m[group] 
+            
+            elif c == "comparePostop_Fu18m":
+                comparison_DF = comparePostop_Fu18m[group] 
             
             elif c == "compareFu3m_Fu12m":
                 comparison_DF = compareFu3m_Fu12m[group]
+            
+            elif c == "compareFu3m_Fu18m":
+                comparison_DF = compareFu3m_Fu18m[group]
             
             elif c == "compareFu12m_Fu18m":
                 comparison_DF = compareFu12m_Fu18m[group]
@@ -442,18 +460,33 @@ def Permutation_BIPranksRingSegmGroups(
     comparePostop_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(comparePostop_Fu3m_filepath, "wb") as file:
         pickle.dump(comparePostop_Fu3m, file)
+    
+    comparePostop_Fu12m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(comparePostop_Fu12m_filepath, "wb") as file:
+        pickle.dump(comparePostop_Fu12m, file)
+    
+    comparePostop_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(comparePostop_Fu18m_filepath, "wb") as file:
+        pickle.dump(comparePostop_Fu18m, file)
 
     compareFu3m_Fu12m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(compareFu3m_Fu12m_filepath, "wb") as file:
         pickle.dump(compareFu3m_Fu12m, file)
     
+    compareFu3m_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu3m_Fu18m_filepath, "wb") as file:
+        pickle.dump(compareFu3m_Fu18m, file)
+
     compareFu12m_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu12m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(compareFu12m_Fu18m_filepath, "wb") as file:
         pickle.dump(compareFu12m_Fu18m, file)
     
     print("files: ", 
           f"\nBIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
+          f"\nBIPpermutationDF_Postop_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
+          f"\nBIPpermutationDF_Postop_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
           f"\nBIPpermutationDF_Fu3m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
+          f"\nBIPpermutationDF_Fu3m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
           f"\nBIPpermutationDF_Fu12m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",
           "\nwritten in: ", results_path
           )
@@ -463,7 +496,10 @@ def Permutation_BIPranksRingSegmGroups(
     return {
         "DF_storage": DF_storage,
         "comparePostop_Fu3m": comparePostop_Fu3m,
+        "comparePostop_Fu3m": comparePostop_Fu12m,
+        "comparePostop_Fu3m": comparePostop_Fu18m,
         "compareFu3m_Fu12m": compareFu3m_Fu12m,
+        "compareFu3m_Fu12m": compareFu3m_Fu18m,
         "compareFu12m_Fu18m": compareFu12m_Fu18m, 
         "mean_differenceOfComparison": mean_differenceOfComparison
     }

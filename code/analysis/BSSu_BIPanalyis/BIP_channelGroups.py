@@ -356,6 +356,7 @@ def PsdAverage_specificRingSegmGroups(
         ):
     
     """
+    Specific means not all Ring channels are included but only adjacent contact channels (01,12,23)
     Plot the mean PSD average of only specific channels of an electrode within a frequency band (alpha, beta, highBeta, lowBeta)
     in 3 seperate groups: Ring (01,12,23), SegmIntra (highest 3 channels), SegmInter (3 channels)
 

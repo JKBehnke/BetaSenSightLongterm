@@ -28,14 +28,20 @@ def PermutationTest_BIPchannelGroups(
     
     """
     Perform a permutation test 
+    data2permute will choose which file will be loaded: "psdAverage" will load "BIPranksChannelGroup_session_dict_{result}_{freqBand}_{normalization}_{filterSignal}.pickle"
+        - for all channel groups: Ring, SegmIntra, SegmInter
+        - rawPsd and band-pass filtered data defined in this code
 
+    Watchout: only works for "ranks" as data2permute so far!!!!
+        
     Input: 
         - data2permute: str e.g. "psdAverage",  "peak"
         - filterSignal: str e.g. "band-pass"
         - normalization: str e.g. "rawPsd"
         - freqBand: str e.g. "beta"
     
-    Watchout: only works for "ranks" as data2permute so far!!!!
+    1) L
+    
 
     """
 
@@ -43,7 +49,7 @@ def PermutationTest_BIPchannelGroups(
     figures_path = find_folders.get_local_path(folder="GroupFigures")
 
     # 3 comparisons for each channel group
-    comparisons = ["Postop_Fu3m", "Fu3m_Fu12m", "Fu12m_Fu18m"]
+    comparisons = ["Postop_Fu3m", "Fu3m_Fu12m", "Fu12m_Fu18m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu18m"]
     channelGroups = ["Ring", "SegmInter", "SegmIntra"]
     Ring_channels = ["12", "01", "23"]
     SegmIntra_channels = ["1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C",]
@@ -51,6 +57,7 @@ def PermutationTest_BIPchannelGroups(
 
 
     ################# LOAD THE COMPARISON DATAFRAMES #################
+    # load files: "BIPranksChannelGroup_session_dict_{result}_{freqBand}_{normalization}_{filterSignal}.pickle"
     BIPcomparison_data = loadResults.load_BIPpermutationComparisonsPickle(
         result=data2permute,
         freqBand=freqBand,
