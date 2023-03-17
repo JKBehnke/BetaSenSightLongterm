@@ -71,6 +71,48 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
     return data
 
 
+def load_BIPChannelGroups_ALL(freqBand:str, normalization:str, signalFilter:str):
+
+    """
+    Loads pickle file from Group Results folder
+    filename example: "BIPChannelGroups_ALL_{freqBand}_{normalization}_{signalFilter}.pickle"
+
+    """
+    # Error check: 
+    # Error if sub str is not exactly 3 letters e.g. 024
+    assert freqBand in [ "beta", "highBeta", "lowBeta"], f'Result ({freqBand}) INCORRECT' 
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create Filename out of input for each channel Group
+    # example: BIPranksPermutation_dict_peak_beta_rawPsd_band-pass.pickle
+
+    norm = f"_{normalization}"
+    filt = f"_{signalFilter}.pickle"
+
+    
+    string_list = ["BIPChannelGroups_ALL_", freqBand, norm, filt]
+    filename = "".join(string_list)
+    print("pickle file loaded: ",filename, "\nloaded from: ", local_results_path)
+
+    filepath = os.path.join(local_results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    return data
+
+
+
+
+
+
+
+
+
+
+
 def load_PSDresultCSV(sub: str, psdMethod: str, normalization: str, hemisphere: str, filter: str):
 
     """
@@ -193,7 +235,7 @@ def load_freqBandsCSV(sub: str, parameters: str, normalization: str, hemisphere:
 def load_BIPchannelGroupsPickle(result: str,  channelGroup: list, normalization: str, filterSignal: str):
 
     """
-    Reads pickle file written with functions in BIP_channelGroups.py 
+    Reads pickle file written with functions in BIP_channelGroups.py -> filename e.g. BIPpsdAverage_Ring_{normalization}_{signalFilter}.pickle
 
     Input:
         - result = str "psdAverage", "peak"
@@ -248,7 +290,8 @@ def load_BIPchannelGroupsPickle(result: str,  channelGroup: list, normalization:
 def load_BIPchannelGroup_sessionPickle(result: str,  freqBand: str, normalization: str, filterSignal: str):
 
     """
-    Reads pickle file written with function Rank_BIPRingSegmGroups() in BIPchannelGroups_ranks.py 
+    Reads pickle file written with function Rank_BIPRingSegmGroups() in BIPchannelGroups_ranks.py
+    -> filename: BIPranksChannelGroup_session_dict_{result}_{freqBand}_{normalization}_{filterSignal}.pickle 
 
     Input:
         - result = str "psdAverage", "peak"

@@ -276,8 +276,13 @@ def Permutation_BIPranksRingSegmGroups(
         'SegmIntra_postop', 'SegmIntra_fu3m', 'SegmIntra_fu12m', 'SegmIntra_fu18m')
 
         - each Dataframe will be changed, so only 3 columns are left: "session", "rank", "averagedPSD", "sub_hem_BIPchannel"
+    
+    3) Add column to Dataframe with calculation of relative PSD to rank1 Psd:
+        - e.g. Ring Group: 01 = rank1
+        - calculate for each psd of one subject hemisphere: PSD / PSD of rank1 -> rank1 is always 1 (100%)
+        - for all other channels the relative amount compared to rank 1 PSD will be given -> this gives more detailed information on the distribution of beta 
 
-    3) Merge Dataframes that should be compared, only keep rows with matching sub_hem_BIPchannel values
+    4) Merge Dataframes that should be compared, only keep rows with matching sub_hem_BIPchannel values
         - postop - fu3m
         - postop - fu12m
         - postop - fu18m
@@ -409,7 +414,7 @@ def Permutation_BIPranksRingSegmGroups(
 
 
     # save DF_all_in_one as pickle
-    DF_all_in_one_filepath = os.path.join(results_path, f"BIP_relativeToRankPsd_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    DF_all_in_one_filepath = os.path.join(results_path, f"BIP_relativePsdToRank1_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(DF_all_in_one_filepath, "wb") as file:
         pickle.dump(DF_all_in_one, file)
 
@@ -528,7 +533,7 @@ def Permutation_BIPranksRingSegmGroups(
         pickle.dump(compareFu12m_Fu18m, file)
     
     print("files: ", 
-          f"BIP_relativeToRankPsd_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",
+          f"BIP_relativePsdToRank1_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",
           f"\nBIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
           f"\nBIPpermutationDF_Postop_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 
           f"\nBIPpermutationDF_Postop_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle", 

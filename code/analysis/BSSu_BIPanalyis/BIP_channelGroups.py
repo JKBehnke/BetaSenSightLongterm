@@ -29,7 +29,7 @@ def PsdAverage_RingSegmGroups(
     in 3 seperate groups: Ring (6 channels), SegmIntra (6 channels), SegmInter (3 channels)
 
     Input:
-        - sub: list e.g. ["017", "019", "024", "025", "026", "029", "030"]
+        - sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
         - signalFilter: str "unfiltered", "band-pass"
         - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
         - freqBands: list e.g. ["beta", "highBeta", "lowBeta"]
@@ -321,6 +321,23 @@ def PsdAverage_RingSegmGroups(
             plt.ylabel(ylabel, fontdict={"size":25})
             plt.xlabel("session", fontdict={"size":25})
             plt.xticks(fontsize= 25), plt.yticks(fontsize= 25)
+
+            # # y-lim depends on frequency band
+            # if f == "alpha":
+            #     y_lim = -0.5, 8
+            
+            # elif f == "beta":
+            #     y_lim = -0.5, 4
+            
+            # elif f == "lowBeta":
+            #     y_lim = -0.5, 7
+            
+            # elif f == "highBeta":
+            #     y_lim = -0.5, 4
+
+
+            # plt.ylim(y_lim)
+            
 
             
 

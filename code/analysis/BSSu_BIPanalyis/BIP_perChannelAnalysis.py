@@ -38,7 +38,7 @@ def BIP_channelNormalizedToSession(
     Using classes to extract the PSD values 
 
     Input: 
-        - incl_sub: list, e.g. ["017", "019", "024", "025", "026", "029", "030"]
+        - incl_sub: list, e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
         - normalization: str, e.g. "rawPsd"
         - freqBand: str, e.g. "beta"
         - plot: str, e.g. "plotPerSTN", "plotPerBipolarChannel"
