@@ -104,6 +104,44 @@ def load_BIPChannelGroups_ALL(freqBand:str, normalization:str, signalFilter:str)
     return data
 
 
+def load_BIPChannelGroups_psdRanks_relToRank1(freqBand:str, normalization:str, signalFilter:str):
+
+    """
+    Loads pickle file from Group Results folder
+    filename: "BIPChannelGroups_psdRanks_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle"
+
+    Input:
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBand: list e.g. ["beta", "highBeta", "lowBeta"]
+
+
+    """
+    # Error check: 
+    # Error if sub str is not exactly 3 letters e.g. 024
+    assert freqBand in [ "beta", "highBeta", "lowBeta"], f'Result ({freqBand}) INCORRECT' 
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create Filename out of input for each channel Group
+    # example: BIPranksPermutation_dict_peak_beta_rawPsd_band-pass.pickle
+
+    norm = f"_{normalization}"
+    filt = f"_{signalFilter}.pickle"
+
+    
+    string_list = ["BIPChannelGroups_psdRanks_relToRank1_", freqBand, norm, filt]
+    filename = "".join(string_list)
+    print("pickle file loaded: ",filename, "\nloaded from: ", local_results_path)
+
+    filepath = os.path.join(local_results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    return data
+
 
 
 

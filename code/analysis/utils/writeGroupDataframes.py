@@ -225,7 +225,7 @@ def write_BIPChannelGroups_psdRanks_relToRank1(
 ):
 
     """
-    Read from existing picklefile "BIPChannelGroups_ALL_{freqBand}_{normalization}_{signalFilter}.pickle" 
+    Read from existing pickle file "BIPChannelGroups_ALL_{freqBand}_{normalization}_{signalFilter}.pickle" 
         - session
         - subject_hemisphere
         - absoluteOrRelativePSD
@@ -248,6 +248,7 @@ def write_BIPChannelGroups_psdRanks_relToRank1(
         - unique session from each single STN DF
 
     3) adds column "rank" with ranks of freq_psd within each filtered DF
+        - ranks within Rings (01, 12, 23), SegmIntra and SegmInter seperately
 
     3) adds column "relativePSD_to_{freqBand}_Rank1" 
         - calculates relative PSD to beta rank 1 within each group (rank1 PSD = 1.0)
@@ -348,6 +349,120 @@ def write_BIPChannelGroups_psdRanks_relToRank1(
         "psdRank_and_relative_dataframe": psdRank_and_relative_dataframe
 
     }
+
+
+
+
+def write_GroupMonopolar_weightedPsdCoordinateDistance_relToRank1(
+        incl_sub: list,
+        signalFilter: str,
+        normalization: str,
+        freqBand: str
+):
+
+    """
+    Read from existing pickle file "sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle"
+    coumns:
+        - index (=Contact)
+        - coord_z
+        - coord_xy
+        - subject_hemisphere
+        - session
+        - averaged_monopolar_PSD_beta
+        - rank
+    
+    Input:
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBand: str e.g. "beta", "highBeta", "lowBeta"
+
+    1) Load for each subject, hemisphere and session single Dataframes from the given pickle file
+    
+    2) from index -> add new column with contacts "contact"
+
+    2) add new column:  "relativePSD_to_{freqBand}_Rank1"
+        - calculates relative PSD to beta rank 1 within each group (rank1 PSD = 1.0)
+        - adds relative PSD value to each row accordingly 
+    
+    3) concatenate all dataframes from single subject_hemispheres at single sessions together
+
+  
+    Output: 
+        - saving Dataframe as .pickle file
+        filename: "GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle"
+    
+    """
+
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    hemispheres = ["Right", "Left"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+
+    relToRank1_dataframe = pd.DataFrame()
+
+    for sub in incl_sub:
+
+        for hem in hemispheres:
+
+            # load the pickle file "sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle 
+            # from each subject folder
+            sub_hem_result = loadResults.load_monoRef_weightedPsdCoordinateDistance_pickle(
+                sub=sub,
+                hemisphere=hem,
+                freqBand=freqBand,
+                normalization=normalization,
+                filterSignal=signalFilter
+            )
+
+            for ses in sessions:
+
+                # check if session exists for a subject
+                sub_session_keys = list(sub_hem_result.keys()) # list of fu3m_monopolar_Dataframe, fu12m_bipolar_Dataframe
+                combined_sub_session_keys = "_".join(sub_session_keys)
+
+                if ses not in combined_sub_session_keys:
+                    continue
+                
+
+                # load the Dataframe of a single session from the given subject hemisphere
+                session_DF = sub_hem_result[f"{ses}_monopolar_Dataframe"]
+
+                # add a column "contact" from the indeces values
+                session_DF = session_DF.rename_axis("contact").reset_index()
+                session_DF_copy = session_DF.copy()
+
+                # add column with PSD relative to rank 1 PSD to DF
+                # if rank = 1.0 define averagedPSD value of the same row as beta_rank_1
+                beta_rank_1 = session_DF_copy[session_DF_copy["rank"] == 1.0] # taking the row containing 1.0 in rank
+                beta_rank_1 = beta_rank_1[f"averaged_monopolar_PSD_{freqBand}"].values[0] # just taking psdAverage of rank 1.0
+
+                session_DF_copy[f"relativePSD_to_{freqBand}_Rank1"] = session_DF_copy.apply(lambda row: row[f"averaged_monopolar_PSD_{freqBand}"] / beta_rank_1, axis=1) # in each row add to new value psd/beta_rank1
+
+                
+                # concatenate all dataframes together
+                relToRank1_dataframe = pd.concat([relToRank1_dataframe, session_DF_copy], ignore_index=True)
+    
+    ### save the Dataframes with pickle 
+    relToRank1_dataframe_filepath = os.path.join(results_path, f"monopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle")
+    with open(relToRank1_dataframe_filepath, "wb") as file:
+        pickle.dump(relToRank1_dataframe, file)
+    
+    print("file: ", 
+          f"BIPChannelGroups_psdRanks_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle",
+          "\nwritten in: ", results_path)
+
+    return relToRank1_dataframe
+
+
+
+
+
+
+
+
 
 
 
