@@ -390,7 +390,7 @@ def write_GroupMonopolar_weightedPsdCoordinateDistance_relToRank1(
   
     Output: 
         - saving Dataframe as .pickle file
-        filename: "GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle"
+        filename: GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle
     
     """
 
@@ -446,12 +446,12 @@ def write_GroupMonopolar_weightedPsdCoordinateDistance_relToRank1(
                 relToRank1_dataframe = pd.concat([relToRank1_dataframe, session_DF_copy], ignore_index=True)
     
     ### save the Dataframes with pickle 
-    relToRank1_dataframe_filepath = os.path.join(results_path, f"monopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle")
+    relToRank1_dataframe_filepath = os.path.join(results_path, f"GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle")
     with open(relToRank1_dataframe_filepath, "wb") as file:
         pickle.dump(relToRank1_dataframe, file)
     
     print("file: ", 
-          f"BIPChannelGroups_psdRanks_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle",
+          f"GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle",
           "\nwritten in: ", results_path)
 
     return relToRank1_dataframe

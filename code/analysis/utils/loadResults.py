@@ -507,6 +507,50 @@ def load_monoRef_weightedPsdCoordinateDistance_pickle(
     return data
 
 
+
+def load_GroupMonoRef_weightedPsdCoordinateDistance_pickle(
+        freqBand: str,
+        normalization: str,
+        filterSignal: str,
+        ):
+
+    """
+    Reads Pickle file from the subjects results folder: 
+        - "GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_{freqBand}_{normalization}_{signalFilter}.pickle"
+    
+
+    Input:
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBand: str e.g. "beta", "highBeta", "lowBeta"
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder of a subject
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    norm = f"_{normalization}"
+    filt = f"_{filterSignal}.pickle"
+
+    string_list = ["GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_", freqBand, norm, filt]
+    filename = "".join(string_list)
+
+    filepath = os.path.join(results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", results_path)
+
+    return data
+
+
+
+
 def load_monoRef_JLB_pickle(
         sub: str,
         hemisphere: str,
