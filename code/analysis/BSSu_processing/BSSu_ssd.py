@@ -15,22 +15,21 @@ import sklearn
 from sklearn.preprocessing import normalize
 
 import json
+import pickle
 import os
 import mne
 
 # PyPerceive Imports
 import PerceiveImport.classes.main_class as mainclass
-import PerceiveImport.methods.find_folders as findfolders
 
 # local analysis functions
+import analysis.utils.find_folders as find_folders
 import analysis.BSSu_processing.feats_ssd as feats_ssd
 
 
 def SSD_filter_groupChannels(
         incl_sub=list, 
-        f_range=tuple,
-
-
+        f_band=str,
 ):
 
     """
@@ -41,6 +40,7 @@ def SSD_filter_groupChannels(
         - f_range = tuple e.g. beta: 13, 35
     
     1) Load the BSSu rest Time domain data of each existing subject, hemisphere, session, and recording group (e.g. right: "RingR", "SegmIntraR", "SegmInterR")
+        - in the Ring Group only choose bipolar recording montages with same distances between contacts (01, 12, 23) --> caveat: probably still not comparable because segmented contacts have higher impedance than circular contacts
 
     2) apply the SSD filter by using feats_ssd.get_SSD_component() function from Jeroen (based on Gunnar Waterstraat's meet Toolbox)
         for each recording group seperately!
@@ -72,6 +72,7 @@ def SSD_filter_groupChannels(
 
     """
 
+    results_path = find_folders.get_local_path(folder="GroupResults")
 
     # load the PSD data with classes
     hemisphere =["Right", "Left"]
@@ -82,9 +83,21 @@ def SSD_filter_groupChannels(
     rec_group_input_array={}
     SSD_results_storage = {}
 
+    # set the frequency range depending on the f_band of interest
+    if f_band == "beta":
+        f_range = [13,35]
+
+    elif f_band == "lowBeta":
+        f_range = [13,20]
+    
+    elif f_band == "highBeta":
+        f_range = [21,35]
+    
+
+
     for sub in incl_sub:
 
-        sub_results_path = findfolders.get_local_path(folder="figures", sub=sub) 
+        sub_results_path = find_folders.get_local_path(folder="figures", sub=sub) 
 
         for hem in hemisphere:
             if hem == "Right":
@@ -131,6 +144,14 @@ def SSD_filter_groupChannels(
 
                         # Time domain arrays of all channels in a recording group                
                         rec_group_data = timedomain_data.get_data() # 2D array of all rec channels in a rec group
+
+                        # for Ring contacts only choose channels with adjacent contacts (01,12,23)
+                        if (recording_group == "RingR" or recording_group == "RingL"):
+
+                            rec_group_data = rec_group_data[[3,4,5], :]
+                            ch_names = ch_names[3:6]
+
+
                         rec_group_input_array[f"{sub}_{hem}_{ses}_{cond}_{recording_group}"] = rec_group_data
 
                         # apply SSD filter on time domain of each recording group
@@ -181,11 +202,22 @@ def SSD_filter_groupChannels(
 
                         fig.savefig(sub_results_path + f"\\sub-{sub}_{hem}_SSD_firstComponent_PowerSpectrum_{ses}_{recording_group}")
 
+                        plt.close()
+
                     
 
     SSD_results_Dataframe = pd.DataFrame(SSD_results_storage)
     SSD_results_Dataframe.rename(index={0:"subject", 1:"hemisphere", 2:"session", 3:"recording_group", 4:"bipolarChannel", 5:"ssd_filtered_timedomain", 6:"ssd_pattern", 7:"ssd_eigvals"}, inplace=True)
     SSD_results_Dataframe = SSD_results_Dataframe.transpose()
+
+    ### save the Dataframes with pickle 
+    SSD_results_Dataframe_filepath = os.path.join(results_path, f"SSD_results_Dataframe_{f_band}.pickle")
+    with open(SSD_results_Dataframe_filepath, "wb") as file:
+        pickle.dump(SSD_results_Dataframe, file)
+    
+    print("file: ", 
+          f"SSD_results_Dataframe_{f_band}.pickle",
+          "\nwritten in: ", results_path)
 
     return SSD_results_Dataframe
 
