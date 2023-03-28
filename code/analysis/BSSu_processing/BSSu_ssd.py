@@ -67,7 +67,7 @@ def SSD_filter_groupChannels(
         - ssd_eigvals
     
     TODO: 
-        - add the weights of each channel in the plots
+        - xticks and yticks too small
         - add new functionality to filter SSD for all 15 bipolar channels?? useful??
 
     """
@@ -86,12 +86,18 @@ def SSD_filter_groupChannels(
     # set the frequency range depending on the f_band of interest
     if f_band == "beta":
         f_range = [13,35]
+        axvline_low = 13
+        axvline_high = 35
 
     elif f_band == "lowBeta":
         f_range = [13,20]
+        axvline_low = 13
+        axvline_high = 20
     
     elif f_band == "highBeta":
         f_range = [21,35]
+        axvline_low = 21
+        axvline_high = 35
     
 
 
@@ -163,27 +169,31 @@ def SSD_filter_groupChannels(
                                         use_freqBand_filtered=True, 
                                         return_comp_n=0, ) 
                         
+                        # Figure with 2 subplots (2 rows, 1 column)
+                        fig, axes = plt.subplots(2, 1, figsize=(10,15))
+
                         # store SSD outcome in Dataframe
                         for c, chan in enumerate(ch_names):
-                            SSD_results_storage[f"{sub}_{hem}_{ses}_{chan}"] = [sub, hem, ses, recording_group, chan, ssd_filt_data, ssd_pattern[0][c], ssd_eigvals[c]]
+                            # shorten the channel names, only take the str of contacts 
+                            long_ch_names = chan.split("_") # e.g. 'LFP_R_12_STN_MT'
+                            contacts = long_ch_names[2]
+
+
+                            SSD_results_storage[f"{sub}_{hem}_{ses}_{chan}"] = [sub, hem, ses, recording_group, contacts, ssd_filt_data, ssd_pattern[0][c], ssd_eigvals[c]]
                             # ssd_filt_data is ssd filtered time domain of a channel
                             # ssd_pattern[0] is weight of a channel, contributing to FIRST component 
 
-                        # Figure with 2 subplots (2 rows, 1 column)
-                        fig, axes = plt.subplots(2, 1, figsize=(10,15))
-                        
-                        # plot the PSD channels in a recording group
-                        for c, chan in enumerate(ch_names):
-
                             f_raw, psd_raw = signal.welch(rec_group_data[c], axis=-1, nperseg=sfreq, fs=sfreq) 
 
-                            axes[0].plot(f_raw, psd_raw, label=f"{chan}_ssd_pattern_{ssd_pattern[0][c]}")        
-                            axes[0].set_title(f'Power Spectra {recording_group}: sub{sub} {hem} hemisphere, {ses}')
+                            axes[0].plot(f_raw, psd_raw, label=f"BIP_{contacts}_ssd_pattern_{ssd_pattern[0][c]}")        
+                            axes[0].set_title(f'Power Spectra {recording_group}: sub{sub} {hem} hemisphere, {ses}', fontsize=20)
                             axes[0].set_xlim(0, 100) 
-                            axes[0].set_xlabel("Frequency")
-                            axes[0].set_ylabel("PSD [uV^2/Hz]")
-                            axes[0].axvline(x=13, color='black', linestyle='--')
-                            axes[0].axvline(x=35, color='black', linestyle='--')
+                            axes[0].set_xlabel("Frequency", fontsize=20)
+                            axes[0].set_ylabel("PSD [uV^2/Hz]", fontsize=20)
+                            axes[0].set_xticks([0,20,40,60,80,100],fontsize=15)
+                            #axes[0].set_yticks([], fontsize=15)
+                            axes[0].axvline(x=axvline_low, color='black', linestyle='--')
+                            axes[0].axvline(x=axvline_high, color='black', linestyle='--')
                             axes[0].legend()
 
 
@@ -195,12 +205,17 @@ def SSD_filter_groupChannels(
                         axes[1].plot(f, psd) 
                                     
                         axes[1].set_xlim(0, 100)   
-                        axes[1].set_xlabel("Frequency")
-                        axes[1].set_title(f'Power Spectrum of first component: sub{sub} {hem} hemisphere, {ses}, {recording_group}') 
-                        axes[1].axvline(x=13, color='black', linestyle='--')
-                        axes[1].axvline(x=35, color='black', linestyle='--')
+                        axes[1].set_xlabel("Frequency", fontsize=20)
+                        axes[1].set_ylim(-0.005, 0.12)
+                        axes[1].set_title(f'Power Spectrum {f_band} first component', fontsize=20) 
+                        axes[1].set_xticks([0,20,40,60,80,100],fontsize=15)
+                        #axes[1].set_yticks(fontsize=15)
+                        axes[1].axvline(x=axvline_low, color='black', linestyle='--')
+                        axes[1].axvline(x=axvline_high, color='black', linestyle='--')
 
-                        fig.savefig(sub_results_path + f"\\sub-{sub}_{hem}_SSD_firstComponent_PowerSpectrum_{ses}_{recording_group}")
+                        fig.tight_layout()
+
+                        fig.savefig(sub_results_path + f"\\sub-{sub}_{hem}_SSD_{f_band}_firstComponent_PowerSpectrum_{ses}_{recording_group}")
 
                         plt.close()
 

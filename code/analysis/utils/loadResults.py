@@ -601,6 +601,57 @@ def load_monoRef_JLB_pickle(
 
 
 
+def load_SSD_results_pickle(
+        f_band:str
+
+):
+
+    """
+    Reads Pickle file from the group results folder: 
+        - "SSD_results_Dataframe_{f_band}.pickle"
+    
+    
+    loaded file is a Dataframe with columns:
+
+        - subject
+        - hemisphere
+        - session
+        - recording_group (e.g. RingR)
+        - bipolarChannel
+        - ssd_filtered_timedomain (array)
+        - ssd_pattern (weights of a channel contributing to the first component)
+        - ssd_eigvals
+
+
+    Input:
+        - f_band = str, e.g. "beta", "highBeta", "lowBeta"
+        
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    freq = f"_{f_band}.pickle"
+
+    string_list = ["SSD_results_Dataframe", freq]
+    filename = "".join(string_list)
+
+    filepath = os.path.join(results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", results_path)
+
+    return data
+
+
+
 # def load_MonoRef_GroupCSV(normalization: str, hemisphere: str):
 
 #     """
