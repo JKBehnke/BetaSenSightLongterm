@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 from cycler import cycler
 
+import itertools
 import seaborn as sns
 
 
@@ -40,7 +41,30 @@ def PermutationTest_BIPchannelGroups(
         - normalization: str e.g. "rawPsd"
         - freqBand: str e.g. "beta"
     
-    1) L
+    1) Load the comparison dataframes: e.g. BIPpermutationDF_Fu12m_Fu18m_psdAverage_beta_rawPsd_band-pass.pickle
+
+    2) for each comparison ("Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu12m", "Fu3m_Fu18m", "Fu12m_Fu18m")
+        and for each group ("Ring", "SegmInter", "SegmIntra")
+        calculate the MEAN difference of ranks over all STNs
+    
+    3) loop over each STN and shuffle ranks from session x and session y
+        - number of shuffle = 1000
+        - calculate the absolute difference between ranks for each BIP recording
+        - calculate the MEAN of abs differences for each shuffle and store in a list difference_random_MEANranks
+    
+    4) Statistics:
+        calculate the distance of the REAL mean from the mean of all randomized means divided by the standard deviation
+        - distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_MEANranks)) / np.std(difference_random_MEANranks)
+
+        calculate the p-value 
+        - (pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung)
+        - pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
+    
+        
+    5) Plot the distribution of the permutated MEAN values (should be normally distributed)
+        - mark a red line for the REAL MEAN
+        - annotation with the p value
+        - one figure for each comparison: 3 subplots for 3 channel groups
     
 
     """
@@ -82,33 +106,54 @@ def PermutationTest_BIPchannelGroups(
             # calculate the mean of a difference of ranks
             mean_difference = comp_group_DF["Difference_rank_x_y"].mean()
             
-
-            # columns from the dataframe to shuffle 
-            rank_x = list(comp_group_DF.rank_x.values)
-            rank_y = list(comp_group_DF.rank_y.values)
-
-
             ################# CREATE RANDOMLY SHUFFLED ARRAYS OF RANK-X AND RANK-Y #################
+
+            # list of mean differences between shuffled rank_x and rank_y
+            difference_random_MEANranks = []
+
+            # shuffle within STNs!! first get unique list of all STNs within the dataframe
+            STN_channel_list = list(comp_group_DF["sub_hem_BIPchannel"].unique())
+            STN_list = [] # list of unique STNs
+            STN_data = {} # Dataframes of each unique STN
+
+            for STN_channel in STN_channel_list:
+                split = STN_channel.split("_")
+                STN = "_".join([split[0], split[1]]) # e.g. "024_Right"
+                STN_list.append(STN)
+
+            STN_list = list(set(STN_list)) # set() gets the unique values from a list
+            STN_list.sort() # sorts the strings 
 
             # shuffle repetitions: 1000 times
             numberOfShuffle = np.arange(1, 1001, 1)
 
-            # list of mean differences between shuffled rank_x and rank_y
-            difference_random_ranks = []
-
             # repeat shuffle 1000 times
             for s, shuffle in enumerate(numberOfShuffle):
+                difference_random_STN_ranks = [] # list with all differences, will contain lists, so later on need to merge lists to one list
 
-                np.random.shuffle(rank_x)
-                np.random.shuffle(rank_y)
+                for STN in STN_list:
+                    all_STNs = comp_group_DF.copy()
+                    STN_data = all_STNs.loc[(all_STNs["sub_hem_BIPchannel"].str.contains(STN))] # Dataframe only of one STN
 
-                # calculate the mean of the difference between random rank_x and rank_y, store in list
-                difference_random_ranks.append(np.mean(abs(np.array(rank_x) - np.array(rank_y))))
+                    rank_x = list(STN_data.rank_x.values)
+                    rank_y = list(STN_data.rank_y.values)
+
+                    # shuffle within one STN
+                    np.random.shuffle(rank_x)
+                    np.random.shuffle(rank_y)
+
+                    # calculate the difference between random rank_x and rank_y, store in list
+                    difference_random_STN_ranks.append(list(abs(np.array(rank_x) - np.array(rank_y))))
+
+                # one merged list with all differences of one shuffle
+                difference_random_STN_ranks = list(itertools.chain.from_iterable(difference_random_STN_ranks)) 
+
+                # store the MEAN of differences of one shuffle in list
+                difference_random_MEANranks.append(np.mean(difference_random_STN_ranks))
 
 
-            
             # calculate the distance of the real mean from the mean of all randomized means divided by the standard deviation
-            distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_ranks)) / np.std(difference_random_ranks)
+            distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_MEANranks)) / np.std(difference_random_MEANranks)
 
             # calculate the p-value 
             # pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung
@@ -130,7 +175,7 @@ def PermutationTest_BIPchannelGroups(
             # p = norm.pdf(x, mu, std)
             # axes[g].plot(x, p, 'b', linewidth= 2)
 
-            sns.histplot(difference_random_ranks, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
+            sns.histplot(difference_random_MEANranks, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
 
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_difference, c="r")
