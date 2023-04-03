@@ -66,6 +66,10 @@ def PermutationTest_BIPchannelGroups(
         - annotation with the p value
         - one figure for each comparison: 3 subplots for 3 channel groups
     
+    6) save a Dataframe with statistics results
+        - "Permutation_BIP_{data2permute}_{freqBand}_{normalization}_{filterSignal}.pickle"
+        - columns: comparison, channelGroup, MEAN_differenceOfRanks, distanceMEANreal_MEANrandom, p-value
+    
 
     """
 

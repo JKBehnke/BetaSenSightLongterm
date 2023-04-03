@@ -505,9 +505,16 @@ def correlateActiveClinicalContacts_monopolPSDrelToRank1(
             STN_session_data = STN_session_data[STN_session_data["contact"].isin(contacts)]
             STN_session_data["Rank8contacts"] = STN_session_data["averaged_monopolar_PSD_beta"].rank(ascending=False)
             STN_session_data_copy = STN_session_data.copy()
-
-            # session_weightedByCoordinates_copy["subject_hemisphere_monoChannel"] = session_weightedByCoordinates_copy[["subject_hemisphere", "monopolarChannels"]].agg("_".join, axis=1)
             STN_session_data_copy.drop(["rank"], axis=1, inplace=True)
+
+            # calculate the relative PSD to the highest PSD of the 8 remaining contacts
+            beta_rank_1 = STN_session_data_copy[STN_session_data_copy["Rank8contacts"] == 1.0] # taking the row containing 1.0 in rank
+            beta_rank_1 = beta_rank_1[f"averaged_monopolar_PSD_{freqBand}"].values[0] # just taking psdAverage of rank 1.0
+
+            STN_session_data_copy[f"relativePSD_to_{freqBand}_Rank1from8"] = STN_session_data_copy.apply(lambda row: row[f"averaged_monopolar_PSD_{freqBand}"] / beta_rank_1, axis=1) # in each row add to new value psd/beta_rank1
+            STN_session_data_copy.drop([f"relativePSD_to_{freqBand}_Rank1"], axis=1, inplace=True)
+            # session_weightedByCoordinates_copy["subject_hemisphere_monoChannel"] = session_weightedByCoordinates_copy[["subject_hemisphere", "monopolarChannels"]].agg("_".join, axis=1)
+            
 
             weightedByCoordinate_Dataframe = pd.concat([weightedByCoordinate_Dataframe, STN_session_data_copy], ignore_index=True)
 
@@ -604,12 +611,12 @@ def correlateActiveClinicalContacts_monopolPSDrelToRank1(
                 # get average of active contacts
                 STN_session_active = STN_session_dataframe.loc[(STN_session_dataframe.clinicalUse == "active")]
                 MEANrank_active = STN_session_active["Rank8contacts"].values.mean()
-                MEANrelToRank1psd_active = STN_session_active["relativePSD_to_beta_Rank1"].values.mean()
+                MEANrelToRank1psd_active = STN_session_active["relativePSD_to_beta_Rank1from8"].values.mean()
 
                 # get average of inactive contacts
                 STN_session_inactive = STN_session_dataframe.loc[(STN_session_dataframe.clinicalUse == "inactive")]
                 MEANrank_inactive = STN_session_inactive["Rank8contacts"].values.mean()
-                MEANrelToRank1psd_inactive = STN_session_inactive["relativePSD_to_beta_Rank1"].values.mean()
+                MEANrelToRank1psd_inactive = STN_session_inactive["relativePSD_to_beta_Rank1from8"].values.mean()
 
                 # store MEAN values in dictionary
                 STN_average_activeVsInactiveContacts[f"{STN}_{ses}_active"] = [STN, ses, MEANrank_active, MEANrelToRank1psd_active, "active"]
