@@ -17,6 +17,7 @@ import json
 import os
 
 import py_perceive
+from py_perceive.PerceiveImport.classes import main_class
 from .. utils import find_folders as findfolders
 
 
@@ -100,7 +101,7 @@ def welch_normalizedPsdToTotalSum_seperateTimepoints(incl_sub: str, incl_session
     '1A2A', '1B2B', '1C2C']
     - hemisphere: str e.g. "Right"
 
-    1) load data from mainclass.PerceiveData using the input values.
+    1) load data from main_class.PerceiveData using the input values.
     
     2) band-pass filter by a Butterworth Filter of fifth order (5-95 Hz).
     
@@ -129,7 +130,7 @@ def welch_normalizedPsdToTotalSum_seperateTimepoints(incl_sub: str, incl_session
     # Matplotlib: set the style
     plt.style.use('seaborn-whitegrid')  
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities= ["survey"],
         incl_session = incl_session,
@@ -387,7 +388,7 @@ def welch_normalizedPsdToTotalSum_seperateChannels(incl_sub: str, incl_session: 
     '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
     '1A2A', '1B2B', '1C2C']
 
-    This function will first load the data from mainclass.PerceiveData using the input values.
+    This function will first load the data from main_class.PerceiveData using the input values.
     After loading the data it will calculate and plot the psd of each channel seperately in every timepoint.
     The frequencies and relative psd values will be returned in a Dataframe as a tuple: frequenciesDataFrame, absolutePsdDataFrame
     
@@ -396,7 +397,7 @@ def welch_normalizedPsdToTotalSum_seperateChannels(incl_sub: str, incl_session: 
 
     sns.set()
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities=["survey"],
         incl_session = incl_session,

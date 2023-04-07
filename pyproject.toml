@@ -21,7 +21,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
 ]
 dependencies = [
-  "matplotlib", "mne", "mne-bids", "numpy", "pandas", "pingouin", "py-perceive", "scipy", "seaborn", "statannotations"
+  "matplotlib", "mne", "mne-bids", "numpy", "pandas", "pingouin", "py-perceive", "scipy", "seaborn", "statannotations", "openpyxl", "pymatreader"
 ]
 
 [project.urls]

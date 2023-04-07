@@ -20,6 +20,7 @@ import mne
 
 # PyPerceive Imports
 import py_perceive
+from py_perceive.PerceiveImport.classes import main_class
 from .. utils import find_folders as findfolders
 
 
@@ -107,7 +108,7 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
         - hemisphere: str e.g. "Right"
        
     
-    1) load data from mainclass.PerceiveData using the input values.
+    1) load data from main_class.PerceiveData using the input values.
     
     2) band-pass filter by a Butterworth Filter of fifth order (5-95 Hz).
 
@@ -119,7 +120,7 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
     # sns.set()
     # plt.style.use('seaborn-whitegrid')  
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities= ["survey"],
         incl_session = incl_session,

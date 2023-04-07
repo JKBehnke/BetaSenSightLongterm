@@ -14,6 +14,7 @@ from scipy.signal import hann
 
 # PyPerceive Imports
 import py_perceive
+from py_perceive.PerceiveImport.classes import main_class
 from .. utils import find_folders as findfolders
 
 def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pickChannels: list, hemisphere: str, filter: str):
@@ -32,7 +33,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
         - filter: str "unfiltered", "band-pass"
 
     
-    1) load data from mainclass.PerceiveData using the input values.
+    1) load data from main_class.PerceiveData using the input values.
 
     2) pick channels
     
@@ -90,7 +91,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
         incl_contact["Left"] = ["RingL", "SegmIntraL", "SegmInterL"]
 
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities= ["survey"],
         incl_session = incl_session,
@@ -622,7 +623,7 @@ def spectrogram_Psd_onlyONEsession(incl_sub: str, incl_session: list, incl_condi
         - filter: str "unfiltered", "band-pass"
 
     
-    1) load data from mainclass.PerceiveData using the input values.
+    1) load data from main_class.PerceiveData using the input values.
 
     2) pick channels
     
@@ -680,7 +681,7 @@ def spectrogram_Psd_onlyONEsession(incl_sub: str, incl_session: list, incl_condi
         incl_contact["Left"] = ["RingL", "SegmIntraL", "SegmInterL"]
 
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities= ["survey"],
         incl_session = incl_session,
@@ -1178,7 +1179,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
                         SegmInter: ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
     
-    1) load data from mainclass.PerceiveData using the input values.
+    1) load data from main_class.PerceiveData using the input values.
 
     2) Pick channels
     
@@ -1217,7 +1218,7 @@ def absoluteSpectrogram_Psd_noFilter(incl_sub: str, incl_session: list, incl_con
     # sns.set()
     # plt.style.use('seaborn-whitegrid')  
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities= ["survey"],
         incl_session = incl_session,

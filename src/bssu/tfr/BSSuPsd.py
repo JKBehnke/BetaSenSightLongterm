@@ -17,6 +17,7 @@ import mne
 
 # PyPerceive Imports
 import py_perceive
+from py_perceive.PerceiveImport.classes import main_class
 from .. utils import find_folders as find_folders
 
 
@@ -105,7 +106,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
         - normalization: str "rawPSD", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
 
     
-    1) load data from mainclass.PerceiveData using the input values.
+    1) load data from main_class.PerceiveData using the input values.
     
     2) band-pass filter by a Butterworth Filter of fifth order (5-95 Hz).
     
@@ -140,7 +141,7 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
     # sns.set()
     # plt.style.use('seaborn-whitegrid')  
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities= ["survey"],
         incl_session = incl_session,
@@ -759,7 +760,7 @@ def perChannel_absolutePsd_noPickChannels(incl_sub, incl_session, tasks):
     incl_session = 
     tasks = list e.g. ['RestBSSuRingR', 'RestBSSuSegmInterR', 'RestBSSuSegmIntraR','RestBSSuRingL', 'RestBSSuSegmInterL', 'RestBSSuSegmIntraL']
 
-    This function will first load the data from mainclass.PerceiveData using the input values.
+    This function will first load the data from main_class.PerceiveData using the input values.
     After loading the data it will calculate and plot the psd of each channel seperately in every timepoint.
     The frequencies and absolute psd values will be returned in a Dataframe as a tuple: frequenciesDataFrame, absolutePsdDataFrame
     
@@ -768,7 +769,7 @@ def perChannel_absolutePsd_noPickChannels(incl_sub, incl_session, tasks):
 
     sns.set()
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities=["survey"],
         incl_session = incl_session,
@@ -888,7 +889,7 @@ def welch_absolutePsd_seperateChannels(incl_sub: str, incl_session: list, incl_c
     '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
     '1A2A', '1B2B', '1C2C']
 
-    This function will first load the data from mainclass.PerceiveData using the input values.
+    This function will first load the data from main_class.PerceiveData using the input values.
     After loading the data it will calculate and plot the psd of each channel seperately in every timepoint.
     The frequencies and relative psd values will be returned in a Dataframe as a tuple: frequenciesDataFrame, absolutePsdDataFrame
     
@@ -897,7 +898,7 @@ def welch_absolutePsd_seperateChannels(incl_sub: str, incl_session: list, incl_c
 
     sns.set()
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities=["survey"],
         incl_session = incl_session,
@@ -1149,7 +1150,7 @@ def normalize_totalSum_perChannelPSD(incl_sub, incl_session, tasks, frequenciesD
 
     sns.set()
 
-    mainclass_sub = mainclass.PerceiveData(
+    mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
         incl_modalities=["survey"],
         incl_session = incl_session,

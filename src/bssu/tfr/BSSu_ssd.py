@@ -21,6 +21,7 @@ import mne
 
 # PyPerceive Imports
 import py_perceive
+from py_perceive.PerceiveImport.classes import main_class
 
 # local analysis functions
 from .. utils import find_folders as find_folders
@@ -112,7 +113,7 @@ def SSD_filter_groupChannels(
             elif hem == "Left":
                 incl_contact["Left"] = ["RingL", "SegmIntraL", "SegmInterL"]
 
-            mainclass_sub = mainclass.PerceiveData(
+            mainclass_sub = main_class.PerceiveData(
                 sub = sub, 
                 incl_modalities= ["survey"],
                 incl_session = incl_session,

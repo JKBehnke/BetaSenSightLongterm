@@ -12,6 +12,7 @@ from .. utils import find_folders as find_folders
 from .. utils import loadResults as loadResults
 # PyPerceive Imports
 import py_perceive
+from py_perceive.PerceiveImport.classes import main_class
 
 
 def write_BIPChannelGroups_ALLpsd(
@@ -528,7 +529,7 @@ def write_SSD_filtered_groupChannels(
             elif hem == "Left":
                 incl_contact["Left"] = ["RingL", "SegmIntraL", "SegmInterL"]
 
-            mainclass_sub = mainclass.PerceiveData(
+            mainclass_sub = main_class.PerceiveData(
                 sub = sub, 
                 incl_modalities= ["survey"],
                 incl_session = incl_session,
