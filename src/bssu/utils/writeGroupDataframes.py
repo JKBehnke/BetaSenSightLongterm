@@ -5,13 +5,13 @@ import pickle
 
 import pandas as pd
 
-import analysis.BSSu_processing.feats_ssd as feats_ssd
+from ..  tfr import feats_ssd as feats_ssd
 ######### PRIVATE PACKAGES #########
-import analysis.classes.mainAnalysis_class as mainAnalysis_class
-import analysis.utils.find_folders as find_folders
-import analysis.utils.loadResults as loadResults
+from .. classes import mainAnalysis_class as mainAnalysis_class
+from .. utils import find_folders as find_folders
+from .. utils import loadResults as loadResults
 # PyPerceive Imports
-import PerceiveImport.classes.main_class as mainclass
+import py_perceive
 
 
 def write_BIPChannelGroups_ALLpsd(

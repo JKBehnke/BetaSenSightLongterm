@@ -6,7 +6,7 @@ import os
 from itertools import combinations
 
 # Internal Imports
-import analysis.utils.find_folders as find_folders
+from ..utils import find_folders as find_folders
 import matplotlib.pyplot as plt
 import mne
 import numpy as np

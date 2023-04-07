@@ -7,8 +7,8 @@ from cycler import cycler
 
 
 ######### PRIVATE PACKAGES #########
-import analysis.classes.mainAnalysis_class as mainAnalysis_class
-import analysis.utils.find_folders as find_folders
+from .. classes import mainAnalysis_class as mainAnalysis_class
+from .. utils import find_folders as find_folders
 
 
 def PowerSpectra_perChannel(sub: str, 

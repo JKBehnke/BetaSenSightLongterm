@@ -11,8 +11,8 @@ import mne
 import pickle
 
 # internal Imports
-import analysis.utils.find_folders as find_folders
-import analysis.utils.loadResults as loadResults
+from .. utils import find_folders as find_folders
+from .. utils import loadResults as loadResults
 
 
 # import analysis.loadResults as loadcsv

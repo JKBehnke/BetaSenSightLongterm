@@ -3,8 +3,8 @@
 import pandas as pd
 from dataclasses import dataclass
 
-import analysis.classes.featureAnalysis_class as feature_class
-import analysis.classes.normalizationAnalysis_class as normalization_class
+from .. classes import featureAnalysis_class as feature_class
+from .. classes import normalizationAnalysis_class as normalization_class
 
 
 @dataclass (init=True, repr=True)

@@ -10,9 +10,9 @@ import pandas as pd
 import seaborn as sns
 from cycler import cycler
 
-import analysis.classes.mainAnalysis_class as mainAnalysis_class
-import analysis.utils.find_folders as find_folders
-import analysis.utils.loadResults as loadResults
+from .. classes import mainAnalysis_class as mainAnalysis_class
+from .. utils import find_folders as find_folders
+from .. utils import loadResults as loadResults
 
 
 def PsdAverage_RingSegmGroups(

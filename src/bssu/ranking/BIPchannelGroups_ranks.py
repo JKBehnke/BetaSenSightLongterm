@@ -11,8 +11,8 @@ import seaborn as sns
 
 
 ######### PRIVATE PACKAGES #########
-import analysis.utils.find_folders as find_folders
-import analysis.utils.loadResults as loadResults
+from .. utils import find_folders as find_folders
+from .. utils import loadResults as loadResults
 
 
 def Rank_BIPRingSegmGroups(

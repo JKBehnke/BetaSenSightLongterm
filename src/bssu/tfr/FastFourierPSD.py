@@ -13,8 +13,8 @@ from scipy.signal import hann
 
 
 # PyPerceive Imports
-import PerceiveImport.classes.main_class as mainclass
-import PerceiveImport.methods.find_folders as findfolders
+import py_perceive
+from .. utils import find_folders as findfolders
 
 def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pickChannels: list, hemisphere: str, filter: str):
     """

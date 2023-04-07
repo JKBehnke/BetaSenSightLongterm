@@ -7,10 +7,10 @@ from dataclasses import dataclass, field
 import pandas as pd
 from numpy import array
 
-import analysis.utils.find_folders as find_folders
-import analysis.utils.loadResults as loadResults
-import analysis.classes.metadataAnalysis_class as metadata
-import analysis.classes.sessionAnalysis_class as session_class
+from .. utils import find_folders as find_folders
+from .. utils import loadResults as loadResults
+from .. classes import metadataAnalysis_class as metadata
+from .. classes import sessionAnalysis_class as session_class
 
 
 

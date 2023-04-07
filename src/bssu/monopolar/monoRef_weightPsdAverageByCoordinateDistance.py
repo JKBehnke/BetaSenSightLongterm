@@ -14,8 +14,8 @@ import plotly.graph_objs as go
 import pickle
 
 # utility functions
-import analysis.utils.loadResults as loadResults
-import analysis.utils.find_folders as find_folders
+from .. utils import loadResults as loadResults
+from .. utils import find_folders as find_folders
 
 
 

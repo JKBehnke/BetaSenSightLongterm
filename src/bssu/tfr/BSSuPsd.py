@@ -16,8 +16,8 @@ import os
 import mne
 
 # PyPerceive Imports
-import PerceiveImport.classes.main_class as mainclass
-import PerceiveImport.methods.find_folders as findfolders
+import py_perceive
+from .. utils import find_folders as find_folders
 
 
 
@@ -150,8 +150,8 @@ def welch_Psd(incl_sub: str, incl_session: list, incl_condition: list, incl_cont
         )
 
     
-    figures_path = findfolders.get_local_path(folder="figures", sub=incl_sub)
-    results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
+    figures_path = find_folders.get_local_path(folder="figures", sub=incl_sub)
+    results_path = find_folders.get_local_path(folder="results", sub=incl_sub)
 
     # add error correction for sub and task??
     

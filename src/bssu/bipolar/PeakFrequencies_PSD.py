@@ -8,7 +8,7 @@ import numpy as np
 import json
 import os
 
-import PerceiveImport.methods.find_folders as findfolders
+from .. utils import find_folders as findfolders
 
 
 # Matplotlib: set the style

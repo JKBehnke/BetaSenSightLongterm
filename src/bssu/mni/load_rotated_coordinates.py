@@ -16,10 +16,10 @@ import scipy.io as sio
 
 
 ######### PRIVATE PACKAGES #########
-import analysis.utils.find_folders as find_folders
-import analysis.utils.loadResults as loadResults
+from .. utils import find_folders as find_folders
+from .. utils import loadResults as loadResults
 
-from analysis.classes import mainAnalysis_class
+from .. classes import mainAnalysis_class
 
 
 

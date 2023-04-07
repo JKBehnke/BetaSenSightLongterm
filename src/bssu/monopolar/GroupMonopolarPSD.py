@@ -7,7 +7,7 @@ import pandas as pd
 
 
 # PyPerceive Imports
-import PerceiveImport.methods.find_folders as findfolders
+from .. utils import find_folders as findfolders
 
 
 def group_monopolarPSDaverageAndRanks(incl_sub:list, incl_hemisphere:list, normalization:str,):

@@ -20,11 +20,11 @@ import os
 import mne
 
 # PyPerceive Imports
-import PerceiveImport.classes.main_class as mainclass
+import py_perceive
 
 # local analysis functions
-import analysis.utils.find_folders as find_folders
-import analysis.BSSu_processing.feats_ssd as feats_ssd
+from .. utils import find_folders as find_folders
+from ..  tfr import feats_ssd as feats_ssd
 
 
 def SSD_filter_groupChannels(

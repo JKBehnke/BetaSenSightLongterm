@@ -3,8 +3,8 @@
 import pandas as pd
 from dataclasses import dataclass
 
-import analysis.classes.channelAnalysis_class as channel_class
-# import analysis.classes.frequencyBand_class as freqBand_class
+from .. classes import channelAnalysis_class as channel_class
+# from .. classes import frequencyBand_class as freqBand_class
 
 @dataclass (init=True, repr=True)
 class sessionClass:

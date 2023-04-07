@@ -6,7 +6,7 @@ import pandas as pd
 
 
 # internal Imports
-import analysis.utils.find_folders as find_folders
+from .. utils import find_folders as find_folders
 
 
 def compareHighestRankedPsd(incl_sub:list, incl_hemisphere:list, normalization:str,):
