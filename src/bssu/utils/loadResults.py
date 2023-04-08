@@ -601,6 +601,50 @@ def load_monoRef_JLB_pickle(
 
 
 
+def load_ClinicalActiveVsInactive(
+        freqBand:str,
+        attribute:str,
+        singleContacts_or_average:str
+):
+    
+    """
+    Loading Dataframe with clinically active and inactive contacts
+
+    file: "ClinicalActiveVsNonactiveContacts_{attribute}_{freqBand}_{singleContacts_or_average}.pickle
+
+    Input:
+        - freqBand: str e.g. "beta"
+        - attribute: str e.g. "rank", "relativeToRank1_psd"
+        - singleContacts_or_average: str e.g. "singleContacts", "averageContacts"
+
+    """
+
+    # find the path to the results folder of a subject
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    r_or_psd = f"_{attribute}"
+    freq = f"_{freqBand}"
+    single_or_average = f"_{singleContacts_or_average}.pickle"
+
+    if attribute == "rank":
+        r_or_psd = ""
+
+    string_list = ["ClinicalActiveVsNonactiveContacts", r_or_psd, freq, single_or_average]
+    filename = "".join(string_list)
+
+    filepath = os.path.join(results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", results_path)
+
+    return data
+
+
+
+
+
 def load_SSD_results_pickle(
         f_band:str
 

@@ -802,6 +802,103 @@ def correlateActiveClinicalContacts_monopolPSDrelToRank1(
 
 
 
+def active_contacts_per_rank(
+        freqBand:str,
+      
+):
+    
+    """
+    Loads the file:  ClinicalActiveVsNonactiveContacts_relativeToRank1_psd_beta_singleContacts.pickle
+
+    
+    """
+
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    # load the grouped file with monopolar PSD averages, ranks per electrode and active or inactive use per contact
+    active_vs_inactive = loadResults.load_ClinicalActiveVsInactive(
+        freqBand=freqBand,
+        attribute="relativeToRank1_psd",
+        singleContacts_or_average="singleContacts"
+    )
+
+    ranks = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    sessions = ["fu3m", "fu12m", "fu18m"]
+
+    percentage_active = {} 
+    sample_size = {}
+
+    for session in sessions:
+
+        # filter dependending on session
+        session_df = active_vs_inactive.loc[(active_vs_inactive.session == session)]
+
+        # sample size within each session
+        sample_counts = session_df.session.value_counts()
+        sample_size[f"{session}"] = [session, sample_counts[0]]
+
+        for rank in ranks:
+            
+            # filter all contacts of the same rank from column "Rank8contacts"
+            rank_df = session_df.loc[(active_vs_inactive.Rank8contacts == rank)]
+
+            # calculate percentage of active from all 1.0 ranked contacts
+            counts = rank_df.clinicalUse.value_counts() # counts[0] = inactive, counts[1] = active
+
+            inactive_contacts = counts[0]
+            
+            # if no active contacts in the dataframe, active = 0
+            if "active" not in rank_df.values:
+                active_contacts = 0
+            
+            elif "active" in rank_df.values:
+                active_contacts = counts[1]
+        
+            total = inactive_contacts + active_contacts
+            percentage_active[f"{session}_{rank}"] = [session, rank, ((active_contacts / total)*100)]
+
+    # write Dataframe out of the dictionaries with percentages of active contacts per rank 
+    percentage_active_df = pd.DataFrame(percentage_active)
+    percentage_active_df.rename(index={0:"session", 1:"beta_rank", 2:"percentage_active"}, inplace=True)
+    percentage_active_df = percentage_active_df.transpose()
+
+    # write Dataframe with information of how many samples are within a session
+    sample_size_df = pd.DataFrame(sample_size)
+    sample_size_df.rename(index={0:"session", 1:"number_of_contacts"}, inplace=True)
+    sample_size_df = sample_size_df.transpose()
+
+
+    # Divide the Dataframe into 3 groups, one per session, each session will be plotted as different line
+    fu3m_df = percentage_active_df.loc[(percentage_active_df.session == "fu3m")]
+    fu12m_df = percentage_active_df.loc[(percentage_active_df.session == "fu12m")]
+    fu18m_df = percentage_active_df.loc[(percentage_active_df.session == "fu18m")]
+
+
+    ################### PLOT PERCENTAGE OF ACTIVE CONTACTS PER SESSION ###################
+    fig = plt.figure()
+    plt.plot(fu3m_df["beta_rank"], fu3m_df["percentage_active"], label="3MFU")
+    plt.plot(fu12m_df["beta_rank"], fu12m_df["percentage_active"], label="12MFU")
+    plt.plot(fu18m_df["beta_rank"], fu18m_df["percentage_active"], label="18MFU")
+
+    plt.xlabel("'beta-rank' of contacts within an electrode")
+    plt.ylabel("active contacts [%]")
+    plt.title("How many 'beta-ranked' contacts are clinically used?")
+    plt.legend()
+
+    fig.savefig(figures_path + f"\\{freqBand}_ranked_active_contacts.png")
+
+    return {
+        "sample_size_df": sample_size_df,
+        "fu3m_df": fu3m_df,
+        "fu12m_df": fu12m_df,
+        "fu18m_df": fu18m_df,
+
+    }
+
+
+
+
+
 
 
 
