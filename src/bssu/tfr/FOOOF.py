@@ -19,7 +19,7 @@ import mne
 # PyPerceive Imports
 import py_perceive
 from .. utils import find_folders as findfolders
-import analysis.loadResults as loadcsv
+from .. utils import loadResults as loadResults
 
 
 import fooof
@@ -32,7 +32,7 @@ from fooof.plts.annotate import plot_annotated_model
 
 
 
-def FOOOF(incl_sub: list, psdMethod: str, incl_hemisphere: list):
+def FOOOF(incl_sub: list, psdMethod: str, incl_hemisphere: list, normalization: str):
     """
 
     Input: 
@@ -72,7 +72,7 @@ def FOOOF(incl_sub: list, psdMethod: str, incl_hemisphere: list):
             local_results_path = findfolders.get_local_path(folder="results", sub=subject)
 
             # get result CSV from each subject
-            df = loadcsv.load_PSDresultCSV(
+            df = loadResults.load_PSDresultCSV(
                 sub=subject,
                 psdMethod=psdMethod,
                 normalization=normalization,

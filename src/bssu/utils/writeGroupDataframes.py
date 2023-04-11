@@ -495,7 +495,11 @@ def write_monopol_rel_psd_from0To8(
         - subtract the PSD value of rank 8 contact from all contact values, so value of lowest ranked contact = 0
         - subsequently, divide all contact values by the value of contact ranked 1
 
-    6) Load clinical stimulation parameters from Excel Sheet "BestClinicalContacts"
+    6) add another column with PSD noramlized to mean and standard deviation
+        - (psd - mean) / standard deviation
+
+
+    7) Load clinical stimulation parameters from Excel Sheet "BestClinicalContacts"
         and columns to the dataframe accordingly:
         - currentPolarity
         - clinicalUse
@@ -549,13 +553,11 @@ def write_monopol_rel_psd_from0To8(
                 session_DF_copy = session_DF.copy()
 
                 # choose only directional contacts and Ring contacts 0, 3 and rank again only the chosen contacts
-
                 session_DF_copy = session_DF_copy[session_DF_copy["contact"].isin(contacts_8)]
                 session_DF_copy["Rank8contacts"] = session_DF_copy["averaged_monopolar_PSD_beta"].rank(ascending=False)
                 session_DF_copy.drop(["rank"], axis=1, inplace=True)
 
-                # add column with PSD relative to rank 1 and 8 PSD 
-                
+                #################### add column with PSD relative to rank 1 and 8 PSD ####################
                 # value of rank 8 
                 beta_rank_8 = session_DF_copy[session_DF_copy["Rank8contacts"] == 8.0]
                 beta_rank_8 = beta_rank_8[f"averaged_monopolar_PSD_{freqBand}"].values[0] # just taking psdAverage of rank 8.0
@@ -567,7 +569,14 @@ def write_monopol_rel_psd_from0To8(
 
                 # in each row add in new column: (psd-beta_rank_8)/beta_rank1
                 session_DF_copy[f"relativePSD_{freqBand}_from_0_to_1"] = session_DF_copy.apply(lambda row: (row[f"averaged_monopolar_PSD_{freqBand}"] - beta_rank_8) / beta_rank_1, axis=1) 
-               
+
+                #################### add new column with relPSD standardized to mean and std ####################
+                mean = session_DF_copy[f"averaged_monopolar_PSD_{freqBand}"].mean()
+                std = session_DF_copy[f"averaged_monopolar_PSD_{freqBand}"].std()
+
+                # in each row add in new column: (psd-beta_rank_8)/beta_rank1
+                session_DF_copy[f"relativePSD_{freqBand}_to_mean_std"] = session_DF_copy.apply(lambda row: (row[f"averaged_monopolar_PSD_{freqBand}"] - mean) / std, axis=1) 
+
                 
                 # concatenate all dataframes together
                 relToRank1_dataframe = pd.concat([relToRank1_dataframe, session_DF_copy], ignore_index=True)

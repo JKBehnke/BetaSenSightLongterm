@@ -802,6 +802,263 @@ def correlateActiveClinicalContacts_monopolPSDrelToRank1(
 
 
 
+def active_vs_inactive_contacts_monopolPSD(
+        filterSignal:str,
+        normalization:str,
+        freqBand:str,
+        singleContacts_or_average:str
+):
+    """
+
+    Input: 
+        - filterSignal:str, e.g. "band-pass"
+        - normalization:str, e.g. "rawPsd"
+        - freqBand:str, e.g. "beta"
+        - singleContacts_or_average:str, e.g. "singleContacts", "averageContacts" 
+
+    
+    1) Load the Dataframe from "monopol_rel_psd_from0To8_{freqBand}_{normalization}_{signalFilter}.pickle"
+        - 
+
+    2) Load the 
+
+    """
+
+    
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+
+    ##################### LOAD RANKS OR PSD from monoRef_weightPsdAverageByCoordinateDistance.py #####################
+
+    data_monopol_rel_0_to_1 = loadResults.load_monopol_rel_psd_from0To8_pickle(
+        filterSignal=filterSignal,
+        normalization=normalization,
+        freqBand=freqBand)
+    
+
+    ##################### CHOOSE BETWEEN USING EACH SINGLE CONTACT OR AVERAGE OF ACTIVE OR INACTIVE CONTACTS #####################
+
+    if singleContacts_or_average == "singleContacts":
+
+        data_MonoBeta8Ranks = data_monopol_rel_0_to_1
+
+        # add another column with session and clinical aggregated for statistical tests (Annotatator)
+        data_MonoBeta8Ranks["session_clinicalUse"] = data_MonoBeta8Ranks[["session", "clinicalUse"]].agg('_'.join, axis=1)
+
+    
+    # average for each STN: ranks and psd of active or inactive contacts
+    elif singleContacts_or_average == "averageContacts":
+
+        STN_average_activeVsInactiveContacts = {} # store averages of ranks and psd values of active vs. inactive contacts per STN
+
+        STN_unique = list(data_monopol_rel_0_to_1["subject_hemisphere"].unique()) # list of all existing STNs
+
+        for STN in STN_unique:
+            # get dataframe only of one STN
+            STN_dataframe = data_monopol_rel_0_to_1.loc[(data_monopol_rel_0_to_1.subject_hemisphere == STN)]
+
+            # get all existing sessions per STN
+            sessions_unique = list(STN_dataframe["session"].unique())
+
+            for ses in sessions_unique:
+                STN_session_dataframe = STN_dataframe.loc[(STN_dataframe.session == ses)]
+
+                # get average of active contacts
+                STN_session_active = STN_session_dataframe.loc[(STN_session_dataframe.clinicalUse == "active")]
+                MEANrank_active = STN_session_active["Rank8contacts"].values.mean()
+                MEANrelToRank1psd_active = STN_session_active[f"relativePSD_{freqBand}_from_0_to_1"].values.mean()
+
+                # get average of inactive contacts
+                STN_session_inactive = STN_session_dataframe.loc[(STN_session_dataframe.clinicalUse == "inactive")]
+                MEANrank_inactive = STN_session_inactive["Rank8contacts"].values.mean()
+                MEANrelToRank1psd_inactive = STN_session_inactive[f"relativePSD_{freqBand}_from_0_to_1"].values.mean()
+
+                # store MEAN values in dictionary
+                STN_average_activeVsInactiveContacts[f"{STN}_{ses}_active"] = [STN, ses, MEANrank_active, MEANrelToRank1psd_active, "active"]
+                STN_average_activeVsInactiveContacts[f"{STN}_{ses}_inactive"] = [STN, ses, MEANrank_inactive, MEANrelToRank1psd_inactive, "inactive"]
+
+
+
+        # transform the dictionary to Dataframe
+        STN_average_activeVsInactive_DF = pd.DataFrame(STN_average_activeVsInactiveContacts)
+        STN_average_activeVsInactive_DF.rename(index={0: "subject_hemisphere", 1: "session", 2: "MEAN_beta_rank", 3: "MEANrelToRank1psd", 4: "clinicalUse"}, inplace=True)
+        STN_average_activeVsInactive_DF = STN_average_activeVsInactive_DF.transpose()
+        # important to transform datatype of columns MEAN_beta_rank and MEAN_beta_psd to float (otherwise Error when plotting with seaborn)
+        STN_average_activeVsInactive_DF = STN_average_activeVsInactive_DF.astype({"MEAN_beta_rank": float})
+        STN_average_activeVsInactive_DF = STN_average_activeVsInactive_DF.astype({"MEANrelToRank1psd": float})
+        
+
+    	# use the dataframe with MEAN values for plotting
+        data_MonoBeta8Ranks = STN_average_activeVsInactive_DF
+
+        # add another column with session and clinical aggregated for statistical tests (Annotatator)
+        data_MonoBeta8Ranks["session_clinicalUse"] = data_MonoBeta8Ranks[["session", "clinicalUse"]].agg('_'.join, axis=1)
+
+
+
+    ##################### PERFORM Wilcoxon signed rank TEST  #####################
+
+    ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+    ses_clinicalUse_wilcoxon= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18m_active", "fu18m_inactive")]
+    #pairs = list(combinations(ses_clinicalUse, 2))
+    all_results_wilcoxon = []
+    describe_arrays = {}
+
+    # pair = tuple e.g. fu3m_active, fu3m_inactive
+    # for pair in pairs:
+    for s_c_wcx in ses_clinicalUse_wilcoxon:
+
+        firstInPair = data_MonoBeta8Ranks.loc[(data_MonoBeta8Ranks.session_clinicalUse == s_c_wcx[0])]
+        secondInPair = data_MonoBeta8Ranks.loc[(data_MonoBeta8Ranks.session_clinicalUse == s_c_wcx[1])]
+
+        if singleContacts_or_average == "singleContacts":
+            firstInPair = np.array(firstInPair.averaged_monopolar_PSD_beta.values)
+            secondInPair = np.array(secondInPair.averaged_monopolar_PSD_beta.values)
+
+        
+        elif singleContacts_or_average == "averageContacts":
+            firstInPair = np.array(firstInPair.MEANrelToRank1psd.values)
+            secondInPair = np.array(secondInPair.MEANrelToRank1psd.values)
+
+    
+        # Perform Wilcoxon signed rank Test
+        results_wcx = pg.wilcoxon(firstInPair, secondInPair) # pair is always a tuple, comparing first and second component of this tuple
+        results_wcx[f'comparison_relativePsdToRank1_{singleContacts_or_average}'] = '_'.join(s_c_wcx) # new column "comparison" with the pair being compared e.g. fu3m_active and fu3m_inactive
+
+        all_results_wilcoxon.append(results_wcx)
+
+    significance_results = pd.concat(all_results_wilcoxon)
+
+
+
+    ##################### GET STATISTICAL IMPORTANT FEATURES #####################
+    # describe all 6 groups
+    for s_c in ses_clinicalUse:
+
+        # get array of each group
+        group = data_MonoBeta8Ranks.loc[(data_MonoBeta8Ranks.session_clinicalUse == s_c)]
+
+        if singleContacts_or_average == "singleContacts":
+            group = np.array(group.averaged_monopolar_PSD_beta.values)
+
+        
+        elif singleContacts_or_average == "averageContacts":
+            group = np.array(group.MEANrelToRank1psd.values)
+
+        description = scipy.stats.describe(group)
+
+        describe_arrays[f"{s_c}_{singleContacts_or_average}"] = description
+
+    description_results = pd.DataFrame(describe_arrays)
+    description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_results = description_results.transpose()
+
+
+    ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
+
+    results_dictionary = {
+        "significance_results": significance_results,
+        "description_results": description_results
+    }
+
+    # save as pickle
+    results_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_statistics_rel_psd_0_to_1_{freqBand}_{singleContacts_or_average}.pickle")
+    with open(results_filepath, "wb") as file:
+        pickle.dump(results_dictionary, file)    
+    
+
+
+
+
+    ##################### PLOT VIOLINPLOT OF relative PSD to rank 1 OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
+
+    
+
+    if singleContacts_or_average == "singleContacts":
+
+        y_values = "relativePSD_beta_from_0_to_1"
+        y_label = "relative Beta PSD (range from 0 to 1)"
+        title = "relative Beta PSD of clinically active vs. inactive stimulation contacts"
+        y_lim = -0.3, 1.25
+
+    elif singleContacts_or_average == "averageContacts":
+
+        y_values = "MEANrelToRank1psd"
+        y_label = "Mean rel. Beta PSD (range from 0 to 1)"
+        title = "relative Mean Beta PSD of clinically active vs. inactive stimulation contacts"
+        y_lim = -0.3, 1.25
+
+
+
+
+    fig=plt.figure()
+    ax = fig.add_subplot()
+
+    # sns.violinplot(data=data_MonoBeta8Ranks, x="session_clinicalUse", y=y_values, hue="clinicalUse", palette="Set2", inner="box", ax=ax)
+    sns.violinplot(data=data_MonoBeta8Ranks, x="session", y=y_values, hue="clinicalUse", palette="Set3", inner="box", ax=ax)
+    
+    # statistical test
+    # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+    # pairs = list(combinations(ses_clinicalUse, 2))
+
+    # annotator = Annotator(ax, pairs, data=active_and_inactive_MonoBeta8Ranks, x='session_clinicalUse', y=y_values)
+    # annotator.configure(test='Wilcoxon', text_format='star')
+    # annotator.apply_and_annotate()
+    
+    sns.stripplot(
+        data=data_MonoBeta8Ranks,
+        x="session",
+        y=y_values,
+        hue="clinicalUse",
+        ax=ax,
+        size=6,
+        #color="black",
+        alpha=0.4, # Transparency of dots
+        dodge=True, # datapoints of groups active, inactive are plotted next to each other
+    )
+    
+    sns.despine(left=True, bottom=True) # get rid of figure frame
+
+   
+
+    plt.title(title)
+    plt.ylabel(y_label)
+    plt.ylim(y_lim)
+    plt.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
+
+    
+    fig.savefig(figures_path + f"\\ClinicalActiveVsNonactiveContacts_rel_psd_0_to_1_{normalization}_{freqBand}_{singleContacts_or_average}.png", bbox_inches="tight")
+
+    
+    # save Dataframe with data 
+    ClinicalActiveVsNonactiveContacts_filepath = os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_rel_psd_0_to_1_{freqBand}_{singleContacts_or_average}.pickle")
+    with open(ClinicalActiveVsNonactiveContacts_filepath, "wb") as file:
+        pickle.dump(data_MonoBeta8Ranks, file)
+
+    
+    # active_and_inactive_MonoBeta8Ranks.to_json(os.path.join(results_path, f"ClinicalActiveVsNonactiveContacts_relativeToRank1_psd_{freqBand}.json"))
+
+    
+    print("new files: ", f"ClinicalActiveVsNonactiveContacts_rel_psd_0_to_1_{freqBand}_{singleContacts_or_average}.pickle",
+          f"\nand: ClinicalActiveVsNonactiveContacts_statistics_rel_psd_0_to_1_{freqBand}_{singleContacts_or_average}.pickle",
+          "\nwritten in in: ", results_path,
+          f"\nnew figure: ClinicalActiveVsNonactiveContacts_rel_psd_0_to_1_{freqBand}__{singleContacts_or_average}.png",
+          "\nwritten in: ", figures_path)
+
+    
+
+    return {
+        "data_monopol_rel_0_to_1":data_monopol_rel_0_to_1,
+        "data_MonoBeta8Ranks":data_MonoBeta8Ranks,
+        "results_dictionary":results_dictionary
+
+    }
+
+
+
+
+
 def active_contacts_per_rank(
         freqBand:str,
       
