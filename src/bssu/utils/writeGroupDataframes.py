@@ -451,6 +451,207 @@ def write_GroupMonopolar_weightedPsdCoordinateDistance_relToRank1(
     return relToRank1_dataframe
 
 
+
+
+
+
+def write_monopol_rel_psd_from0To8(
+        incl_sub: list,
+        signalFilter: str,
+        normalization: str,
+        freqBand: str
+):
+
+    """
+    Read from existing pickle file "sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle"
+    coumns:
+        - index (=Contact)
+        - coord_z
+        - coord_xy
+        - subject_hemisphere
+        - session
+        - averaged_monopolar_PSD_beta
+        - rank
+    
+    Input:
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBand: str e.g. "beta", "highBeta", "lowBeta"
+
+    1) Load for each subject, hemisphere and session single Dataframes from the given pickle file
+    
+    2) from index -> add new column with contacts "contact"
+
+    2) add new column:  "relativePSD_to_{freqBand}_Rank1"
+        - calculates relative PSD to beta rank 1 within each group (rank1 PSD = 1.0)
+        - adds relative PSD value to each row accordingly 
+    
+    3) concatenate all dataframes from single subject_hemispheres at single sessions together
+
+    4) take out contacts 1 and 2, rank only 8 contacts
+
+    5) calculate the relative Beta values, so the contact with the highest value = 1.0 and the contact with lowest value = 0
+        - subtract the PSD value of rank 8 contact from all contact values, so value of lowest ranked contact = 0
+        - subsequently, divide all contact values by the value of contact ranked 1
+
+    6) Load clinical stimulation parameters from Excel Sheet "BestClinicalContacts"
+        and columns to the dataframe accordingly:
+        - currentPolarity
+        - clinicalUse
+
+        
+    Output: 
+        - saving Dataframe as .pickle file
+        filename: monopol_rel_psd_from0To8_{freqBand}_{normalization}_{signalFilter}.pickle
+    
+    """
+
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    hemispheres = ["Right", "Left"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    contacts_8 = ["0", "1A", "1B", "1C", "2A", "2B", "2C", "3"]
+
+
+    relToRank1_dataframe = pd.DataFrame()
+
+    for sub in incl_sub:
+
+        for hem in hemispheres:
+
+            # load the pickle file "sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle 
+            # from each subject folder
+            sub_hem_result = loadResults.load_monoRef_weightedPsdCoordinateDistance_pickle(
+                sub=sub,
+                hemisphere=hem,
+                freqBand=freqBand,
+                normalization=normalization,
+                filterSignal=signalFilter
+            )
+
+            for ses in sessions:
+
+                # check if session exists for a subject
+                sub_session_keys = list(sub_hem_result.keys()) # list of fu3m_monopolar_Dataframe, fu12m_bipolar_Dataframe
+                combined_sub_session_keys = "_".join(sub_session_keys)
+
+                if ses not in combined_sub_session_keys:
+                    continue
+                
+
+                # load the Dataframe of a single session from the given subject hemisphere
+                session_DF = sub_hem_result[f"{ses}_monopolar_Dataframe"]
+
+                # add a column "contact" from the indeces values
+                session_DF = session_DF.rename_axis("contact").reset_index()
+                session_DF_copy = session_DF.copy()
+
+                # choose only directional contacts and Ring contacts 0, 3 and rank again only the chosen contacts
+
+                session_DF_copy = session_DF_copy[session_DF_copy["contact"].isin(contacts_8)]
+                session_DF_copy["Rank8contacts"] = session_DF_copy["averaged_monopolar_PSD_beta"].rank(ascending=False)
+                session_DF_copy.drop(["rank"], axis=1, inplace=True)
+
+                # add column with PSD relative to rank 1 and 8 PSD 
+                
+                # value of rank 8 
+                beta_rank_8 = session_DF_copy[session_DF_copy["Rank8contacts"] == 8.0]
+                beta_rank_8 = beta_rank_8[f"averaged_monopolar_PSD_{freqBand}"].values[0] # just taking psdAverage of rank 8.0
+
+                # value of rank 1 after subtracting the value of rank 8  
+                beta_rank_1 = session_DF_copy[session_DF_copy["Rank8contacts"] == 1.0] # taking the row containing 1.0 in Rank8contacts
+                beta_rank_1 = beta_rank_1[f"averaged_monopolar_PSD_{freqBand}"].values[0] # just taking psdAverage of rank 1.0
+                beta_rank_1 = beta_rank_1 - beta_rank_8 # this is necessary to get value 1.0 after dividng the subtracted PSD value of rank 1 by itself
+
+                # in each row add in new column: (psd-beta_rank_8)/beta_rank1
+                session_DF_copy[f"relativePSD_{freqBand}_from_0_to_1"] = session_DF_copy.apply(lambda row: (row[f"averaged_monopolar_PSD_{freqBand}"] - beta_rank_8) / beta_rank_1, axis=1) 
+               
+                
+                # concatenate all dataframes together
+                relToRank1_dataframe = pd.concat([relToRank1_dataframe, session_DF_copy], ignore_index=True)
+
+
+    #################### LOAD CLINICAL STIMULATION PARAMETERS #####################
+
+    bestClinicalStim_file = loadResults.load_BestClinicalStimulation_excel()
+
+    # get sheet with best clinical contacts
+    BestClinicalContacts = bestClinicalStim_file["BestClinicalContacts"]
+
+
+
+    ##################### FILTER THE MONOBETA8RANKS_DF: clinically ACTIVE contacts #####################
+    activeMonoBeta8Ranks = pd.DataFrame()
+
+    for idx, row in BestClinicalContacts.iterrows():
+
+        activeContacts = str(BestClinicalContacts.CathodalContact.values[idx]) # e.g. "2A_2B_2C_3"
+        # split active Contacts into list with single contact strings
+        activeContacts_list = activeContacts.split("_") # e.g. ["2A", "2B", "2C", "3"]
+
+        sub_hem = BestClinicalContacts.subject_hemisphere.values[idx]
+        session = BestClinicalContacts.session.values[idx]
+        currentPolarity = BestClinicalContacts.currentPolarity.values[idx]
+
+        # get rows with equal sub_hem and session and with monopolarChannel in the list of activeContacts
+        sub_hem_ses_rows = relToRank1_dataframe.loc[(relToRank1_dataframe["subject_hemisphere"]==sub_hem) & (relToRank1_dataframe["session"]==session) & (relToRank1_dataframe["contact"].isin(activeContacts_list))]
+        # add a column and fill the cell with the current Polarity
+        sub_hem_ses_rows_copy = sub_hem_ses_rows.copy()
+        sub_hem_ses_rows_copy["currentPolarity"] = currentPolarity
+        
+        # concatenate single rows to new Dataframe
+        activeMonoBeta8Ranks = pd.concat([activeMonoBeta8Ranks, sub_hem_ses_rows_copy], ignore_index=True)
+
+    # add a column "clinicalUse" to the Dataframe and fill with "active"
+    activeMonoBeta8Ranks["clinicalUse"] = "active"
+
+
+    ##################### FILTER THE MONOBETA8RANKS_DF: clinically INACTIVE contacts #####################
+    inactiveMonoBeta8Ranks = pd.DataFrame()
+
+    for idx, row in BestClinicalContacts.iterrows():
+
+        inactiveContacts = str(BestClinicalContacts.InactiveContacts.values[idx]) # e.g. "2A_2B_2C_3"
+        # split active Contacts into list with single contact strings
+        inactiveContacts_list = inactiveContacts.split("_") # e.g. ["2A", "2B", "2C", "3"]
+
+        sub_hem = BestClinicalContacts.subject_hemisphere.values[idx]
+        session = BestClinicalContacts.session.values[idx]
+
+        # get rows with equal sub_hem and session and with monopolarChannel in the list of activeContacts
+        sub_hem_ses_rows = relToRank1_dataframe.loc[(relToRank1_dataframe["subject_hemisphere"]==sub_hem) & (relToRank1_dataframe["session"]==session) & (relToRank1_dataframe["contact"].isin(inactiveContacts_list))]
+        # add a column and fill the cell with the current Polarity
+        sub_hem_ses_rows_copy = sub_hem_ses_rows.copy()
+        sub_hem_ses_rows_copy["currentPolarity"] = "0"
+
+        # concatenate single rows to new Dataframe
+        inactiveMonoBeta8Ranks = pd.concat([inactiveMonoBeta8Ranks, sub_hem_ses_rows_copy], ignore_index=True)
+
+    # add a column "clinicalUse" to the Dataframe and fill with "non_active"
+    inactiveMonoBeta8Ranks["clinicalUse"] = "inactive"
+
+
+
+    ##################### CONCATENATE BOTH DATAFRAMES: CLINICALLY ACTIVE and INACTIVE CONTACTS #####################
+    active_and_inactive_MonoBeta8Ranks = pd.concat([activeMonoBeta8Ranks, inactiveMonoBeta8Ranks], ignore_index=True)
+
+
+    ### save the Dataframes with pickle 
+    active_and_inactive_MonoBeta8Ranks_filepath = os.path.join(results_path, f"monopol_rel_psd_from0To8_{freqBand}_{normalization}_{signalFilter}.pickle")
+    with open(active_and_inactive_MonoBeta8Ranks_filepath, "wb") as file:
+        pickle.dump(active_and_inactive_MonoBeta8Ranks, file)
+    
+    print("file: ", 
+          f"monopol_rel_psd_from0To8_{freqBand}_{normalization}_{signalFilter}.pickle",
+          "\nwritten in: ", results_path)
+
+    return active_and_inactive_MonoBeta8Ranks
+
+
+
+
 def write_SSD_filtered_groupChannels(
         incl_sub=list,
         f_band=str
