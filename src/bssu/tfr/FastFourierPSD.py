@@ -76,7 +76,10 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
         "highestPeakRawPSD": highestPeakRawPsdDF,
     }
     Watchout: I changed filenames -> now also including filter information!!!
-
+    # TODO: I only ran this function for m0s0: so incl_cond = ["m0s0"]
+    # all outcome files only contain m0s0 data.
+    # If you also want to analyze m1s0 data, run all again
+    
     """
 
     # sns.set()
@@ -184,7 +187,6 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
 
                     #################### PICK CHANNELS ####################
                     include_channelList = [] # this will be a list with all channel names selected
-                    exclude_channelList = []
 
                     for n, names in enumerate(ch_names):
                         
@@ -232,7 +234,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                         
                         f,time_sectors,Sxx = scipy.signal.spectrogram(x=signal[f"{filter}"], fs=fs, window=window, noverlap=noverlap,  scaling='density', mode='psd', axis=0)
                         # f = frequencies 0-125 Hz (Maximum = Nyquist frequency = sfreq/2)
-                        # time_sectors = sectors 0.5 - 20.5 s in 0.5 steps (in total 21 time sectors)
+                        # time_sectors = sectors 0.5 - 20.5 s in 1.0 steps (in total 21 time sectors)
                         # Sxx = 126 arrays with 21 values each of PSD [µV^2/Hz], for each frequency bin PSD values of each time sector
                         # Sxx = 126 frequency rows, 21 time sector columns
 
@@ -246,7 +248,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                         semRawPsd = Sxx_std / np.sqrt(Sxx.shape[1]) # sample size = 21 time vectors -> sem with 126 values
 
                         # store frequency, time vectors and psd values in a dictionary, together with session timepoint and channel
-                        f_rawPsd_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, average_Sxx, semRawPsd] 
+                        f_rawPsd_dict[f'{tp}_{ch}_{cond}'] = [cond, tp, ch, f, time_sectors, average_Sxx, semRawPsd] 
                     
 
                         #################### NORMALIZE PSD IN MULTIPLE WAYS ####################
@@ -258,7 +260,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                         semNormToTotalSum_psd = (semRawPsd/np.sum(average_Sxx))*100
 
                         # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                        f_normPsdToTotalSum_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normToTotalSum_psd, semNormToTotalSum_psd]
+                        f_normPsdToTotalSum_dict[f'{tp}_{ch}_{cond}'] = [cond, tp, ch, f, time_sectors, normToTotalSum_psd, semNormToTotalSum_psd]
 
 
                         #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 1-100 Hz  ####################
@@ -276,7 +278,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                         semNormPsdToSum1to100Hz = (semRawPsd/psdSum1to100Hz)*100
 
                         # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                        f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
+                        f_normPsdToSum1to100Hz_dict[f'{tp}_{ch}_{cond}'] = [cond, tp, ch, f, time_sectors, normPsdToSum1to100Hz, semNormPsdToSum1to100Hz]
 
 
                         #################### NORMALIZE PSD TO SUM OF PSD BETWEEN 40-90 Hz  ####################
@@ -294,7 +296,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                         semNormPsdToSum40to90Hz = (semRawPsd/psdSum40to90Hz)*100
 
                         # store frequencies and normalized psd values and sem of normalized psd in a dictionary
-                        f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}'] = [tp, ch, f, time_sectors, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
+                        f_normPsdToSum40to90Hz_dict[f'{tp}_{ch}_{cond}'] = [cond, tp, ch, f, time_sectors, normPsdToSum40to90Hz, semNormPsdToSum40to90Hz]
 
 
                         #################### PSD average and PEAK DETECTION ####################
@@ -366,7 +368,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                             psdAverage = np.mean(psdInFreqBand)
 
                             # store averaged psd values of each frequency band in a dictionary
-                            psdAverage_dict[f'{tp}_{ch}_psdAverage_{norm}_{frequency}'] = [tp, ch, frequency, norm, psdAverage]
+                            psdAverage_dict[f'{cond}_{tp}_{ch}_psdAverage_{norm}_{frequency}'] = [cond, tp, ch, frequency, norm, psdAverage]
 
 
 
@@ -442,7 +444,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                             axes[t].scatter(highest_peak_pos, highest_peak_height, color="k", s=15, marker='D')
 
                             # store highest peak values of each frequency band in a dictionary
-                            highest_peak_dict[f'{tp}_{ch}_highestPEAK_{norm}_{frequency}'] = [tp, ch, frequency, norm, highest_peak_pos, highest_peak_height, highest_peak_height_5Hzaverage]
+                            highest_peak_dict[f'{cond}_{tp}_{ch}_highestPEAK_{norm}_{frequency}'] = [cond, tp, ch, frequency, norm, highest_peak_pos, highest_peak_height, highest_peak_height_5Hzaverage]
 
 
 
@@ -512,35 +514,35 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
     # write raw PSD Dataframe
     rawPSDDataFrame = pd.DataFrame(f_rawPsd_dict)
-    rawPSDDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "rawPsd", 5: "SEM_rawPsd"}, inplace=True) # rename the rows
+    rawPSDDataFrame.rename(index={0: "condition", 1: "session", 2: "bipolarChannel", 3: "frequency", 4: "time_sectors", 5: "rawPsd", 6: "SEM_rawPsd"}, inplace=True) # rename the rows
     rawPSDDataFrame = rawPSDDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to total Sum
     normPsdToTotalSumDataFrame = pd.DataFrame(f_normPsdToTotalSum_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToTotalSumDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToTotalSum", 5: "SEM_normPsdToTotalSum"}, inplace=True) # rename the rows
+    normPsdToTotalSumDataFrame.rename(index={0: "condition", 1: "session", 2: "bipolarChannel", 3: "frequency", 4: "time_sectors", 5: "normPsdToTotalSum", 6: "SEM_normPsdToTotalSum"}, inplace=True) # rename the rows
     normPsdToTotalSumDataFrame = normPsdToTotalSumDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to Sum of PSD between 1 and 100 Hz
     normPsdToSum1to100HzDataFrame = pd.DataFrame(f_normPsdToSum1to100Hz_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToSum1to100HzDataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToSumPsd1to100Hz", 5: "SEM_normPsdToSumPsd1to100Hz"}, inplace=True) # rename the rows
+    normPsdToSum1to100HzDataFrame.rename(index={0: "condition", 1: "session", 2: "bipolarChannel", 3: "frequency", 4: "time_sectors", 5: "normPsdToSumPsd1to100Hz", 6: "SEM_normPsdToSumPsd1to100Hz"}, inplace=True) # rename the rows
     normPsdToSum1to100HzDataFrame = normPsdToSum1to100HzDataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
     # write DataFrame of normalized PSD to Sum of PSD between 1 and 100 Hz
     normPsdToSum40to90DataFrame = pd.DataFrame(f_normPsdToSum40to90Hz_dict) # Dataframe of normalised to total sum psd: columns=single bipolar channel of one session
-    normPsdToSum40to90DataFrame.rename(index={0: "session", 1: "bipolarChannel", 2: "frequency", 3: "time_sectors", 4: "normPsdToSum40to90Hz", 5: "SEM_normPsdToSum40to90Hz"}, inplace=True) # rename the rows
+    normPsdToSum40to90DataFrame.rename(index={0: "condition", 1: "session", 2: "bipolarChannel", 3: "frequency", 4: "time_sectors", 5: "normPsdToSum40to90Hz", 6: "SEM_normPsdToSum40to90Hz"}, inplace=True) # rename the rows
     normPsdToSum40to90DataFrame = normPsdToSum40to90DataFrame.transpose() # Dataframe with 5 columns and rows for each single power spectrum
 
 
 
     # write DataFrame of averaged psd values in each frequency band depending on the chosen normalization
     psdAverageDF = pd.DataFrame(psdAverage_dict) # Dataframe with 5 rows and columns for each single power spectrum
-    psdAverageDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: "absoluteOrRelativePSD", 4: "averagedPSD"}, inplace=True) # rename the rows
+    psdAverageDF.rename(index={0: "condition", 1: "session", 2: "bipolarChannel", 3: "frequencyBand", 4: "absoluteOrRelativePSD", 5: "averagedPSD"}, inplace=True) # rename the rows
     psdAverageDF = psdAverageDF.transpose() # Dataframe with 4 columns and rows for each single power spectrum
 
 
     # write DataFrame of frequency and psd values of the highest peak in each frequency band
     highestPEAKDF = pd.DataFrame(highest_peak_dict) # Dataframe with 5 rows and columns for each single power spectrum
-    highestPEAKDF.rename(index={0: "session", 1: "bipolarChannel", 2: "frequencyBand", 3: "absoluteOrRelativePSD", 4: "PEAK_frequency", 5: "PEAK_amplitude", 6: "PEAK_5HzAverage"}, inplace=True) # rename the rows
+    highestPEAKDF.rename(index={0: "condition", 1: "session", 2: "bipolarChannel", 3: "frequencyBand", 4: "absoluteOrRelativePSD", 5: "PEAK_frequency", 6: "PEAK_amplitude", 7: "PEAK_5HzAverage"}, inplace=True) # rename the rows
     highestPEAKDF = highestPEAKDF.transpose() # Dataframe with 6 columns and rows for each single power spectrum
 
 
