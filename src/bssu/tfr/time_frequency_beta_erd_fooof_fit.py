@@ -64,6 +64,18 @@ def get_input_y_n(message: str) -> str:
         )
     return user_input
 
+def get_input_w_wo_knee(message: str) -> str:
+    """Get `w` or `wo` user input."""
+    while True:
+        user_input = input(f"{message} (w/wo)? ")
+        if user_input.lower() in ["w", "wo"]:
+            break
+        print(
+            f"Input must be `w` or `wo`. Got: {user_input}."
+            " Please provide a valid input."
+        )
+    return user_input
+
 
 def main() -> None:
     """Main function of this script."""
