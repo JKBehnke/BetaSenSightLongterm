@@ -4,6 +4,7 @@ import os
 import pickle
 
 import pandas as pd
+import json
 
 from ..  tfr import feats_ssd as feats_ssd
 ######### PRIVATE PACKAGES #########
@@ -817,6 +818,54 @@ def write_SSD_filtered_groupChannels(
           "\nwritten in: ", results_path)
 
     return SSD_results_Dataframe
+
+
+def write_fooof_group_json(incl_sub: list):
+
+    """
+    Load the file: "fooof_model_sub{subject}.json"
+    from each subject result folder
+
+    - check if file exists
+
+    """
+    # results folder for group results
+    results_path_group = find_folders.get_local_path(folder="GroupResults")
+
+    group_fooof_dataframe = pd.DataFrame()
+
+    for sub in incl_sub:
+
+        # find the path to the results folder
+        results_path_sub = find_folders.get_local_path(folder="results", sub=sub)
+
+        # create filename
+        filename = f"fooof_model_sub{sub}.json"
+
+        # check if file exists
+        files_in_folder = os.listdir(results_path_sub) # list of all files in the sub results folder
+
+        if filename not in files_in_folder:
+            print(f"no file: fooof_model_sub{sub}.json in sub-{sub} results folder")
+            continue
+
+        elif filename in files_in_folder:
+            # load the json file
+            with open(os.path.join(results_path_sub, filename)) as file:
+                data = json.load(file)
+            
+            # concatenate all Dataframes together
+            group_fooof_dataframe = pd.concat([group_fooof_dataframe, data], ignore_index=True)
+    
+    # save the group Dataframe into group results folder
+    group_fooof_dataframe.to_json(os.path.join(results_path_group, f"fooof_model_group_data.json"))
+
+    return group_fooof_dataframe
+
+
+
+
+
 
 
         

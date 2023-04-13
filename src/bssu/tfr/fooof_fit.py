@@ -59,7 +59,6 @@ def get_input_w_wo_knee(message: str) -> str:
     return user_input
 
 
-
 def fooof_fit_tfr(incl_sub: list):
     """
 

@@ -145,12 +145,6 @@ def load_BIPChannelGroups_psdRanks_relToRank1(freqBand:str, normalization:str, s
 
 
 
-
-
-
-
-
-
 def load_PSDresultCSV(sub: str, psdMethod: str, normalization: str, hemisphere: str, filter: str):
 
     """
@@ -457,6 +451,7 @@ def load_BestClinicalStimulation_excel():
     return data
 
 
+
 def load_monoRef_weightedPsdCoordinateDistance_pickle(
         sub: str,
         hemisphere: str,
@@ -734,6 +729,33 @@ def load_SSD_results_pickle(
     print("pickle file loaded: ",filename, "\nloaded from: ", results_path)
 
     return data
+
+
+def load_fooof_json(subject: str):
+
+    """
+    Load the file: "fooof_model_sub{subject}.json"
+    from each subject result folder
+
+    """
+   
+    # find the path to the results folder
+    results_path_sub = find_folders.get_local_path(folder="results", sub=subject)
+
+    # create filename
+    filename = f"fooof_model_sub{subject}.json"
+
+    # load the json file
+    with open(os.path.join(results_path_sub, filename)) as file:
+        json_data = json.load(file)
+
+    fooof_result_df = pd.DataFrame(json_data)
+    
+    return fooof_result_df
+
+
+
+
 
 
 
