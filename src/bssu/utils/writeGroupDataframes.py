@@ -826,7 +826,8 @@ def write_fooof_group_json(incl_sub: list):
     Load the file: "fooof_model_sub{subject}.json"
     from each subject result folder
 
-    - check if file exists
+    Input
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
 
     """
     # results folder for group results
@@ -853,6 +854,7 @@ def write_fooof_group_json(incl_sub: list):
             # load the json file
             with open(os.path.join(results_path_sub, filename)) as file:
                 data = json.load(file)
+                data = pd.DataFrame(data)
             
             # concatenate all Dataframes together
             group_fooof_dataframe = pd.concat([group_fooof_dataframe, data], ignore_index=True)

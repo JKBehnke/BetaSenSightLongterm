@@ -754,6 +754,27 @@ def load_fooof_json(subject: str):
     return fooof_result_df
 
 
+def load_group_fooof_result():
+
+    """
+    Load the file: "fooof_model_group_data.json"
+    from the group result folder
+
+    """
+   
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"fooof_model_group_data.json"
+
+    # load the json file
+    with open(os.path.join(results_path, filename)) as file:
+        json_data = json.load(file)
+
+    fooof_result_df = pd.DataFrame(json_data)
+    
+    return fooof_result_df
 
 
 

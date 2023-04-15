@@ -333,7 +333,7 @@ def fooof_fit_tfr(incl_sub: list):
                     # save all results in dictionary
                     STN = "_".join([subject, hemisphere])
 
-                    fooof_results[f"{ses}_{chan}"] = [STN, ses, chan, 
+                    fooof_results[f"{subject}_{hemisphere}_{ses}_{chan}"] = [STN, ses, chan, 
                                                         err, r_sq, exp, offset, knee_parameter, 
                                                         number_peaks, alpha_peak, low_beta_peak, high_beta_peak, beta_peak, gamma_peak]
         # store results in a DataFrame
