@@ -7,10 +7,12 @@ import numpy as np
 import os
 import pickle
 
+import seaborn as sns
+from statannotations.Annotator import Annotator
+from itertools import combinations
+import scipy
 import fooof
-# Import required code for visualizing example models
 from fooof.plts.spectra import plot_spectrum
-
 
 # Local Imports
 from ..classes import mainAnalysis_class
@@ -466,11 +468,11 @@ def fooof_plot_peaks_per_session():
     plt.scatter(beta_peaks.session, beta_peaks.percentage_chans_with_peaks)
     plt.scatter(gamma_peaks.session, gamma_peaks.percentage_chans_with_peaks)
 
-    plt.title("Amount of recordings with Peaks", fontdict={"size": 19})
+    plt.title("Relative amount of channels with Peaks", fontdict={"size": 19})
 
     plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
     plt.xlabel("session", fontdict=font)
-    plt.ylabel("recordings with peak in frequency band \nrelative to all recordings", fontdict=font)
+    plt.ylabel("channels with Peak \nrelative to all recorded channels", fontdict=font)
     fig.tight_layout()
 
     # save figure in group Figures folder
@@ -480,6 +482,252 @@ def fooof_plot_peaks_per_session():
           f"fooof_peaks_per_session.png",
           "\nwritten in: ", figures_path
           )
+    
+
+def fooof_low_vs_high_beta_ratio():
+
+    """
+    Load the file "fooof_peaks_per_session.pickle" from the group results folder
+
+    Plot a lineplot for the amount of channels with Peaks per session with lines for each freq band 
+        - x = session
+        - y = Peaks relative to all Peaks in beta band"
+        - label = freq_band
+    """
+
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+
+    peaks_per_session = loadResults.load_fooof_peaks_per_session()
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+    rel_low_vs_high_beta = {}
+
+    for ses in sessions:
+
+        session_df = peaks_per_session.loc[peaks_per_session.session==ses]
+
+        beta_peaks = session_df.loc[session_df.frequency_band=="beta"]
+        beta_peaks = beta_peaks.number_chans_with_peaks.values
+        beta_peaks = beta_peaks[0]
+
+        low_beta_peaks = session_df.loc[session_df.frequency_band=="low_beta"]
+        low_beta_peaks = low_beta_peaks.number_chans_with_peaks.values
+        low_beta_peaks = low_beta_peaks[0]
+
+        high_beta_peaks = session_df.loc[session_df.frequency_band=="high_beta"]
+        high_beta_peaks = high_beta_peaks.number_chans_with_peaks.values
+        high_beta_peaks = high_beta_peaks[0]
+
+        # calculate the relative amount of Peaks in low beta and high beta from all Peaks in beta band
+        relative_low_beta = low_beta_peaks / beta_peaks
+        relative_high_beta = high_beta_peaks / beta_peaks
+
+        rel_low_vs_high_beta[f"{ses}"] = [ses, beta_peaks, low_beta_peaks, high_beta_peaks, relative_low_beta, relative_high_beta]
+
+
+    # results transformed to a dataframe
+    session_low_vs_high_peak_df = pd.DataFrame(rel_low_vs_high_beta)
+    session_low_vs_high_peak_df.rename(index={
+        0: "session",
+        1: "beta_peaks",
+        2: "low_beta_peaks",
+        3: "high_beta_peaks",
+        4: "relative_low_beta",
+        5: "relative_high_beta"
+    }, inplace=True)
+    session_low_vs_high_peak_df = session_low_vs_high_peak_df.transpose()
+
+
+    # Plot as lineplot
+    fig = plt.figure()
+
+    font = {"size": 14}
+
+    plt.plot(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_low_beta, label="low beta")
+    plt.plot(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_high_beta, label="high beta")
+
+    plt.scatter(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_low_beta,)
+    plt.scatter(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_high_beta)
+
+    plt.title("Relative amount of low beta vs high beta peaks", fontdict={"size": 19})
+
+    plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
+    plt.xlabel("session", fontdict=font)
+    plt.ylabel("Peaks relative to all Peaks in beta band", fontdict=font)
+    fig.tight_layout()
+
+    # save figure in group Figures folder
+    fig.savefig(figures_path + "\\fooof_low_vs_high_beta_peaks_per_session.png", bbox_inches="tight")
+
+    print("figure: ", 
+          f"fooof_low_vs_high_beta_peaks_per_session.png",
+          "\nwritten in: ", figures_path
+          )
+
+
+    return session_low_vs_high_peak_df
+
+
+def fooof_highest_beta_peak_cf():
+
+    """
+    Load the group FOOOF json file as Dataframe: 
+    "fooof_model_group_data.json" from the group result folder
+
+    Plot a violinplot of the center frequencies of the highest Peaks within the beta band (13-35 Hz) at different sessions
+        - x = session
+        - y = "Peak center frequency \nin beta band (13-35 Hz)"
+    
+    Statistical Test between session groups
+        - Mann-Whitney
+
+    """
+
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+    results_path = findfolders.get_local_path(folder="GroupResults")
+
+    # load the json file as df
+    fooof_result = loadResults.load_group_fooof_result()
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    beta_peak_parameters = {}
+
+    for ses in sessions:
+
+        if ses == "postop":
+            numeric_session = 0 # violinplot only allowed integers, not strings for x axis
+        
+        elif ses == "fu3m":
+            numeric_session = 3
+        
+        elif ses == "fu12m":
+            numeric_session = 12
+        
+        elif ses == "fu18m":
+            numeric_session = 18
+
+        session_df = fooof_result.loc[fooof_result.session==ses]
+        beta_peaks_wo_None = []
+
+        # only get the rows with Peaks (drop all rows with None)
+        for item in session_df.beta_peak_CF_power_bandWidth.values:
+        
+            if None not in item:
+                beta_peaks_wo_None.append(item)
+
+        beta_peak_ses_df = session_df.loc[session_df["beta_peak_CF_power_bandWidth"].isin(beta_peaks_wo_None)]
+
+        # get only the center frequency from the column beta_peak_CF_power_bandWidth
+        for i, item in enumerate(beta_peak_ses_df.beta_peak_CF_power_bandWidth.values):
+            # item is a list of center frequency, power, band width of highest Peak in beta band
+
+            beta_cf = item[0]
+            beta_power = item[1]
+            beta_band_width = item[2]
+
+            beta_peak_parameters[f"{ses}_{i}"] = [numeric_session, beta_cf, beta_power, beta_band_width]
+
+
+    # save the results in a dataframe
+    beta_peak_parameters_df = pd.DataFrame(beta_peak_parameters)
+    beta_peak_parameters_df.rename(index={
+        0: "session",
+        1: "beta_cf",
+        2: "beta_power",
+        3: "beta_band_width",
+    }, inplace=True)
+    beta_peak_parameters_df = beta_peak_parameters_df.transpose()
+
+
+    ##################### PLOT VIOLINPLOT OF CENTER FREQUENCIES OF HIGHEST BETA PEAKS #####################
+
+    fig=plt.figure()
+    ax = fig.add_subplot()
+
+    sns.violinplot(data=beta_peak_parameters_df, x="session", y="beta_cf", palette="Set3", inner="box", ax=ax)
+
+    # statistical test: doesn't work if groups have different sample size
+    num_sessions = [0.0, 3.0, 12.0, 18.0]
+    pairs = list(combinations(num_sessions, 2))
+
+    annotator = Annotator(ax, pairs, data=beta_peak_parameters_df, x='session', y='beta_cf')
+    annotator.configure(test='Mann-Whitney', text_format='star') # or t-test_ind ??
+    annotator.apply_and_annotate()
+
+    sns.stripplot(
+        data=beta_peak_parameters_df,
+        x="session",
+        y="beta_cf",
+        ax=ax,
+        size=6,
+        color="black",
+        alpha=0.2, # Transparency of dots
+    )
+
+    sns.despine(left=True, bottom=True) # get rid of figure frame
+
+    plt.title("Highest Beta Peak Center Frequency")
+    plt.ylabel("Peak center frequency \nin beta band (13-35 Hz)")
+    plt.xlabel("session")
+
+    fig.tight_layout()
+    fig.savefig(figures_path + "\\fooof_highest_beta_peak_center_freq.png", bbox_inches="tight")
+
+    print("figure: ", 
+          "fooof_highest_beta_peak_center_freq.png",
+          "\nwritten in: ", figures_path
+          )
+
+    ##################### DESCRIPTION OF EACH SESSION GROUP #####################
+    # describe each group
+    num_sessions = [0.0, 3.0, 12.0, 18.0]
+    group_description = {}
+
+    for ses in num_sessions:
+
+        group = beta_peak_parameters_df.loc[beta_peak_parameters_df.session==ses]
+        group = np.array(group.beta_cf.values)
+
+        description = scipy.stats.describe(group)
+
+        group_description[f"{ses}_months_postop"] = description
+
+
+    description_results = pd.DataFrame(group_description)
+    description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_results = description_results.transpose()
+
+    # save Dataframe with data 
+    description_results_filepath = os.path.join(results_path, "fooof_center_freq_session_description_highest_beta_peak.pickle")
+    with open(description_results_filepath, "wb") as file:
+        pickle.dump(description_results, file)
+    
+    print("file: ", 
+          "fooof_center_freq_session_description_highest_beta_peak.pickle",
+          "\nwritten in: ", results_path
+          )
+    
+
+    return {
+        "beta_peak_parameters_df": beta_peak_parameters_df,
+        "description_results": description_results
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
