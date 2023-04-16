@@ -3,29 +3,14 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
-
-import scipy
-from scipy.signal import spectrogram, hann, butter, filtfilt, freqz
-
-import sklearn
-from sklearn.preprocessing import normalize
-
-import json
 import os
-import mne
+import pickle
 
 import fooof
 # Import required code for visualizing example models
-from fooof import FOOOF
-from fooof.sim.gen import gen_power_spectrum
-from fooof.sim.utils import set_random_seed
 from fooof.plts.spectra import plot_spectrum
-from fooof.plts.annotate import plot_annotated_model
 
-
-import py_perceive
 
 # Local Imports
 from ..classes import mainAnalysis_class
@@ -64,8 +49,6 @@ def fooof_fit_tfr(incl_sub: list):
 
     Input: 
         - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
-        - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
-        - incl_condition: list e.g. ["m0s0", "m1s0"]
       
     1) Load the Power Spectrum from main Class:
         - unfiltered
@@ -368,6 +351,152 @@ def fooof_fit_tfr(incl_sub: list):
     
 
     
+def fooof_peaks_per_session():
+
+    """
+    Load the group FOOOF json file as Dataframe: 
+    "fooof_model_group_data.json" from the group result folder
+
+
+
+    """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+    
+
+    freq_bands = ["alpha", "low_beta", "high_beta", "beta", "gamma"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+    session_peak_dict = {}
+
+    # load the json file as Dataframe
+    fooof_group_result = loadResults.load_group_fooof_result()
+
+    for ses in sessions:
+
+        # get the dataframes for each session seperately
+        fooof_session = fooof_group_result.loc[(fooof_group_result["session"]==ses)]
+
+        # get total number of recordings (per STN all 15 recordings included) per session 
+        total_number_all_channels_session = len(fooof_session)
+
+        for freq in freq_bands:
+            freq_list = []
+
+            for item in fooof_session[f"{freq}_peak_CF_power_bandWidth"].values:
+                # in the column "{freq}_peak_CF_power_bandWidth" each cell contains a list
+                # only take rows with a list, if None is not in the list (so only take rows, if there was a Peak)
+                if None not in item:
+                    freq_list.append(item)
+
+            freq_session_df = fooof_session.loc[fooof_session[f"{freq}_peak_CF_power_bandWidth"].isin(freq_list)]
+
+            # count how many freq Peaks exist
+            number_freq_peaks_session =  len(freq_session_df)
+
+            # calculate % of channels with freq Peaks in this session
+            percentage_freq_peaks_session = number_freq_peaks_session / total_number_all_channels_session
+
+            session_peak_dict[f"{ses}_{freq}"] = [ses, freq, total_number_all_channels_session, number_freq_peaks_session, percentage_freq_peaks_session]
+        
+    # save the results in a dataframe
+    session_peak_df = pd.DataFrame(session_peak_dict)
+    session_peak_df.rename(index={
+        0: "session",
+        1: "frequency_band",
+        2: "total_chans_number",
+        3: "number_chans_with_peaks",
+        4: "percentage_chans_with_peaks",
+    }, inplace=True)
+    session_peak_df = session_peak_df.transpose()
+
+    # save Dataframe with data 
+    session_peak_filepath = os.path.join(results_path, f"fooof_peaks_per_session.pickle")
+    with open(session_peak_filepath, "wb") as file:
+        pickle.dump(session_peak_df, file)
+    
+    print("file: ", 
+          "fooof_peaks_per_session.pickle",
+          "\nwritten in: ", results_path
+          )
+    
+    return session_peak_df
+
+
+def fooof_plot_peaks_per_session():
+
+    """
+    Load the file "fooof_peaks_per_session.pickle" from the group results folder
+
+    Plot a lineplot for the amount of channels with Peaks per session with lines for each freq band 
+        - x = session
+        - y = percentage_chans_with_peaks
+        - label = freq_band
+
+
+    """
+
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+
+    # load the pickle file with the numbers and percentages of channels with peaks in all frequency bands
+    peaks_per_session = loadResults.load_fooof_peaks_per_session()
+
+    # filter dataframe for each freq bands seperately
+    alpha_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "alpha"]
+    low_beta_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "low_beta"]
+    high_beta_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "high_beta"]
+    beta_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "beta"]
+    gamma_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "gamma"]
+
+
+    # Plot a lineplot for the amount of channels with Peaks per session with lines for each freq band 
+    fig = plt.figure()
+
+    font = {"size": 14}
+
+    plt.plot(alpha_peaks.session, alpha_peaks.percentage_chans_with_peaks, label="alpha")
+    plt.plot(low_beta_peaks.session, low_beta_peaks.percentage_chans_with_peaks, label="low beta")
+    plt.plot(high_beta_peaks.session, high_beta_peaks.percentage_chans_with_peaks, label="high beta")
+    plt.plot(beta_peaks.session, beta_peaks.percentage_chans_with_peaks, label="beta")
+    plt.plot(gamma_peaks.session, gamma_peaks.percentage_chans_with_peaks, label="gamma")
+
+    plt.scatter(alpha_peaks.session, alpha_peaks.percentage_chans_with_peaks)
+    plt.scatter(low_beta_peaks.session, low_beta_peaks.percentage_chans_with_peaks)
+    plt.scatter(high_beta_peaks.session, high_beta_peaks.percentage_chans_with_peaks)
+    plt.scatter(beta_peaks.session, beta_peaks.percentage_chans_with_peaks)
+    plt.scatter(gamma_peaks.session, gamma_peaks.percentage_chans_with_peaks)
+
+    plt.title("Amount of recordings with Peaks", fontdict={"size": 19})
+
+    plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
+    plt.xlabel("session", fontdict=font)
+    plt.ylabel("recordings with peak in frequency band \nrelative to all recordings", fontdict=font)
+    fig.tight_layout()
+
+    # save figure in group Figures folder
+    fig.savefig(figures_path + "\\fooof_peaks_per_session.png", bbox_inches="tight")
+
+    print("figure: ", 
+          f"fooof_peaks_per_session.png",
+          "\nwritten in: ", figures_path
+          )
+
+
+
+
+
+
+
+
+
+
+            
+
+
+
+
+
+
 
 
 

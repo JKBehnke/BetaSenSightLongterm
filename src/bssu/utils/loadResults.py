@@ -778,6 +778,31 @@ def load_group_fooof_result():
 
 
 
+def load_fooof_peaks_per_session():
+
+    """
+    Load the file: "fooof_peaks_per_session.pickle"
+    from the group result folder
+
+    """
+   
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"fooof_peaks_per_session.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
+
+
+
+
 
 
 # def load_MonoRef_GroupCSV(normalization: str, hemisphere: str):
