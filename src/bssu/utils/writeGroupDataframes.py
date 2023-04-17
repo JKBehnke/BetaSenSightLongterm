@@ -956,7 +956,7 @@ def write_ses_comparison_power_spectra(
         2: "session",
         3: "bipolar_channel",
         4: "power_spectrum",
-        5: "freqencies"
+        5: "frequencies"
     }, inplace=True)
     single_channels_df = single_channels_df.transpose()
 

@@ -4,11 +4,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from cycler import cycler
+import pandas as pd
+import scipy
 
 
 ######### PRIVATE PACKAGES #########
-from .. classes import mainAnalysis_class as mainAnalysis_class
-from .. utils import find_folders as find_folders
+from ..classes import mainAnalysis_class as mainAnalysis_class
+from ..utils import find_folders as find_folders
 
 
 def PowerSpectra_perChannel(sub: str, 
@@ -408,6 +410,187 @@ def PowerSpectra_perChannelGroup(sub: str,
         fig.savefig(subject_figures_path + f"\\PowerSpectraPerChannelGroup_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png", 
                     bbox_inches = "tight") # bbox_inches makes sure that the title won´t be cut off
 
+
+
+def power_spectra_grand_average_per_session(
+        incl_sub: list,
+        channel_group: str,
+        signalFilter: str,
+        absolute_or_relative_psd: str
+):
+
+    """
+
+    Input:
+        - incl_sub: list, e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
+        - channel_group: str, e.g. "SegmInter", "SegmIntra", "Ring"
+        - signalFilter: str, e.g. "band-pass" or "unfiltered"
+        - absolute_or_relative_psd: str, e.g. "rawPsd" or "normPsdToSum40to90Hz"
+    
+    """
+
+    # path to subject folder figures
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    if channel_group == "SegmIntra":
+        channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+    elif channel_group == "SegmInter":
+        channels = ['1A2A', '1B2B', '1C2C']
+
+    elif channel_group == "Ring":
+        channels = ['01', '12', '23']
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    hemispheres = ["Right", "Left"]
+
+        
+    single_channels_dict = {}
+
+    for sub in incl_sub:
+
+        for hem in hemispheres:
+
+            # load all sessions and selected channel data per STN
+            stn_power_spectra = mainAnalysis_class.MainClass(
+                    sub=sub,
+                    hemisphere=hem,
+                    filter=signalFilter,
+                    result="PowerSpectrum",
+                    incl_session=["postop", "fu3m", "fu12m", "fu18m"],
+                    pickChannels=channels,
+                    normalization=["rawPsd"],
+                    feature=["frequency", "time_sectors", 
+                            "rawPsd", "SEM_rawPsd",
+                            "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
+                )
+            
+            for ses in sessions:
+                
+                # check which sessions exist
+                try:
+                    getattr(stn_power_spectra, ses)
+
+                except AttributeError:
+                    continue
+
+                for chan in channels: 
+                        
+                    # get the power spectra and frequencies from each channel
+                    chan_data = getattr(stn_power_spectra, ses)
+                    chan_data = getattr(chan_data, f"BIP_{chan}")
+                    
+                    if absolute_or_relative_psd == "normPsdToSum40to90Hz": 
+                        power_spectrum = np.array(chan_data.normPsdToSum40to90Hz.data)
+                    
+                    elif absolute_or_relative_psd == "rawPsd": 
+                        power_spectrum = np.array(chan_data.rawPsd.data)
+                    
+                    freqs = np.array(chan_data.frequency.data)
+
+                    # save all channels of an STN in a dict
+                    single_channels_dict[f"{sub}_{hem}_{ses}_{chan}"] = [sub, hem, ses, chan, power_spectrum, freqs]
+
+    # Dataframe with all single channels and their power_spectra + frequencies
+    single_channels_df = pd.DataFrame(single_channels_dict)
+    single_channels_df.rename(index={
+        0: "subject",
+        1: "hemisphere",
+        2: "session",
+        3: "bipolar_channel",
+        4: "power_spectrum",
+        5: "frequencies"
+    }, inplace=True)
+    single_channels_df = single_channels_df.transpose()
+
+    # join sub, hem columns together -> stn
+    single_channels_df["stn"] = single_channels_df[['subject', 'hemisphere']].agg('_'.join, axis=1)
+    single_channels_df.drop(columns=['subject', 'hemisphere'], inplace=True)
+
+
+    ############# PLOT THE GRAND AVERAGE POWER SPECTRUM PER SESSION #############
+
+    # Plot all power spectra in one figure, one color for each session
+
+    # 4 colors used for the cycle of matplotlib 
+    cycler_colors = cycler("color", ["turquoise", "sandybrown", "plum", "cornflowerblue"])
+    plt.rc('axes', prop_cycle=cycler_colors)
+
+    fig = plt.figure(layout="tight")
+
+    average_spectra = {}
+
+    for ses in sessions:
+
+        session_df = single_channels_df.loc[single_channels_df.session==ses]
+
+        frequencies = session_df.frequencies.values[0]
+
+        power_spectrum_session_grand_average = np.mean(session_df.power_spectrum.values)
+        standard_deviation_session = np.std(session_df.power_spectrum.values)
+
+        # save and return 
+        average_spectra[f"{ses}"] = [ses, frequencies, power_spectrum_session_grand_average, standard_deviation_session,
+                                     len(session_df.power_spectrum.values)]
+        
+        # Plot the grand average power spectrum per session
+        plt.plot(frequencies, power_spectrum_session_grand_average, label=ses, linewidth=3)
+
+        # plot the standard deviation as shaded grey area
+        plt.fill_between(frequencies, 
+                    power_spectrum_session_grand_average-standard_deviation_session,
+                    power_spectrum_session_grand_average+standard_deviation_session,
+                    color="gainsboro", alpha=0.5)
+
+
+    plt.title(f"Grand average power spectra across {channel_group} channels", fontdict={"size": 18})
+    plt.legend(loc= 'upper right', fontsize=14)
+
+    # add lines for freq Bands
+    plt.axvline(x=8, color='dimgrey', linestyle='--')
+    plt.axvline(x=13, color='dimgrey', linestyle='--')
+    plt.axvline(x=20, color='dimgrey', linestyle='--')
+    plt.axvline(x=35, color='dimgrey', linestyle='--')
+
+    plt.xlabel("Frequency [Hz]", fontdict={"size": 14})
+    plt.xlim(1, 60)
+
+    if absolute_or_relative_psd == "normPsdToSum40to90Hz":
+
+        plt.ylabel("average PSD rel. to sum 40-90 Hz [%]", fontdict={"size": 14})
+        plt.ylim(-2, 80)
+    
+    elif absolute_or_relative_psd == "rawPsd":
+
+        plt.ylabel("average PSD [uV^2/Hz]", fontdict={"size": 14})
+        plt.ylim(-0.05, 2)
+
+
+    fig.tight_layout()
+
+    fig.savefig(figures_path + f"\\grand_average_power_spectra_{channel_group}_{absolute_or_relative_psd}_{signalFilter}.png",
+                bbox_inches = "tight")
+
+    print("figure: ", 
+          f"grand_average_power_spectra_{channel_group}_{absolute_or_relative_psd}_{signalFilter}.png",
+          "\nwritten in: ", figures_path
+          )
+    
+    average_spectra_df = pd.DataFrame(average_spectra)
+    average_spectra_df.rename(index={
+        0: "session",
+        1: "frequencies",
+        2: "power_spectrum_grand_average",
+        3: "standard_deviation",
+        4: "sample_size"
+    }, inplace=True)
+    average_spectra_df = average_spectra_df.transpose()
+
+    
+    return average_spectra_df
+    
+
+            
 
 
 
