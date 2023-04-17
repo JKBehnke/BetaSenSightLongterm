@@ -5,6 +5,7 @@ import pickle
 
 import pandas as pd
 import json
+import numpy as np
 
 from ..  tfr import feats_ssd as feats_ssd
 ######### PRIVATE PACKAGES #########
@@ -863,6 +864,208 @@ def write_fooof_group_json(incl_sub: list):
     group_fooof_dataframe.to_json(os.path.join(results_path_group, f"fooof_model_group_data.json"))
 
     return group_fooof_dataframe
+
+
+def write_ses_comparison_power_spectra(
+        incl_sub: list,
+        incl_channels: str,
+        signalFilter: str,
+):
+    """
+
+    Input:
+        - incl_sub: list, e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
+        - incl_channels: str, e.g. "SegmInter", "SegmIntra", "Ring"
+        - signalFilter: str, e.g. "band-pass" or "unfiltered"
+    
+    1) Load the power spectra of each subject hemisphere (=STN) via classes
+        - save each power spectrum for each session and each bipolar channel
+        - save in Dataframe: single_channels_df
+
+    2) for each session comparison select only the STNs with recordings at both sessions
+        - comparisons: ["postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                        "fu3m_fu12m", "fu3m_fu18m", "fu12m_fu18m"]
+        - create Dataframe with only STNs with both sessions: comparison_df
+    
+    3) store all comparison_df in a dictionary and save as file: "power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle"
+        - keys of the dictionary: 
+        ["postop_fu3m_df", "postop_fu12m_df", "postop_fu18m_df", "fu3m_fu12m_df", "fu3m_fu18m_df", "fu12m_fu18m_df"]
+
+    """
+
+    # results folder for group results
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # variables
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    hemispheres = ["Right", "Left"]
+
+    if incl_channels == "SegmInter":
+        channels = ["1A2A", "1B2B", "1C2C"]
+    
+    elif incl_channels == "SegmIntra":
+        channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+    
+    elif incl_channels == "Ring":
+        channels = ['01', '12', '23'] # taking the grand average of these channels probably not a good idea bc different impedances of contacts
+
+    single_channels_dict = {}
+
+    for sub in incl_sub:
+
+        for hem in hemispheres:
+
+            # load all sessions and selected channel data per STN
+            stn_power_spectra = mainAnalysis_class.MainClass(
+                    sub=sub,
+                    hemisphere=hem,
+                    filter=signalFilter,
+                    result="PowerSpectrum",
+                    incl_session=["postop", "fu3m", "fu12m", "fu18m"],
+                    pickChannels=channels,
+                    normalization=["rawPsd"],
+                    feature=["frequency", "time_sectors", "rawPsd", "SEM_rawPsd"]
+                )
+            
+            for ses in sessions:
+                
+                # check which sessions exist
+                try:
+                    getattr(stn_power_spectra, ses)
+
+                except AttributeError:
+                    continue
+
+                for chan in channels: 
+                        
+                    # get the power spectra and frequencies from each channel
+                    chan_data = getattr(stn_power_spectra, ses)
+                    chan_data = getattr(chan_data, f"BIP_{chan}")
+                    
+                    power_spectrum = np.array(chan_data.rawPsd.data)
+                    freqs = np.array(chan_data.frequency.data)
+
+                    # save all channels of an STN in a dict
+                    single_channels_dict[f"{sub}_{hem}_{ses}_{chan}"] = [sub, hem, ses, chan, power_spectrum, freqs]
+
+    # Dataframe with all single channels and their power_spectra + frequencies
+    single_channels_df = pd.DataFrame(single_channels_dict)
+    single_channels_df.rename(index={
+        0: "subject",
+        1: "hemisphere",
+        2: "session",
+        3: "bipolar_channel",
+        4: "power_spectrum",
+        5: "freqencies"
+    }, inplace=True)
+    single_channels_df = single_channels_df.transpose()
+
+
+    # join sub, hem columns together -> stn
+    single_channels_df["stn"] = single_channels_df[['subject', 'hemisphere']].agg('_'.join, axis=1)
+    single_channels_df.drop(columns=['subject', 'hemisphere'], inplace=True)
+
+    #################  AVERAGE OF ALL POWER SPECTRA WITHIN ONE STN  #################
+    # averaged_across_stn_dict = {}
+
+    # stn_unique = list(single_channels_df.stn.unique())
+
+    # for stn in stn_unique:
+
+    #     # filter the df and only get rows with stn
+    #     stn_df = single_channels_df.loc[(single_channels_df["stn"]==stn)]
+
+    #     for ses in sessions:
+
+    #         # check if session exists 
+    #         if ses not in stn_df.session.values:
+    #             continue
+
+    #         stn_session_df = stn_df.loc[(stn_df["session"]==ses)]
+
+    #         # save one vector with frequencies (all the same)
+    #         freqs = stn_session_df.freqencies.values[0]
+
+    #         # calculate the grand average of all selected channels of one STN
+    #         across_chans_average = np.mean(stn_session_df.power_spectrum.values)
+
+    #         # save in average dict
+    #         averaged_across_stn_dict[f"{stn}_{ses}_averaged"] = [stn, ses, across_chans_average, freqs]
+
+
+    # averaged_across_stn_df = pd.DataFrame(averaged_across_stn_dict)
+    # averaged_across_stn_df.rename(index={
+    #     0: "stn",
+    #     1: "session",
+    #     2: f"power_spectrum_average_{incl_channels}",
+    #     3: "frequencies"
+    # }, inplace=True)
+
+    # averaged_across_stn_df = averaged_across_stn_df.transpose()
+
+
+    #################  WRITE DATAFRAMES WITH SESSION COMPARISONS INCLUDING ONLY STNs AVAILABLE FOR BOTH SESSIONS  #################
+
+    # Dataframes for each session comparison, one DF per session for all comparisons
+    compare_sessions = ["postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                        "fu3m_fu12m", "fu3m_fu18m", "fu12m_fu18m"]
+    
+    comparisons_storage = {}
+    
+    for comparison in compare_sessions:
+
+        two_sessions = comparison.split("_")
+        session_1 = two_sessions[0]
+        session_2 = two_sessions[1]
+
+        # Dataframe per session
+        session_1_df = single_channels_df.loc[(single_channels_df["session"]==session_1)]
+        session_2_df = single_channels_df.loc[(single_channels_df["session"]==session_2)]
+
+        # list of STNs per session
+        session_1_stns = list(session_1_df.stn.unique())
+        session_2_stns = list(session_2_df.stn.unique())
+
+        # list of STNs included in both sessions
+        STN_list = list(set(session_1_stns) & set(session_2_stns))
+        STN_list.sort()
+
+        comparison_df = pd.DataFrame()
+
+        for stn in STN_list:
+
+            session_1_compared_to_2 = session_1_df.loc[session_1_df["stn"]==stn]
+            session_2_compared_to_1 = session_2_df.loc[session_2_df["stn"]==stn]
+            
+            comparison_df = pd.concat([comparison_df, session_1_compared_to_2, session_2_compared_to_1])
+            
+
+        comparisons_storage[f"{comparison}_df"] = comparison_df
+
+
+    # save dictionary as pickle file
+    comparisons_storage_filepath = os.path.join(results_path, f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle")
+    with open(comparisons_storage_filepath, "wb") as file:
+        pickle.dump(comparisons_storage, file)
+
+    print("file: ", 
+          f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle",
+          "\nwritten in: ", results_path
+          )
+
+
+    return {
+        "single_channels_df":single_channels_df,
+        # "averaged_across_stn_df":averaged_across_stn_df,
+        "comparisons_storage": comparisons_storage,
+
+    }
+
+
+
+
+
+
 
 
 

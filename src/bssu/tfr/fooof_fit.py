@@ -507,10 +507,6 @@ def fooof_low_vs_high_beta_ratio():
 
         session_df = peaks_per_session.loc[peaks_per_session.session==ses]
 
-        beta_peaks = session_df.loc[session_df.frequency_band=="beta"]
-        beta_peaks = beta_peaks.number_chans_with_peaks.values
-        beta_peaks = beta_peaks[0]
-
         low_beta_peaks = session_df.loc[session_df.frequency_band=="low_beta"]
         low_beta_peaks = low_beta_peaks.number_chans_with_peaks.values
         low_beta_peaks = low_beta_peaks[0]
@@ -518,6 +514,9 @@ def fooof_low_vs_high_beta_ratio():
         high_beta_peaks = session_df.loc[session_df.frequency_band=="high_beta"]
         high_beta_peaks = high_beta_peaks.number_chans_with_peaks.values
         high_beta_peaks = high_beta_peaks[0]
+
+        # number of low + high beta peaks
+        beta_peaks = low_beta_peaks + high_beta_peaks
 
         # calculate the relative amount of Peaks in low beta and high beta from all Peaks in beta band
         relative_low_beta = low_beta_peaks / beta_peaks
@@ -549,6 +548,11 @@ def fooof_low_vs_high_beta_ratio():
 
     plt.scatter(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_low_beta,)
     plt.scatter(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_high_beta)
+
+    # alternative: stacked Barplot
+    # plt.bar(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_low_beta, label="low beta")
+    # plt.bar(session_low_vs_high_peak_df.session, session_low_vs_high_peak_df.relative_high_beta, label="high beta", bottom=session_low_vs_high_peak_df.relative_low_beta)
+
 
     plt.title("Relative amount of low beta vs high beta peaks", fontdict={"size": 19})
 
@@ -645,7 +649,7 @@ def fooof_highest_beta_peak_cf():
     fig=plt.figure()
     ax = fig.add_subplot()
 
-    sns.violinplot(data=beta_peak_parameters_df, x="session", y="beta_cf", palette="Set3", inner="box", ax=ax)
+    sns.violinplot(data=beta_peak_parameters_df, x="session", y="beta_cf", palette="pastel", inner="box", ax=ax)
 
     # statistical test: doesn't work if groups have different sample size
     num_sessions = [0.0, 3.0, 12.0, 18.0]

@@ -801,6 +801,43 @@ def load_fooof_peaks_per_session():
     return data
 
 
+def load_power_spectra_session_comparison(
+        incl_channels:str,
+        signalFilter:str,
+):
+
+    """
+    Load the file: f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle"
+    from the group result folder
+
+    Input:
+        - incl_channels: str, e.g. "SegmInter", "SegmIntra", "Ring"
+        - signalFilter: str, e.g. "band-pass" or "unfiltered"
+    
+    Return:
+        - dictionary with keys: 
+        ['postop_fu3m_df', 'postop_fu12m_df', 'postop_fu18m_df', 'fu3m_fu12m_df', 'fu3m_fu18m_df', 'fu12m_fu18m_df']
+
+        - each key value is a dataframe with the power spectra of STNs with recordings at both sessions
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
+
+
+
 
 
 
