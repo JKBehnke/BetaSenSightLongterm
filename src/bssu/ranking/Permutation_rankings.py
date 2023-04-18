@@ -11,6 +11,8 @@ import pickle
 import matplotlib.pyplot as plt
 from cycler import cycler
 
+import plotly.express as px
+
 import itertools
 import seaborn as sns
 
@@ -43,7 +45,12 @@ def PermutationTest_BIPchannelGroups(
     
     1) Load the comparison dataframes: e.g. BIPpermutationDF_Fu12m_Fu18m_psdAverage_beta_rawPsd_band-pass.pickle
 
-    2) for each comparison ("Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu12m", "Fu3m_Fu18m", "Fu12m_Fu18m")
+    2) for each comparison 
+                    ["Postop_Postop", "Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", 
+                   "Fu3m_Postop", "Fu3m_Fu3m", "Fu3m_Fu12m", "Fu3m_Fu18m", 
+                   "Fu12m_Postop", "Fu12m_Fu3m", "Fu12m_Fu12m", "Fu12m_Fu18m",
+                   "Fu18m_Postop", "Fu18m_Fu3m", "Fu18m_Fu12m", "Fu18m_Fu18m"]
+
         and for each group ("Ring", "SegmInter", "SegmIntra")
         calculate the MEAN difference of ranks over all STNs
     
@@ -76,8 +83,14 @@ def PermutationTest_BIPchannelGroups(
     results_path = find_folders.get_local_path(folder="GroupResults")
     figures_path = find_folders.get_local_path(folder="GroupFigures")
 
-    # 3 comparisons for each channel group
-    comparisons = ["Postop_Fu3m", "Fu3m_Fu12m", "Fu12m_Fu18m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu18m"]
+    # comparisons for each channel group
+    # comparisons = ["Postop_Fu3m", "Fu3m_Fu12m", "Fu12m_Fu18m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu18m"]
+    
+    comparisons = ["Postop_Postop", "Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", 
+                   "Fu3m_Postop", "Fu3m_Fu3m", "Fu3m_Fu12m", "Fu3m_Fu18m", 
+                   "Fu12m_Postop", "Fu12m_Fu3m", "Fu12m_Fu12m", "Fu12m_Fu18m",
+                   "Fu18m_Postop", "Fu18m_Fu3m", "Fu18m_Fu12m", "Fu18m_Fu18m"]
+
     channelGroups = ["Ring", "SegmInter", "SegmIntra"]
     Ring_channels = ["12", "01", "23"]
     SegmIntra_channels = ["1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C",]
@@ -191,7 +204,7 @@ def PermutationTest_BIPchannelGroups(
 
         for ax in axes:
 
-            ax.set_xlabel("MEAN Difference between beta ranks", fontsize=25)
+            ax.set_xlabel(f"MEAN Difference between {freqBand} ranks", fontsize=25)
             ax.set_ylabel("Count", fontsize=25)
             #ax.legend(loc="upper right", bbox_to_anchor=(1.5, 1.0), fontsize=15)
             
@@ -234,6 +247,68 @@ def PermutationTest_BIPchannelGroups(
 
     return Permutation_BIP_DF
     
+
+
+def heatmap_distances_to_permutated_mean(
+        data2permute:str,
+        filterSignal:str,
+        normalization:str,
+        freqBand:str
+):
+    """
+    
+    Input:
+        - data2permute= e.g. "psdAverage",
+        - filterSignal= e.g. "band-pass",
+        - normalization= e.g. "rawPsd",
+        - freqBand= e.g. "beta"
+    
+    Load the pickle file written with function PermutationTest_BIPchannelGroups() in Permutation_rankings.py 
+        filename: "Permutation_BIP_{data2permute}_{freqBand}_{normalization}_{filterSignal}.pickle" 
+
+
+    """
+
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    # load the Permutation results
+    permutation_results = loadResults.load_BIPpermutation_ranks_result(
+        data2permute=data2permute,
+        filterSignal=filterSignal,
+        normalization=normalization,
+        freqBand=freqBand
+        )
+    
+    # restructure the dataframe for a heatmap
+    # filter for each channel group
+
+    channel_group = ["Ring", "SegmInter", "SegmIntra"]
+
+    for group in channel_group:
+
+        group_df = permutation_results.loc[permutation_results.channelGroup==group]
+
+        distance_to_plot = group_df.distanceMEANreal_MEANrandom.values.astype(float)
+        distance_to_plot = distance_to_plot.reshape(4,4)
+
+        fig = px.imshow(distance_to_plot,
+                        labels=dict(x="session 1", y="session 2", color=f"distance between real and permutated mean differences"),
+                        x=['postop', 'fu3m', 'fu12m', 'fu18m'],
+                        y=['postop', 'fu3m', 'fu12m', 'fu18m'],
+                        title=f"{group} channel group, difference of {freqBand} power ranks",
+                        text_auto=True)
+        fig.update_xaxes(side="top")
+        fig.update_layout(title={
+            'y':0.98,
+            'x':0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'})
+        
+        fig.show()
+
+    
+    # saving image doesn´t work with plotly ... cuoldn´t figure out why        
+
 
 
 

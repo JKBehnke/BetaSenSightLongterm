@@ -395,7 +395,10 @@ def load_BIPpermutationComparisonsPickle(result: str,  freqBand: str, normalizat
     # create Filename out of input for each channel Group
     # example: BIPranksPermutation_dict_peak_beta_rawPsd_band-pass.pickle
 
-    comparison = ["Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", "Fu3m_Fu12m", "Fu3m_Fu18m", "Fu12m_Fu18m"]
+    comparison = ["Postop_Postop", "Postop_Fu3m", "Postop_Fu12m", "Postop_Fu18m", 
+                   "Fu3m_Postop", "Fu3m_Fu3m", "Fu3m_Fu12m", "Fu3m_Fu18m", 
+                   "Fu12m_Postop", "Fu12m_Fu3m", "Fu12m_Fu12m", "Fu12m_Fu18m",
+                   "Fu18m_Postop", "Fu18m_Fu3m", "Fu18m_Fu12m", "Fu18m_Fu18m"]
 
     res = f"_{result}"
     freq = f"_{freqBand}"
@@ -419,6 +422,44 @@ def load_BIPpermutationComparisonsPickle(result: str,  freqBand: str, normalizat
     return data
 
 
+
+def load_BIPpermutation_ranks_result(
+        data2permute:str,
+        filterSignal: str,
+        normalization: str,
+        freqBand: str,
+):
+
+    """
+    Reads pickle file written with function PermutationTest_BIPchannelGroups() in Permutation_rankings.py 
+        filename: "Permutation_BIP_{data2permute}_{freqBand}_{normalization}_{filterSignal}.pickle"
+
+    Input:
+        - data2permute: str e.g. "psdAverage",  "peak"
+        - filterSignal: str e.g. "band-pass"
+        - normalization: str e.g. "rawPsd"
+        - freqBand: str e.g. "beta"
+
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"Permutation_BIP_{data2permute}_{freqBand}_{normalization}_{filterSignal}.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
 

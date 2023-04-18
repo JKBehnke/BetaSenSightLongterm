@@ -419,28 +419,51 @@ def Permutation_BIPranksRingSegmGroups(
 
     ##################### MERGE DATAFRAMES TO PAIRED DATAFRAMES AND GET DIFFERENCES OF RANKS/psdAverage/peaks #####################
 
-    # 3 comparisons for each channel group: store all channel groups in comparison dictionary
-    comparisons = ["comparePostop_Fu3m", "comparePostop_Fu12m", "comparePostop_Fu18m", "compareFu3m_Fu12m", "compareFu3m_Fu18m", "compareFu12m_Fu18m"]
+    # 4 comparisons for each channel group: store all channel groups in comparison dictionary
+    comparisons = ["comparePostop_Postop", "comparePostop_Fu3m", "comparePostop_Fu12m", "comparePostop_Fu18m", 
+                   "compareFu3m_Postop", "compareFu3m_Fu3m", "compareFu3m_Fu12m", "compareFu3m_Fu18m", 
+                   "compareFu12m_Postop", "compareFu12m_Fu3m", "compareFu12m_Fu12m", "compareFu12m_Fu18m",
+                   "compareFu18m_Postop", "compareFu18m_Fu3m", "compareFu18m_Fu12m", "compareFu18m_Fu18m"]
 
     # dictionaries to store DF of each channel Group
-    comparePostop_Fu3m = {} # keys: Ring, SegmIntra, SegmInter
+    comparePostop_Postop = {} # keys: Ring, SegmIntra, SegmInter
+    comparePostop_Fu3m = {}
     comparePostop_Fu12m = {}
     comparePostop_Fu18m = {}
+    compareFu3m_Postop = {}
+    compareFu3m_Fu3m = {}
     compareFu3m_Fu12m = {}
     compareFu3m_Fu18m = {}
+    compareFu12m_Postop = {}
+    compareFu12m_Fu3m = {}
+    compareFu12m_Fu12m = {}
     compareFu12m_Fu18m = {}
+    compareFu18m_Postop = {}
+    compareFu18m_Fu3m = {}
+    compareFu18m_Fu12m = {}
+    compareFu18m_Fu18m = {}
     mean_differenceOfComparison = {}
 
 
     for group in channelGroups:
 
         # merge DF postop and fu3m, only keep matching rows in column "sub_hem_BIPchannel"
+        comparePostop_Postop[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_postop"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         comparePostop_Fu3m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu3m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         comparePostop_Fu12m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         comparePostop_Fu18m[group] = DF_storage[f"{group}_postop"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu3m_Postop[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_postop"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu3m_Fu3m[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_fu3m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         compareFu3m_Fu12m[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         compareFu3m_Fu18m[group] = DF_storage[f"{group}_fu3m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu12m_Postop[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_postop"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu12m_Fu3m[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_fu3m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu12m_Fu12m[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
         compareFu12m_Fu18m[group] = DF_storage[f"{group}_fu12m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu18m_Postop[group] = DF_storage[f"{group}_fu18m"].merge(DF_storage[f"{group}_postop"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu18m_Fu3m[group] = DF_storage[f"{group}_fu18m"].merge(DF_storage[f"{group}_fu3m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu18m_Fu12m[group] = DF_storage[f"{group}_fu18m"].merge(DF_storage[f"{group}_fu12m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
+        compareFu18m_Fu18m[group] = DF_storage[f"{group}_fu18m"].merge(DF_storage[f"{group}_fu18m"], left_on='sub_hem_BIPchannel', right_on='sub_hem_BIPchannel')
 
 
         # add new column to each DF: Difference_rank_x_y, 
@@ -448,8 +471,11 @@ def Permutation_BIPranksRingSegmGroups(
         
         for c in comparisons:
 
-            if c == "comparePostop_Fu3m":
-                comparison_DF = comparePostop_Fu3m[group]
+            if c == "comparePostop_Postop":
+                comparison_DF = comparePostop_Postop[group]
+            
+            elif c == "comparePostop_Fu3m":
+                comparison_DF = comparePostop_Fu3m[group] 
 
             elif c == "comparePostop_Fu12m":
                 comparison_DF = comparePostop_Fu12m[group] 
@@ -457,14 +483,43 @@ def Permutation_BIPranksRingSegmGroups(
             elif c == "comparePostop_Fu18m":
                 comparison_DF = comparePostop_Fu18m[group] 
             
+            elif c == "compareFu3m_Postop":
+                comparison_DF = compareFu3m_Postop[group]
+            
+            elif c == "compareFu3m_Fu3m":
+                comparison_DF = compareFu3m_Fu3m[group]
+            
             elif c == "compareFu3m_Fu12m":
                 comparison_DF = compareFu3m_Fu12m[group]
             
             elif c == "compareFu3m_Fu18m":
                 comparison_DF = compareFu3m_Fu18m[group]
             
+            elif c == "compareFu12m_Postop":
+                comparison_DF = compareFu12m_Postop[group]
+            
+            elif c == "compareFu12m_Fu3m":
+                comparison_DF = compareFu12m_Fu3m[group]
+
+            elif c == "compareFu12m_Fu12m":
+                comparison_DF = compareFu12m_Fu12m[group]
+            
             elif c == "compareFu12m_Fu18m":
                 comparison_DF = compareFu12m_Fu18m[group]
+            
+            elif c == "compareFu18m_Postop":
+                comparison_DF = compareFu18m_Postop[group]
+            
+            elif c == "compareFu18m_Fu3m":
+                comparison_DF = compareFu18m_Fu3m[group]
+            
+            elif c == "compareFu18m_Fu12m":
+                comparison_DF = compareFu18m_Fu12m[group]
+            
+            elif c == "compareFu18m_Fu18m":
+                comparison_DF = compareFu18m_Fu18m[group]
+            
+
             
             # new column calculating difference between ranks (abs only gives absolute values, so no negative values)
             comparison_DF['Difference_rank_x_y']  = (comparison_DF["rank_x"] - comparison_DF["rank_y"]).apply(abs)
@@ -506,6 +561,10 @@ def Permutation_BIPranksRingSegmGroups(
 
 
     ## save the Permutation structured Dataframes with pickle 
+
+    comparePostop_Postop_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Postop_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(comparePostop_Postop_filepath, "wb") as file:
+        pickle.dump(comparePostop_Postop, file)
     
     comparePostop_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(comparePostop_Fu3m_filepath, "wb") as file:
@@ -518,6 +577,14 @@ def Permutation_BIPranksRingSegmGroups(
     comparePostop_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Postop_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(comparePostop_Fu18m_filepath, "wb") as file:
         pickle.dump(comparePostop_Fu18m, file)
+    
+    compareFu3m_Postop_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Postop_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu3m_Postop_filepath, "wb") as file:
+        pickle.dump(compareFu3m_Postop, file)
+    
+    compareFu3m_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu3m_Fu3m_filepath, "wb") as file:
+        pickle.dump(compareFu3m_Fu3m, file)
 
     compareFu3m_Fu12m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(compareFu3m_Fu12m_filepath, "wb") as file:
@@ -526,10 +593,38 @@ def Permutation_BIPranksRingSegmGroups(
     compareFu3m_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu3m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(compareFu3m_Fu18m_filepath, "wb") as file:
         pickle.dump(compareFu3m_Fu18m, file)
+    
+    compareFu12m_Postop_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu12m_Postop_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu12m_Postop_filepath, "wb") as file:
+        pickle.dump(compareFu12m_Postop, file)
+    
+    compareFu12m_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu12m_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu12m_Fu3m_filepath, "wb") as file:
+        pickle.dump(compareFu12m_Fu3m, file)
+    
+    compareFu12m_Fu12m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu12m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu12m_Fu12m_filepath, "wb") as file:
+        pickle.dump(compareFu12m_Fu12m, file)
 
     compareFu12m_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu12m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
     with open(compareFu12m_Fu18m_filepath, "wb") as file:
         pickle.dump(compareFu12m_Fu18m, file)
+    
+    compareFu18m_Postop_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu18m_Postop_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu18m_Postop_filepath, "wb") as file:
+        pickle.dump(compareFu18m_Postop, file)
+    
+    compareFu18m_Fu3m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu18m_Fu3m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu18m_Fu3m_filepath, "wb") as file:
+        pickle.dump(compareFu18m_Fu3m, file)
+    
+    compareFu18m_Fu12m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu18m_Fu12m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu18m_Fu12m_filepath, "wb") as file:
+        pickle.dump(compareFu18m_Fu12m, file)
+    
+    compareFu18m_Fu18m_filepath = os.path.join(results_path, f"BIPpermutationDF_Fu18m_Fu18m_{result}_{freqBand}_{normalization}_{filterSignal}.pickle")
+    with open(compareFu18m_Fu18m_filepath, "wb") as file:
+        pickle.dump(compareFu18m_Fu18m, file)
     
     print("files: ", 
           f"BIP_relativePsdToRank1_{result}_{freqBand}_{normalization}_{filterSignal}.pickle",

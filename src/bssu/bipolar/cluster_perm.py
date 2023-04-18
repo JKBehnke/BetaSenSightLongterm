@@ -84,17 +84,20 @@ def cluster_permutation_power_spectra_betw_sesssions(
         session_2_df = comparison_df.loc[comparison_df.session==session_2]
 
         # from each session df only take the values from column with power spectra only until maximal frequency
-        x_session_1 = np.vstack(session_1_df[f'power_spectrum'].values)[:,:max_freq]
+        x_session_1 = np.vstack(session_1_df['power_spectrum'].values)[:,:max_freq]
         # e.g. for shape x_18mfu comparison to 12mfu = (10, 90), 10 STNs, 90 values per STN
-        x_session_2 = np.vstack(session_2_df[f'power_spectrum'].values)[:,:max_freq]
+        x_session_2 = np.vstack(session_2_df['power_spectrum'].values)[:,:max_freq]
 
         list_for_cluster_permutation = [x_session_1, x_session_2]
 
         # perform cluster permutation
         F_obs, clusters, cluster_pv, H0 = permutation_cluster_test(list_for_cluster_permutation, n_permutations=1000)
 
+        # get the sample size
+        sample_size = len(session_1_df.power_spectrum.values)
+
         # save results
-        permutation_results[f"{comparison}"] = [comparison, F_obs, clusters, cluster_pv, H0]
+        permutation_results[f"{comparison}"] = [comparison, F_obs, clusters, cluster_pv, H0, sample_size]
 
     results_df = pd.DataFrame(permutation_results)
     results_df.rename(index={
@@ -102,7 +105,8 @@ def cluster_permutation_power_spectra_betw_sesssions(
         1: "F_obs",
         2: "clusters",
         3: "cluster_pv",
-        4: "H0"
+        4: "H0",
+        5: "sample_size"
     }, inplace=True)
     results_df = results_df.transpose()
 
