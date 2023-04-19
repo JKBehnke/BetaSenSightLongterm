@@ -359,7 +359,8 @@ def fooof_peaks_per_session():
     Load the group FOOOF json file as Dataframe: 
     "fooof_model_group_data.json" from the group result folder
 
-
+    For all electrodes at all sessions seperately:
+    Get the number of Peaks and the % of channels with Peaks within one electrode at one session 
 
     """
 
@@ -374,41 +375,53 @@ def fooof_peaks_per_session():
     # load the json file as Dataframe
     fooof_group_result = loadResults.load_group_fooof_result()
 
-    for ses in sessions:
+    # list of unique STNs
+    stn_unique = list(fooof_group_result.subject_hemisphere.unique())
 
-        # get the dataframes for each session seperately
-        fooof_session = fooof_group_result.loc[(fooof_group_result["session"]==ses)]
+    for stn in stn_unique:
+        # get dataframe of one stn 
+        fooof_stn = fooof_group_result.loc[fooof_group_result.subject_hemisphere==stn]
 
-        # get total number of recordings (per STN all 15 recordings included) per session 
-        total_number_all_channels_session = len(fooof_session)
+        for ses in sessions:
 
-        for freq in freq_bands:
-            freq_list = []
+            # check if session exists for current STN
+            if ses not in fooof_stn.session.values:
+                continue
 
-            for item in fooof_session[f"{freq}_peak_CF_power_bandWidth"].values:
-                # in the column "{freq}_peak_CF_power_bandWidth" each cell contains a list
-                # only take rows with a list, if None is not in the list (so only take rows, if there was a Peak)
-                if None not in item:
-                    freq_list.append(item)
+            # get the dataframes for each session seperately
+            fooof_session = fooof_stn.loc[(fooof_stn["session"]==ses)]
 
-            freq_session_df = fooof_session.loc[fooof_session[f"{freq}_peak_CF_power_bandWidth"].isin(freq_list)]
+            # get total number of recordings (per STN all 15 recordings included) per session 
+            total_number_all_channels_session = len(fooof_session)
 
-            # count how many freq Peaks exist
-            number_freq_peaks_session =  len(freq_session_df)
+            for freq in freq_bands:
+                freq_list = []
 
-            # calculate % of channels with freq Peaks in this session
-            percentage_freq_peaks_session = number_freq_peaks_session / total_number_all_channels_session
+                for item in fooof_session[f"{freq}_peak_CF_power_bandWidth"].values:
+                    # in the column "{freq}_peak_CF_power_bandWidth" each cell contains a list
+                    # only take rows with a list, if None is not in the list (so only take rows, if there was a Peak)
+                    if None not in item:
+                        freq_list.append(item)
 
-            session_peak_dict[f"{ses}_{freq}"] = [ses, freq, total_number_all_channels_session, number_freq_peaks_session, percentage_freq_peaks_session]
-        
+                freq_session_df = fooof_session.loc[fooof_session[f"{freq}_peak_CF_power_bandWidth"].isin(freq_list)]
+
+                # count how many freq Peaks exist
+                number_freq_peaks_session =  len(freq_session_df)
+
+                # calculate % of channels with freq Peaks in this session
+                percentage_freq_peaks_session = number_freq_peaks_session / total_number_all_channels_session
+
+                session_peak_dict[f"{stn}_{ses}_{freq}"] = [stn, ses, freq, total_number_all_channels_session, number_freq_peaks_session, percentage_freq_peaks_session]
+            
     # save the results in a dataframe
     session_peak_df = pd.DataFrame(session_peak_dict)
     session_peak_df.rename(index={
-        0: "session",
-        1: "frequency_band",
-        2: "total_chans_number",
-        3: "number_chans_with_peaks",
-        4: "percentage_chans_with_peaks",
+        0: "subject_hemisphere",
+        1: "session",
+        2: "frequency_band",
+        3: "total_chans_number",
+        4: "number_chans_with_peaks",
+        5: "percentage_chans_with_peaks",
     }, inplace=True)
     session_peak_df = session_peak_df.transpose()
 
@@ -439,40 +452,89 @@ def fooof_plot_peaks_per_session():
     """
 
     figures_path = findfolders.get_local_path(folder="GroupFigures")
+    freq_bands = ["alpha", "low_beta", "high_beta", "beta", "gamma"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
 
     # load the pickle file with the numbers and percentages of channels with peaks in all frequency bands
     peaks_per_session = loadResults.load_fooof_peaks_per_session()
 
-    # filter dataframe for each freq bands seperately
-    alpha_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "alpha"]
-    low_beta_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "low_beta"]
-    high_beta_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "high_beta"]
-    beta_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "beta"]
-    gamma_peaks = peaks_per_session.loc[peaks_per_session.frequency_band == "gamma"]
+    perc_chans_with_peaks_data = {}
 
 
-    # Plot a lineplot for the amount of channels with Peaks per session with lines for each freq band 
+    # calculate the Mean and standard deviation across STNs from each frequency band at every session
+    for ses in sessions:
+
+        # get the dataframes for each session seperately
+        fooof_session = peaks_per_session.loc[(peaks_per_session["session"]==ses)]
+
+        for freq in freq_bands:
+
+            # get dataframes for each frequency
+            freq_session_df = fooof_session.loc[fooof_session.frequency_band == freq]
+
+            mean_percentage_chans_with_peaks = np.mean(freq_session_df.percentage_chans_with_peaks.values)
+            std_percentage_chans_with_peaks = np.std(freq_session_df.percentage_chans_with_peaks.values)
+            sample_size = len(freq_session_df.percentage_chans_with_peaks.values)
+
+            perc_chans_with_peaks_data[f"{ses}_{freq}"] = [ses, freq, mean_percentage_chans_with_peaks, std_percentage_chans_with_peaks, sample_size]
+
+            #df_copy = freq_df.copy()
+            # new column with mean-std and mean+std
+            # df_copy["mean-std"] = df_copy.mean_percentage_chans_with_peaks.values - df_copy.std_percentage_chans_with_peaks.values
+            # df_copy["mean+std"] = df_copy.mean_percentage_chans_with_peaks.values + df_copy.std_percentage_chans_with_peaks.values
+
+
+    # save the mean and std values in a dataframe
+    perc_chans_with_peaks_df = pd.DataFrame(perc_chans_with_peaks_data)
+    perc_chans_with_peaks_df.rename(index={
+        0: "session",
+        1: "frequency_band",
+        2: "mean_percentage_chans_with_peaks",
+        3: "std_percentage_chans_with_peaks",
+        4: "sample_size"
+    }, inplace=True)
+    perc_chans_with_peaks_df = perc_chans_with_peaks_df.transpose()
+
+
+    ###################### Plot a lineplot for the amount of channels with Peaks per session with lines for each freq band ######################
     fig = plt.figure()
-
     font = {"size": 14}
 
-    plt.plot(alpha_peaks.session, alpha_peaks.percentage_chans_with_peaks, label="alpha")
-    plt.plot(low_beta_peaks.session, low_beta_peaks.percentage_chans_with_peaks, label="low beta")
-    plt.plot(high_beta_peaks.session, high_beta_peaks.percentage_chans_with_peaks, label="high beta")
-    plt.plot(beta_peaks.session, beta_peaks.percentage_chans_with_peaks, label="beta")
-    plt.plot(gamma_peaks.session, gamma_peaks.percentage_chans_with_peaks, label="gamma")
+    for freq in freq_bands:
 
-    plt.scatter(alpha_peaks.session, alpha_peaks.percentage_chans_with_peaks)
-    plt.scatter(low_beta_peaks.session, low_beta_peaks.percentage_chans_with_peaks)
-    plt.scatter(high_beta_peaks.session, high_beta_peaks.percentage_chans_with_peaks)
-    plt.scatter(beta_peaks.session, beta_peaks.percentage_chans_with_peaks)
-    plt.scatter(gamma_peaks.session, gamma_peaks.percentage_chans_with_peaks)
+        freq_df = perc_chans_with_peaks_df.loc[perc_chans_with_peaks_df.frequency_band == freq]
+      
+        if freq=="alpha":
+            color="sandybrown"
+        
+        elif freq=="beta":
+            color="darkcyan"
+        
+        elif freq=="low_beta":
+            color="turquoise"
 
-    plt.title("Relative amount of channels with Peaks", fontdict={"size": 19})
+        elif freq=="high_beta":
+            color="cornflowerblue"
+        
+        elif freq=="gamma":
+            color="plum"
+
+        plt.plot(freq_df.session, freq_df.mean_percentage_chans_with_peaks, label=freq, color=color)
+        # plt.fill_between(df_copy.session, 
+        #                  df_copy["mean-std"],
+        #                  df_copy["mean+std"],
+        #                  color="gainsboro", alpha=0.5)
+        
+        plt.scatter(freq_df.session, freq_df.mean_percentage_chans_with_peaks, color=color)
+        #plt.errorbar(freq_df.session, freq_df.mean_percentage_chans_with_peaks, yerr=freq_df.std_percentage_chans_with_peaks, fmt="o", color=color)
+
+
+    plt.title("BSSU channels with Peaks", fontdict={"size": 19})
 
     plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
     plt.xlabel("session", fontdict=font)
-    plt.ylabel("channels with Peak \nrelative to all recorded channels", fontdict=font)
+    plt.ylabel("amount of channels with Peaks \nrelative to all channels per electrode", fontdict=font)
     fig.tight_layout()
 
     # save figure in group Figures folder
@@ -482,6 +544,79 @@ def fooof_plot_peaks_per_session():
           f"fooof_peaks_per_session.png",
           "\nwritten in: ", figures_path
           )
+
+
+    return perc_chans_with_peaks_df
+
+
+
+
+def fooof_peaks_in_freq_band_stats():
+
+    """
+    
+    """
+
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+    freq_bands = ["alpha", "low_beta", "high_beta", "beta", "gamma"]
+
+
+    # load the pickle file with the numbers and percentages of channels with peaks in all frequency bands
+    peaks_per_session = loadResults.load_fooof_peaks_per_session()
+
+
+    for f, freq in enumerate(freq_bands):
+
+        freq_df = peaks_per_session.loc[peaks_per_session.frequency_band == freq]
+
+        # replace session names by integers because of seaborn plot
+        freq_df = freq_df.replace(to_replace="postop", value=0)
+        freq_df = freq_df.replace(to_replace="fu3m", value=3)
+        freq_df = freq_df.replace(to_replace="fu12m", value=12)
+        freq_df = freq_df.replace(to_replace="fu18m", value=18)
+    
+        fig=plt.figure()
+        ax=fig.add_subplot()
+        font = {"size": 14}
+
+        sns.violinplot(data=freq_df, x="session", y="percentage_chans_with_peaks", palette="pastel", inner="box", ax=ax)
+
+        sns.stripplot(
+            data=freq_df,
+            x="session",
+            y="percentage_chans_with_peaks",
+            ax=ax,
+            size=6,
+            color="black",
+            alpha=0.2, # Transparency of dots
+        )
+
+        sns.despine(left=True, bottom=True) # get rid of figure frame
+
+
+        # statistical test: doesn't work if groups have different sample size
+        num_sessions = [0, 3, 12, 18]
+        pairs = list(combinations(num_sessions, 2))
+
+        annotator = Annotator(ax, pairs, data=freq_df, x='session', y='percentage_chans_with_peaks')
+        annotator.configure(test='Mann-Whitney', text_format='star') # or ANOVA first to check if there is any difference between all groups
+        annotator.apply_and_annotate()
+
+        plt.title(f"BSSU channels with Peaks in {freq}", fontdict={"size": 19})
+        plt.ylabel(f"amount of channels with Peaks \n rel. to all channels per electrode", fontdict=font)
+        plt.ylim(-0.25, 2.5)
+        plt.xlabel("session", fontdict=font)
+
+        fig.tight_layout()
+
+        # save figure in group Figures folder
+        fig.savefig(figures_path + f"\\fooof_{freq}_peaks_per_session_violinplot.png", bbox_inches="tight")
+
+    return annotator
+
+
+
+
     
 
 def fooof_low_vs_high_beta_ratio():
