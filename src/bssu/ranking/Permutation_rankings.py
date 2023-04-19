@@ -288,15 +288,22 @@ def heatmap_distances_to_permutated_mean(
 
         group_df = permutation_results.loc[permutation_results.channelGroup==group]
 
-        distance_to_plot = group_df.distanceMEANreal_MEANrandom.values.astype(float)
+        distance_to_plot = group_df["p-value"].values.astype(float)
         distance_to_plot = distance_to_plot.reshape(4,4)
 
         fig = px.imshow(distance_to_plot,
-                        labels=dict(x="session 1", y="session 2", color=f"distance between real and permutated mean differences"),
+                        labels=dict(x="session 1", y="session 2", color=f"p-value of difference real vs. random"),
                         x=['postop', 'fu3m', 'fu12m', 'fu18m'],
                         y=['postop', 'fu3m', 'fu12m', 'fu18m'],
-                        title=f"{group} channel group, difference of {freqBand} power ranks",
-                        text_auto=True)
+                        title=f"{group} channel group, p-values {freqBand} power ranks",
+                        text_auto=False)
+
+        # fig = px.imshow(distance_to_plot,
+        #                 labels=dict(x="session 1", y="session 2", color=f"distance between real and permutated mean differences"),
+        #                 x=['postop', 'fu3m', 'fu12m', 'fu18m'],
+        #                 y=['postop', 'fu3m', 'fu12m', 'fu18m'],
+        #                 title=f"{group} channel group, difference of {freqBand} power ranks",
+        #                 text_auto=True)
         fig.update_xaxes(side="top")
         fig.update_layout(title={
             'y':0.98,
