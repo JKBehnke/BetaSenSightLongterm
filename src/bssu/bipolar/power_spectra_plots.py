@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 import pandas as pd
 import scipy
+from scipy import stats
 
 
 ######### PRIVATE PACKAGES #########
@@ -416,7 +417,7 @@ def power_spectra_grand_average_per_session(
         incl_sub: list,
         channel_group: str,
         signalFilter: str,
-        absolute_or_relative_psd: str
+        normalization: str
 ):
 
     """
@@ -425,7 +426,7 @@ def power_spectra_grand_average_per_session(
         - incl_sub: list, e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
         - channel_group: str, e.g. "SegmInter", "SegmIntra", "Ring"
         - signalFilter: str, e.g. "band-pass" or "unfiltered"
-        - absolute_or_relative_psd: str, e.g. "rawPsd" or "normPsdToSum40to90Hz"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
     
     """
 
@@ -462,6 +463,8 @@ def power_spectra_grand_average_per_session(
                     normalization=["rawPsd"],
                     feature=["frequency", "time_sectors", 
                             "rawPsd", "SEM_rawPsd",
+                            "normPsdToTotalSum", "SEM_normPsdToTotalSum", 
+                            "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz",
                             "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
                 )
             
@@ -480,11 +483,17 @@ def power_spectra_grand_average_per_session(
                     chan_data = getattr(stn_power_spectra, ses)
                     chan_data = getattr(chan_data, f"BIP_{chan}")
                     
-                    if absolute_or_relative_psd == "normPsdToSum40to90Hz": 
+                    if normalization == "normPsdToSum40to90Hz": 
                         power_spectrum = np.array(chan_data.normPsdToSum40to90Hz.data)
                     
-                    elif absolute_or_relative_psd == "rawPsd": 
+                    elif normalization == "rawPsd": 
                         power_spectrum = np.array(chan_data.rawPsd.data)
+                    
+                    elif normalization == "normPsdToTotalSum": 
+                        power_spectrum = np.array(chan_data.normPsdToTotalSum.data)
+                    
+                    elif normalization == "normPsdToSum1_100Hz": 
+                        power_spectrum = np.array(chan_data.normPsdToSumPsd1to100Hz.data)
                     
                     freqs = np.array(chan_data.frequency.data)
 
@@ -528,9 +537,10 @@ def power_spectra_grand_average_per_session(
 
         power_spectrum_session_grand_average = np.mean(session_df.power_spectrum.values)
         standard_deviation_session = np.std(session_df.power_spectrum.values)
+        sem_session = stats.sem(session_df.power_spectrum.values)
 
         # save and return 
-        average_spectra[f"{ses}"] = [ses, frequencies, power_spectrum_session_grand_average, standard_deviation_session,
+        average_spectra[f"{ses}"] = [ses, frequencies, power_spectrum_session_grand_average, standard_deviation_session, sem_session,
                                      len(session_df.power_spectrum.values)]
         
         # Plot the grand average power spectrum per session
@@ -555,24 +565,34 @@ def power_spectra_grand_average_per_session(
     plt.xlabel("Frequency [Hz]", fontdict={"size": 14})
     plt.xlim(1, 60)
 
-    if absolute_or_relative_psd == "normPsdToSum40to90Hz":
+    if normalization == "normPsdToSum40to90Hz":
 
-        plt.ylabel("average PSD rel. to sum 40-90 Hz [%]", fontdict={"size": 14})
-        plt.ylim(-2, 80)
+        plt.ylabel("average PSD rel. to sum 40-90 Hz [%] +- std", fontdict={"size": 14})
+        plt.ylim(-2, 140)
     
-    elif absolute_or_relative_psd == "rawPsd":
+    elif normalization == "rawPsd":
 
-        plt.ylabel("average PSD [uV^2/Hz]", fontdict={"size": 14})
-        plt.ylim(-0.05, 2)
+        plt.ylabel("average PSD [uV^2/Hz] +- std", fontdict={"size": 14})
+        plt.ylim(-0.05, 3)
+    
+    elif normalization == "normPsdToTotalSum":
+
+        plt.ylabel("average PSD rel. to total sum [%] +- std", fontdict={"size": 14})
+        plt.ylim(-0.05, 14)
+    
+    elif normalization == "normPsdToSum1_100Hz":
+
+        plt.ylabel("average PSD rel. to 1-100 Hz [%] +- std", fontdict={"size": 14})
+        plt.ylim(-0.05, 14)
 
 
     fig.tight_layout()
 
-    fig.savefig(figures_path + f"\\grand_average_power_spectra_{channel_group}_{absolute_or_relative_psd}_{signalFilter}.png",
+    fig.savefig(figures_path + f"\\grand_average_power_spectra_{channel_group}_{normalization}_{signalFilter}.png",
                 bbox_inches = "tight")
 
     print("figure: ", 
-          f"grand_average_power_spectra_{channel_group}_{absolute_or_relative_psd}_{signalFilter}.png",
+          f"grand_average_power_spectra_{channel_group}_{normalization}_{signalFilter}.png",
           "\nwritten in: ", figures_path
           )
     
@@ -582,7 +602,8 @@ def power_spectra_grand_average_per_session(
         1: "frequencies",
         2: "power_spectrum_grand_average",
         3: "standard_deviation",
-        4: "sample_size"
+        4: "sem",
+        5: "sample_size"
     }, inplace=True)
     average_spectra_df = average_spectra_df.transpose()
 
