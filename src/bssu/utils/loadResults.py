@@ -845,15 +845,17 @@ def load_fooof_peaks_per_session():
 def load_power_spectra_session_comparison(
         incl_channels:str,
         signalFilter:str,
+        normalization:str
 ):
 
     """
-    Load the file: f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle"
+    Load the file: f"power_spectra_{signalFilter}_{incl_channels}_{normalization}_session_comparisons.pickle"
     from the group result folder
 
     Input:
         - incl_channels: str, e.g. "SegmInter", "SegmIntra", "Ring"
         - signalFilter: str, e.g. "band-pass" or "unfiltered"
+        - normalization: str, e.g. "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
     
     Return:
         - dictionary with keys: 
@@ -867,7 +869,7 @@ def load_power_spectra_session_comparison(
     results_path = find_folders.get_local_path(folder="GroupResults")
 
     # create filename
-    filename = f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle"
+    filename = f"power_spectra_{signalFilter}_{incl_channels}_{normalization}_session_comparisons.pickle"
 
     filepath = os.path.join(results_path, filename)
 

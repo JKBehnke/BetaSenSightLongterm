@@ -870,6 +870,7 @@ def write_ses_comparison_power_spectra(
         incl_sub: list,
         incl_channels: str,
         signalFilter: str,
+        normalization: str
 ):
     """
 
@@ -877,6 +878,7 @@ def write_ses_comparison_power_spectra(
         - incl_sub: list, e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
         - incl_channels: str, e.g. "SegmInter", "SegmIntra", "Ring"
         - signalFilter: str, e.g. "band-pass" or "unfiltered"
+        - normalization: str, e.g. "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
     
     1) Load the power spectra of each subject hemisphere (=STN) via classes
         - save each power spectrum for each session and each bipolar channel
@@ -899,6 +901,21 @@ def write_ses_comparison_power_spectra(
     # variables
     sessions = ["postop", "fu3m", "fu12m", "fu18m"]
     hemispheres = ["Right", "Left"]
+
+
+    if normalization == "rawPsd":
+        feature_normalization = ["frequency", "time_sectors", "rawPsd", "SEM_rawPsd"]
+    
+    elif normalization == "normPsdToTotalSum":
+        feature_normalization = ["frequency", "time_sectors", "normPsdToTotalSum", "SEM_normPsdToTotalSum"]
+    
+    elif normalization == "normPsdToSum1_100Hz":
+        feature_normalization = ["frequency", "time_sectors", "normPsdToSumPsd1to100Hz", "SEM_normPsdToSumPsd1to100Hz"]
+    
+    elif normalization == "normPsdToSum40_90Hz":
+        feature_normalization = ["frequency", "time_sectors", "normPsdToSum40to90Hz", "SEM_normPsdToSum40to90Hz"]
+    
+
 
     if incl_channels == "SegmInter":
         channels = ["1A2A", "1B2B", "1C2C"]
@@ -923,8 +940,8 @@ def write_ses_comparison_power_spectra(
                     result="PowerSpectrum",
                     incl_session=["postop", "fu3m", "fu12m", "fu18m"],
                     pickChannels=channels,
-                    normalization=["rawPsd"],
-                    feature=["frequency", "time_sectors", "rawPsd", "SEM_rawPsd"]
+                    normalization=[normalization],
+                    feature=feature_normalization
                 )
             
             for ses in sessions:
@@ -942,11 +959,22 @@ def write_ses_comparison_power_spectra(
                     chan_data = getattr(stn_power_spectra, ses)
                     chan_data = getattr(chan_data, f"BIP_{chan}")
                     
-                    power_spectrum = np.array(chan_data.rawPsd.data)
+                    if normalization == "rawPsd":
+                        power_spectrum = np.array(chan_data.rawPsd.data)
+    
+                    elif normalization == "normPsdToTotalSum":
+                        power_spectrum = np.array(chan_data.normPsdToTotalSum.data)
+                    
+                    elif normalization == "normPsdToSum1_100Hz":
+                        power_spectrum = np.array(chan_data.normPsdToSumPsd1to100Hz.data)
+                    
+                    elif normalization == "normPsdToSum40_90Hz":
+                        power_spectrum = np.array(chan_data.normPsdToSum40to90Hz.data)
+                    
                     freqs = np.array(chan_data.frequency.data)
 
                     # save all channels of an STN in a dict
-                    single_channels_dict[f"{sub}_{hem}_{ses}_{chan}"] = [sub, hem, ses, chan, power_spectrum, freqs]
+                    single_channels_dict[f"{sub}_{hem}_{ses}_{chan}"] = [sub, hem, ses, chan, power_spectrum, freqs, normalization]
 
     # Dataframe with all single channels and their power_spectra + frequencies
     single_channels_df = pd.DataFrame(single_channels_dict)
@@ -956,7 +984,8 @@ def write_ses_comparison_power_spectra(
         2: "session",
         3: "bipolar_channel",
         4: "power_spectrum",
-        5: "frequencies"
+        5: "frequencies",
+        6: "normalization"
     }, inplace=True)
     single_channels_df = single_channels_df.transpose()
 
@@ -1044,12 +1073,12 @@ def write_ses_comparison_power_spectra(
 
 
     # save dictionary as pickle file
-    comparisons_storage_filepath = os.path.join(results_path, f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle")
+    comparisons_storage_filepath = os.path.join(results_path, f"power_spectra_{signalFilter}_{incl_channels}_{normalization}_session_comparisons.pickle")
     with open(comparisons_storage_filepath, "wb") as file:
         pickle.dump(comparisons_storage, file)
 
     print("file: ", 
-          f"power_spectra_{signalFilter}_{incl_channels}_session_comparisons.pickle",
+          f"power_spectra_{signalFilter}_{incl_channels}_{normalization}_session_comparisons.pickle",
           "\nwritten in: ", results_path
           )
 

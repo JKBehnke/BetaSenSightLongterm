@@ -13,9 +13,10 @@ from .. utils import loadResults as loadResults
 
 
 
-def cluster_permutation_power_spectra_betw_sesssions(
+def cluster_permutation_power_spectra_betw_sessions(
         incl_channels:str,
-        signalFilter:str
+        signalFilter:str,
+        normalization:str
 ):
     
     """
@@ -25,6 +26,7 @@ def cluster_permutation_power_spectra_betw_sesssions(
     Input:
         - incl_channels: str, e.g. "SegmInter", "SegmIntra", "Ring"
         - signalFilter: str, e.g. "band-pass" or "unfiltered" 
+        - normalization: str, e.g. "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
     
     1) Get the Dataframes of each session for each session comparison 
         - within each session comparison -> only STNs are included, that have recordings at both sessions (same sample size per comparison)
@@ -60,7 +62,8 @@ def cluster_permutation_power_spectra_betw_sesssions(
     # load all session comparisons
     loaded_session_comparisons = loadResults.load_power_spectra_session_comparison(
         incl_channels=incl_channels,
-        signalFilter=signalFilter)
+        signalFilter=signalFilter,
+        normalization=normalization)
     
     # get the dataframe for each session comparison
     compare_sessions = ["postop_fu3m", "postop_fu12m", "postop_fu18m", 
@@ -111,12 +114,12 @@ def cluster_permutation_power_spectra_betw_sesssions(
     results_df = results_df.transpose()
 
     # save the results DF into results path
-    results_df_filepath = os.path.join(results_path, f"cluster_permutation_session_comparisons_{incl_channels}_{signalFilter}.pickle")
+    results_df_filepath = os.path.join(results_path, f"cluster_permutation_session_comparisons_{incl_channels}_{signalFilter}_{normalization}.pickle")
     with open(results_df_filepath, "wb") as file:
         pickle.dump(results_df, file)
     
     print("file: ", 
-          f"cluster_permutation_session_comparisons_{incl_channels}_{signalFilter}.pickle",
+          f"cluster_permutation_session_comparisons_{incl_channels}_{signalFilter}_{normalization}.pickle",
           "\nwritten in: ", results_path
           )
 
