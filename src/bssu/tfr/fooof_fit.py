@@ -1206,6 +1206,95 @@ def fooof_plot_highest_beta_peak_normalized_to_baseline(
     return results_df
 
 
+def fooof_count_rank1_or_2(
+        session_baseline:str,
+):
+    """
+    Input: 
+        - session_baseline=str, "postop" or "fu3m"
+    """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+
+    normalized_peak_to_baseline = fooof_rank1_baseline_beta_peak(session_baseline=session_baseline)
+
+
+    if session_baseline == "postop":
+        session = [0, 3, 12, 18]
+
+    elif session_baseline == "fu3m":
+        session = [3, 12, 18]
+
+    channel_groups = ["ring", "segm_inter", "segm_intra"]
+
+    count_dict = {}
+
+    for ses in session:
+
+        session_dataframe = normalized_peak_to_baseline.loc[normalized_peak_to_baseline.session == ses]
+
+        for group in channel_groups:
+
+            if group == "ring":
+                channel_list = ["01", "12", "23"]
+            
+            elif group == "segm_inter":
+                channel_list = ["1A2A", "1B2B", "1C2C"]
+
+            elif group == "segm_intra":
+                channel_list = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C"]
+            
+            # get only the channels within a channel group
+            group_dataframe = session_dataframe.loc[session_dataframe["bipolar_channel"].isin(channel_list)]
+
+            # check if there are rows in the dataframe
+            if group_dataframe["rank_beta_power"].count() == 0:
+                total_count = 0
+            
+            else:
+                # get percentage how often the rank 1 postop channels stays rank 1 in 3, 12 and 18 MFU
+                total_count = group_dataframe["rank_beta_power"].count() # number of channels from one session and within a channel group 
+
+            # number how often rank 1.0 or rank 2.0
+            if 1.0 not in group_dataframe.rank_beta_power.values:
+                rank_1_count = 0
+            
+            else:
+                rank_1_count = group_dataframe["rank_beta_power"].value_counts()[1.0]
+
+            if 2.0 not in group_dataframe.rank_beta_power.values:
+                rank_2_count = 0
+
+            else:
+                rank_2_count = group_dataframe["rank_beta_power"].value_counts()[2.0]
+
+            # percentage how often channel stays rank 1 or 2
+            rank_1_percentage = rank_1_count / total_count
+            rank_1_or_2_percentage = (rank_1_count + rank_2_count) / total_count # segm_inter und ring groups only have 3 ranks so not very much info...
+
+
+            # save in dict
+            count_dict[f"{ses}_{group}"] = [ses, group, total_count, rank_1_count, rank_2_count, rank_1_percentage, rank_1_or_2_percentage]
+
+
+    count_dataframe = pd.DataFrame(count_dict)
+    count_dataframe.rename(index={
+        0:"session",
+        1:"channel_group",
+        2:"total_count_of_channels",
+        3:"count_rank_1",
+        4:"count_rank_2",
+        5:"percentage_rank_1",
+        6:"percentage_rank_1_or_2",
+    }, inplace=True)
+    count_dataframe = count_dataframe.transpose()
+
+    return count_dataframe
+
+
+
+
+
 
 
 
