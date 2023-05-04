@@ -948,30 +948,41 @@ def fooof_rank_beta_peak_power():
     return rank_beta_power_dataframe
 
 
-def fooof_rank1_postop_beta_peak():
+def fooof_rank1_baseline_beta_peak(
+        session_baseline:str,
+):
 
     """
+
+    Input:
+        - session_baseline = str, e.g. "postop", "fu3m"
+
     Load the file "fooof_rank_beta_power_dataframe.pickle"
     written by fooof_rank_beta_peak_power()
 
     1) for each stn-session-channel_group: 
-        - select the channel with highest beta peak
+        - select the channel with highest beta peak in {session_baseline}
         - extract the channel name, peak power and center frequency
     
-    2) 
-    """
+    2) for every following fu session:
+        - select only the channel from {session_baseline} with the highest peak 
+        - normalize the beta peak power and peak center frequency accordingly: 
+            peak_power_fu / peak_power_session_baseline
+            peak_cf_fu / peak_cf_session_baseline
+        
+    3) add normalized parameters to a new column and concatenate all DF rows together to one
 
-    results_path = findfolders.get_local_path(folder="GroupResults")
-    figures_path = findfolders.get_local_path(folder="GroupFigures")
+    """
 
     # load the dataframe with ranks of beta peak power
     rank_beta_power_dataframe = loadResults.load_fooof_rank_beta_peak_power()
 
     stn_unique = list(rank_beta_power_dataframe.subject_hemisphere.unique())
-    fu_sessions = ["fu3m", "fu12m", "fu18m"]
+    sessions_after_postop = ["fu3m", "fu12m", "fu18m"]
+    sessions_after_fu3m = ["fu12m", "fu18m"]
     channel_groups = ["ring", "segm_inter", "segm_intra"]
 
-    normalized_peak_power_dataframe = pd.DataFrame()
+    normalized_peak_to_baseline_session = pd.DataFrame()
 
     for stn in stn_unique:
 
@@ -992,37 +1003,43 @@ def fooof_rank1_postop_beta_peak():
             stn_group_dataframe = stn_dataframe.loc[stn_dataframe["bipolar_channel"].isin(channel_list)]
 
             ################### POSTOP ###################
-            if "postop" not in stn_group_dataframe.session.values:
+            if session_baseline not in stn_group_dataframe.session.values:
                 continue
 
-            postop_dataframe = stn_group_dataframe.loc[stn_group_dataframe.session == "postop"]
+            baseline_dataframe = stn_group_dataframe.loc[stn_group_dataframe.session == session_baseline]
 
             # check if there was a peak
-            if 1.0 not in postop_dataframe.rank_beta_power.values:
+            if 1.0 not in baseline_dataframe.rank_beta_power.values:
                 continue
 
             # select the channel with rank == 1.0
-            postop_rank1 = postop_dataframe.loc[postop_dataframe.rank_beta_power == 1.0]
-            postop_rank1_channel = postop_rank1.bipolar_channel.values[0] # channel name rank 1
-            postop_rank1_peak_power = postop_rank1.beta_peak_power.values[0] # beta peak power rank 1
-            normalized_postop_peak_power = postop_rank1_peak_power / postop_rank1_peak_power # always 1
+            baseline_rank1 = baseline_dataframe.loc[baseline_dataframe.rank_beta_power == 1.0]
+            baseline_rank1_channel = baseline_rank1.bipolar_channel.values[0] # channel name rank 1
+            baseline_rank1_peak_power = baseline_rank1.beta_peak_power.values[0] # beta peak power rank 1
+            normalized_baseline_peak_power = baseline_rank1_peak_power / baseline_rank1_peak_power # always 1
 
-            postop_rank1_peak_cf = postop_rank1.beta_center_frequency.values[0] # beta peak cf rank 1
-            normalized_postop_peak_cf = postop_rank1_peak_cf / postop_rank1_peak_cf # always 1
+            baseline_rank1_peak_cf = baseline_rank1.beta_center_frequency.values[0] # beta peak cf rank 1
+            normalized_baseline_peak_cf = baseline_rank1_peak_cf / baseline_rank1_peak_cf # always 1
 
             # new column: normalized peak power
-            postop_rank1_copy = postop_rank1.copy()
-            postop_rank1_copy["peak_power_rel_to_postop"] = normalized_postop_peak_power
+            baseline_rank1_copy = baseline_rank1.copy()
+            baseline_rank1_copy[f"peak_power_rel_to_{session_baseline}"] = normalized_baseline_peak_power
 
             # new column: normalized peak cf
-            postop_rank1_copy["peak_cf_rel_to_postop"] = normalized_postop_peak_cf
+            baseline_rank1_copy[f"peak_cf_rel_to_{session_baseline}"] = normalized_baseline_peak_cf
 
             # save to collected DF
-            normalized_peak_power_dataframe = pd.concat([normalized_peak_power_dataframe, postop_rank1_copy])
+            normalized_peak_to_baseline_session = pd.concat([normalized_peak_to_baseline_session, baseline_rank1_copy])
 
             ################### FOLLOW UP SESSIONS ###################
             # check for which sessions apart from postop exist and get the rows for the same channel at different sessions
-            for fu_ses in fu_sessions:
+            if session_baseline == "postop":
+                sessions_after_baseline = sessions_after_postop
+            
+            elif session_baseline == "fu3m":
+                sessions_after_baseline = sessions_after_fu3m
+
+            for fu_ses in sessions_after_baseline:
 
                 # check if ses exists
                 if fu_ses not in stn_group_dataframe.session.values:
@@ -1031,26 +1048,167 @@ def fooof_rank1_postop_beta_peak():
                 fu_dataframe = stn_group_dataframe.loc[stn_group_dataframe.session == fu_ses]
 
                 # select the rank 1 channel from postop
-                channel_selection = fu_dataframe.loc[fu_dataframe.bipolar_channel == postop_rank1_channel]
+                channel_selection = fu_dataframe.loc[fu_dataframe.bipolar_channel == baseline_rank1_channel]
                 fu_peak_power = channel_selection.beta_peak_power.values[0]
                 fu_peak_cf = channel_selection.beta_center_frequency.values[0]
 
                 # normalize by peak power from postop
-                normalized_peak_power = fu_peak_power / postop_rank1_peak_power
+                normalized_peak_power = fu_peak_power / baseline_rank1_peak_power
 
                 # normalize by peak cf from postop
-                normalized_peak_cf = fu_peak_cf / postop_rank1_peak_cf
+                normalized_peak_cf = fu_peak_cf / baseline_rank1_peak_cf
 
                 # new column: normalized peak power -> NaN value, if no peak 
                 channel_selection_copy = channel_selection.copy()
-                channel_selection_copy["peak_power_rel_to_postop"] = normalized_peak_power
-                channel_selection_copy["peak_cf_rel_to_postop"] = normalized_peak_cf
+                channel_selection_copy[f"peak_power_rel_to_{session_baseline}"] = normalized_peak_power
+                channel_selection_copy[f"peak_cf_rel_to_{session_baseline}"] = normalized_peak_cf
 
                 # save to collected DF
-                normalized_peak_power_dataframe = pd.concat([normalized_peak_power_dataframe, channel_selection_copy])
+                normalized_peak_to_baseline_session = pd.concat([normalized_peak_to_baseline_session, channel_selection_copy])
     
+    # replace session names by integers
+    normalized_peak_to_baseline_session["session"] = normalized_peak_to_baseline_session["session"].replace({"postop":0, "fu3m":3, "fu12m":12, "fu18m":18})
 
-    return normalized_peak_power_dataframe
+    return normalized_peak_to_baseline_session
+
+
+def fooof_plot_highest_beta_peak_normalized_to_baseline(
+        session_baseline:str,
+        peak_parameter:str,
+        normalized_to_session_baseline:str
+):
+    """
+    Input:
+        - session_baseline = str, "postop" or "fu3m"
+        - peak_parameter = str, "power" or "center_frequency"
+        - normalized_to_session_baseline = str "yes" or "no"
+
+    """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+
+
+    # load the dataframe with normalized peak values
+    normalized_peak_to_baseline_session = fooof_rank1_baseline_beta_peak(session_baseline=session_baseline)
+
+    channel_groups = ["ring", "segm_inter", "segm_intra"]
+
+    results_df = pd.DataFrame()
+
+    # plot for each channel group seperately
+    for group in channel_groups:
+
+        if group == "ring":
+            channel_list = ["01", "12", "23"]
+        
+        elif group == "segm_inter":
+            channel_list = ["1A2A", "1B2B", "1C2C"]
+
+        elif group == "segm_intra":
+            channel_list = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C"]
+
+        # get only the channels within a channel group
+        group_dataframe = normalized_peak_to_baseline_session.loc[normalized_peak_to_baseline_session["bipolar_channel"].isin(channel_list)]
+
+        ###################### choose the right column to plot  ######################
+        if peak_parameter == "power":
+            
+            if normalized_to_session_baseline == "yes":
+                y_parameter = f"peak_power_rel_to_{session_baseline}"
+                y_label = f"peak power \nrelative to peak power at {session_baseline}"
+            
+            elif normalized_to_session_baseline == "no":
+                y_parameter = "beta_peak_power"
+                y_label = f"peak power"
+
+            
+        elif peak_parameter == "center_frequency":
+
+            if normalized_to_session_baseline == "yes":
+                y_parameter = f"peak_cf_rel_to_{session_baseline}"
+                y_label = f"peak center frequency \nrelative to center frequency at {session_baseline}"
+            
+            if normalized_to_session_baseline == "no":
+                y_parameter = "beta_center_frequency"
+                y_label = "peak center frequency"
+         
+        ###################### plot violinplot and scatter ######################
+        fig = plt.figure()
+        ax = fig.add_subplot()
+
+        sns.violinplot(data=group_dataframe, x="session", y=y_parameter, ax=ax, palette="pastel")
+
+        sns.stripplot(
+                data=group_dataframe,
+                x="session",
+                y=y_parameter,
+                size=6,
+                alpha=0.4,
+                hue="subject_hemisphere",
+                palette="mako",
+                ax=ax
+            )
+
+
+        # statistical test: doesn't work if groups have different sample size
+        if session_baseline == "postop":
+            pairs = list(combinations([0, 3, 12, 18], 2))
+            num_sessions = [0, 3, 12, 18]
+        
+        elif session_baseline == "fu3m":
+            pairs = list(combinations([3, 12, 18], 2))
+            num_sessions = [3, 12, 18]
+
+        # pairs = list(combinations(num_sessions, 2))
+
+        annotator = Annotator(ax, pairs, data=group_dataframe, x='session', y=y_parameter)
+        annotator.configure(test='Mann-Whitney', text_format='star') # or t-test_ind ??
+        annotator.apply_and_annotate()
+
+        plt.title(f"BSSu channels in {group} group with highest peak power in beta band (13-35 Hz) \nduring {session_baseline} recording")
+        plt.ylabel(y_label)
+        plt.xlabel("session")
+        plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
+
+        fig.tight_layout()
+        fig.savefig(figures_path + f"\\fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png", bbox_inches="tight")
+
+        print("figure: ", 
+            f"fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png",
+            "\nwritten in: ", figures_path
+            )
+
+
+        ##################### DESCRIPTION OF EACH SESSION GROUP #####################
+        # describe each group
+        group_description = {}
+
+        for ses in num_sessions:
+
+            session_group = group_dataframe.loc[group_dataframe.session==ses]
+            session_group = np.array(session_group[y_parameter].values)
+
+            description = scipy.stats.describe(session_group)
+
+            group_description[f"{ses}"] = description
+
+
+        description_results = pd.DataFrame(group_description)
+        description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+        description_results = description_results.transpose()
+        description_results_copy = description_results.copy()
+        description_results_copy["channel_group"] = group
+
+        results_df = pd.concat([results_df, description_results_copy])
+
+    
+    return results_df
+
+
+
+
+
 
 
 
