@@ -841,6 +841,29 @@ def load_fooof_peaks_per_session():
     
     return data
 
+def load_fooof_rank_beta_peak_power():
+
+    """
+    Load the file: "fooof_rank_beta_power_dataframe.pickle"
+    from the group result folder
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"fooof_rank_beta_power_dataframe.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
+
+
+
 
 def load_power_spectra_session_comparison(
         incl_channels:str,
@@ -878,6 +901,8 @@ def load_power_spectra_session_comparison(
         data = pickle.load(file)
     
     return data
+
+
 
 
 
