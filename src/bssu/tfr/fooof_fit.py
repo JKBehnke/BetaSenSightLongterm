@@ -1016,10 +1016,10 @@ def fooof_rank1_baseline_beta_peak(
             baseline_rank1 = baseline_dataframe.loc[baseline_dataframe.rank_beta_power == 1.0]
             baseline_rank1_channel = baseline_rank1.bipolar_channel.values[0] # channel name rank 1
             baseline_rank1_peak_power = baseline_rank1.beta_peak_power.values[0] # beta peak power rank 1
-            normalized_baseline_peak_power = baseline_rank1_peak_power / baseline_rank1_peak_power # always 1
+            normalized_baseline_peak_power = baseline_rank1_peak_power - baseline_rank1_peak_power # always 0
 
             baseline_rank1_peak_cf = baseline_rank1.beta_center_frequency.values[0] # beta peak cf rank 1
-            normalized_baseline_peak_cf = baseline_rank1_peak_cf / baseline_rank1_peak_cf # always 1
+            normalized_baseline_peak_cf = baseline_rank1_peak_cf - baseline_rank1_peak_cf # always 0
 
             # new column: normalized peak power
             baseline_rank1_copy = baseline_rank1.copy()
@@ -1053,10 +1053,10 @@ def fooof_rank1_baseline_beta_peak(
                 fu_peak_cf = channel_selection.beta_center_frequency.values[0]
 
                 # normalize by peak power from postop
-                normalized_peak_power = fu_peak_power / baseline_rank1_peak_power
+                normalized_peak_power = fu_peak_power - baseline_rank1_peak_power
 
                 # normalize by peak cf from postop
-                normalized_peak_cf = fu_peak_cf / baseline_rank1_peak_cf
+                normalized_peak_cf = fu_peak_cf - baseline_rank1_peak_cf
 
                 # new column: normalized peak power -> NaN value, if no peak 
                 channel_selection_copy = channel_selection.copy()
@@ -1172,10 +1172,10 @@ def fooof_plot_highest_beta_peak_normalized_to_baseline(
         plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
 
         fig.tight_layout()
-        fig.savefig(figures_path + f"\\fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png", bbox_inches="tight")
+        fig.savefig(figures_path + f"\\MINUS_fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png", bbox_inches="tight")
 
         print("figure: ", 
-            f"fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png",
+            f"MINUS_fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png",
             "\nwritten in: ", figures_path
             )
 
