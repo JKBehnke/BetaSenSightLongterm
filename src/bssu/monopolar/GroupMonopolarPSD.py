@@ -7,6 +7,8 @@ import pandas as pd
 import itertools
 from scipy import stats
 import plotly.express as px
+import matplotlib.pyplot as plt
+import numpy as np
 
 # local Imports
 from .. utils import find_folders as findfolders
@@ -381,6 +383,336 @@ def monopol_psd_correlations_sessions(
         "results_DF":results_DF,
         "spearman_m_df":spearman_m_df
     }
+
+
+def mono_rank_level_differences(
+        freq_band:str,
+        normalization:str,
+        filter_signal:str,
+):
+
+    """
+    load the group dataframe of monopolar estimated psd values:
+        "GroupMonopolar_weightedPsdCoordinateDistance_relToRank1_beta_rawPsd_band-pass.pickle" 
+
+    Input: 
+        - freq_band: str, e.g. "beta", "lowBeta"
+        - normalization: str, e.g. "rawPsd"
+        - filter_signal: str, e.g. "band-pass"
+    
+    1) filter and edit the dataframe
+        - only take relevant contacts (8)
+        - rank contacts by their power in the freq_band
+        - calculate the relative PSD to rank1
+    
+    2) for each session comparison:
+        - check which stn have recordings at both sessions
+        - for each rank from 1-8 compare the level of session 1 to session 2 
+        - store the differences of levels (absolute values) into a dataframe
+            
+
+
+    """
+
+
+    # load the monolopar beta psd for for each electrode at different timepoints
+    data_weightedByCoordinates = loadResults.load_GroupMonoRef_weightedPsdCoordinateDistance_pickle(
+        freqBand=freq_band,
+        normalization=normalization,
+        filterSignal=filter_signal
+    )
+
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    contacts = ["0", "1A", "1B", "1C", "2A", "2B", "2C", "3"]
+    ranks_1_to_8 = [1, 2, 3, 4, 5, 6, 7, 8]
+    comparisons = ["0_0", "0_3", "0_12", "0_18", 
+                    "3_0", "3_3", "3_12", "3_18", 
+                    "12_0", "12_3", "12_12", "12_18",
+                    "18_0", "18_3", "18_12", "18_18"]
+
+    weightedByCoordinate_Dataframe = pd.DataFrame() # concat all Dataframes from all sub, hem, sessions
+
+
+    # first check, which STNs and sessions exist in data 
+    sub_hem_keys = list(data_weightedByCoordinates.subject_hemisphere.unique())
+
+    ################## CHOOSE ONLY 8 CONTACTS AND RANK AGAIN ##################
+    for STN in sub_hem_keys:
+
+        # select only one STN
+        STN_data = data_weightedByCoordinates[data_weightedByCoordinates.subject_hemisphere == STN]
+
+
+        for ses in sessions:
+
+            # first check, if session exists in STN data
+            if ses not in STN_data.session.values:
+                continue
+
+            
+            # get the dataframe per session
+            STN_session_data = STN_data[STN_data.session == ses]
+
+            # choose only directional contacts and Ring contacts 0, 3 and rank again only the chosen contacts
+            STN_session_data = STN_session_data[STN_session_data["contact"].isin(contacts)]
+            STN_session_data["Rank8contacts"] = STN_session_data["averaged_monopolar_PSD_beta"].rank(ascending=False) # ranks 1-8
+            STN_session_data_copy = STN_session_data.copy()
+            STN_session_data_copy.drop(["rank"], axis=1, inplace=True)
+
+            # calculate the relative PSD to the highest PSD of the 8 remaining contacts
+            beta_rank_1 = STN_session_data_copy[STN_session_data_copy["Rank8contacts"] == 1.0] # taking the row containing 1.0 in rank
+            beta_rank_1 = beta_rank_1[f"averaged_monopolar_PSD_{freq_band}"].values[0] # just taking psdAverage of rank 1.0
+
+            STN_session_data_copy[f"relativePSD_to_{freq_band}_Rank1from8"] = STN_session_data_copy.apply(lambda row: row[f"averaged_monopolar_PSD_{freq_band}"] / beta_rank_1, axis=1) # in each row add to new value psd/beta_rank1
+            STN_session_data_copy.drop([f"relativePSD_to_{freq_band}_Rank1"], axis=1, inplace=True)
+            # session_weightedByCoordinates_copy["subject_hemisphere_monoChannel"] = session_weightedByCoordinates_copy[["subject_hemisphere", "monopolarChannels"]].agg("_".join, axis=1)
+            
+
+            weightedByCoordinate_Dataframe = pd.concat([weightedByCoordinate_Dataframe, STN_session_data_copy], ignore_index=True)
+
+
+    ################## LEVEL DIFFERENCE OF EACH RANK ##################
+
+    # replace all session names by integers
+    weightedByCoordinate_Dataframe = weightedByCoordinate_Dataframe.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0, 3, 12, 18])
+
+    # Type of ranks should be integers 
+    weightedByCoordinate_Dataframe["Rank8contacts"] = weightedByCoordinate_Dataframe["Rank8contacts"].astype(int)
+
+    # new column with level of contact
+    weightedByCoordinate_Dataframe_copy = weightedByCoordinate_Dataframe.copy()
+    weightedByCoordinate_Dataframe_copy = weightedByCoordinate_Dataframe_copy.assign(contact_level=weightedByCoordinate_Dataframe_copy["contact"]).rename(columns={"contact_level": "contact_level"})
+    weightedByCoordinate_Dataframe_copy["contact_level"] = weightedByCoordinate_Dataframe_copy["contact_level"].replace(to_replace=["0", "3"], value=[0, 3]) # level 0 or 3
+    weightedByCoordinate_Dataframe_copy["contact_level"] = weightedByCoordinate_Dataframe_copy["contact_level"].replace(to_replace=["1A", "1B", "1C"], value=[1, 1, 1]) # level 1
+    weightedByCoordinate_Dataframe_copy["contact_level"] = weightedByCoordinate_Dataframe_copy["contact_level"].replace(to_replace=["2A", "2B", "2C"], value=[2, 2, 2]) # level 2
+
+    level_difference_dict = {}
+
+    for comp in comparisons:
+
+        comp_split = comp.split("_")
+        session_1 = int(comp_split[0]) # first session as integer
+        session_2 = int(comp_split[1])
+
+        for stn in sub_hem_keys:
+
+            # check for each STN, which ones have both sessions
+            stn_dataframe = weightedByCoordinate_Dataframe_copy.loc[weightedByCoordinate_Dataframe_copy.subject_hemisphere == stn]
+
+            if session_1 not in stn_dataframe.session.values:
+                continue
+
+            elif session_2 not in stn_dataframe.session.values:
+                continue
+
+            stn_session_1 = stn_dataframe.loc[stn_dataframe.session == session_1]
+            stn_session_2 = stn_dataframe.loc[stn_dataframe.session == session_2]
+
+            # go through each rank and calculate the difference of level between two sessions
+            for rank in ranks_1_to_8:
+
+                rank_session_1 = stn_session_1.loc[stn_session_1.Rank8contacts == rank] # row of one rank of session 1
+                rank_contact_level_session_1 = rank_session_1.contact_level.values[0] # level of rank as integer
+
+                rank_session_2 = stn_session_2.loc[stn_session_2.Rank8contacts == rank] # row of one rank of session 2
+                rank_contact_level_session_2 = rank_session_2.contact_level.values[0] # level of rank as integer
+
+                level_difference_rank = abs(rank_contact_level_session_1 - rank_contact_level_session_2) # difference of level as absolute number
+
+                # store in dictionary
+                level_difference_dict[f"{comp}_{stn}_{rank}"] = [comp, session_1, session_2, stn, rank, rank_contact_level_session_1, rank_contact_level_session_2, level_difference_rank]
+
+
+    # transform dictionary to dataframe
+    level_difference_df = pd.DataFrame(level_difference_dict)
+    level_difference_df.rename(index={0: "session_comparison",
+                                    1: "session_1",
+                                    2: "session_2",
+                                    3: "subject_hemisphere",
+                                    4: "rank",
+                                    5: "level_session_1",
+                                    6: "level_session_2",
+                                    7: "level_abs_difference"}, 
+                                    inplace=True)
+
+    level_difference_df = level_difference_df.transpose()
+
+    return level_difference_df
+
+
+
+
+def mono_rank_level_difference_heatmap(
+        freq_band:str,
+        normalization:str,
+        filter_signal:str,
+        ranks_included:list,
+        difference_to_plot:str
+):
+    """
+    Research question: how many levels do beta ranks change over time across electrodes?
+
+    Input: 
+        - freq_band: str, e.g. "beta", "lowBeta"
+        - normalization: str, e.g. "rawPsd"
+        - filter_signal: str, e.g. "band-pass"
+        - ranks_included: list, e.g. [1,2,3,4,5,6,7,8] or [1,2,3]
+        - difference_to_plot:str, e.g. "1_or_less", "more_than_1" -> defining what values to plot in the heatmap
+            "1_or_less" will plot relative amount how often a difference <= 1 occured for each session comparison
+
+    1) load the dataframe written by the function mono_rank_level_differences()
+        - containing columns: session_comparison, session_1, session_2, subject_hemisphere, rank, level_session_1, level_session_2, level_abs_difference
+        - filter by ranks_included: only keep rows of dataframe containing rank isin rank_included
+
+    2) for each session comparison
+        - count how often the level difference 0, 1, 2, 3 occurs
+        - calculate relative amount of how often a level difference <= 1 occurs
+        - how often rel. amount of level difference > 1
+    
+    3) plot heatmap
+        - 
+    
+    """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+
+    # load the dataframe with differences of levels for each rank from 1 to 8 across electrodes
+    level_difference_df = mono_rank_level_differences(
+        freq_band=freq_band,
+        normalization=normalization,
+        filter_signal=filter_signal
+    )
+
+    comparisons = ["0_0", "0_3", "0_12", "0_18", 
+                    "3_0", "3_3", "3_12", "3_18", 
+                    "12_0", "12_3", "12_12", "12_18",
+                    "18_0", "18_3", "18_12", "18_18"]
+    
+    session_comparison_level_difference_dict = {}
+
+    # filter the dataframe and only keep ranks of interest
+    level_difference_df_ranks_included = level_difference_df[level_difference_df["rank"].isin(ranks_included)]
+
+
+    for comp in comparisons:
+
+        comp_dataframe = level_difference_df_ranks_included.loc[level_difference_df_ranks_included.session_comparison == comp]
+        session_1 = comp_dataframe.session_1.values[0]
+        session_2 = comp_dataframe.session_2.values[0]
+
+        # quantify percentage of how often differences occur
+        total_rank_comparisons = comp_dataframe["level_abs_difference"].count()
+
+        # check if numbers exist for each difference value
+        if 0 not in comp_dataframe["level_abs_difference"].values:
+            count_0 = 0
+        else: 
+            count_0 = comp_dataframe["level_abs_difference"].value_counts()[0]
+
+        
+        if 1 not in comp_dataframe["level_abs_difference"].values:
+            count_1 = 0
+        else: 
+            count_1 = comp_dataframe["level_abs_difference"].value_counts()[1]
+
+
+        if 2 not in comp_dataframe["level_abs_difference"].values:
+            count_2 = 0
+        else: 
+            count_2 = comp_dataframe["level_abs_difference"].value_counts()[2]
+
+        
+        if 3 not in comp_dataframe["level_abs_difference"].values:
+            count_3 = 0
+        else: 
+            count_3 = comp_dataframe["level_abs_difference"].value_counts()[3]
+
+        count_1_or_less = count_0 + count_1
+        count_more_than_1 = count_2 + count_3
+
+        # relative values to total rank comparisons
+        rel_0 = count_0 / total_rank_comparisons
+        rel_1 = count_1 / total_rank_comparisons
+        rel_2 = count_2 / total_rank_comparisons
+        rel_3 = count_3 / total_rank_comparisons
+
+        rel_1_or_less = count_1_or_less / total_rank_comparisons
+        rel_more_than_1 = count_more_than_1 / total_rank_comparisons
+
+        # save in a dict
+        session_comparison_level_difference_dict[f"{comp}"] = [comp, session_1, session_2, total_rank_comparisons, 
+                                                            rel_0, rel_1, rel_2, rel_3, rel_1_or_less, rel_more_than_1]
+        
+
+    # transform to dataframe
+    session_comparison_level_difference_df = pd.DataFrame(session_comparison_level_difference_dict)
+    session_comparison_level_difference_df.rename(index={
+        0: "session_comparison",
+        1: "session_1",
+        2: "session_2", 
+        3: "total_rank_comparisons",
+        4: "rel_amount_difference_0",
+        5: "rel_amount_difference_1",
+        6: "rel_amount_difference_2",
+        7: "rel_amount_difference_3",
+        8: "rel_amount_difference_1_or_less",
+        9: "rel_amount_difference_more_than_1",
+    }, inplace=True)
+    session_comparison_level_difference_df = session_comparison_level_difference_df.transpose()
+
+
+
+    ########################## PLOT HEATMAP OF REL AMOUNT OF DIFFERENCES IN LEVELS FOR RANKS ##########################
+    # transform difference values to floats and 4x4 matrices
+    if difference_to_plot == "1_or_less":
+        difference = session_comparison_level_difference_df.rel_amount_difference_1_or_less.values.astype(float)
+        # reshape the difference values into 4x4 matrix
+        difference = difference.reshape(4,4)
+
+    elif difference_to_plot == "more_than_1":
+        difference = session_comparison_level_difference_df.rel_amount_difference_more_than_1.values.astype(float)
+        # reshape the difference values into 4x4 matrix
+        difference = difference.reshape(4,4)
+
+
+    fig, ax = plt.subplots()
+
+    heatmap = ax.pcolor(difference, cmap=plt.cm.YlOrRd)
+    # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+    # Set the x and y ticks to show the indices of the matrix
+    ax.set_xticks(np.arange(difference.shape[1])+0.5, minor=False) # if minor=True it will plot x and y labels differently
+    ax.set_yticks(np.arange(difference.shape[0])+0.5, minor=False)
+
+    # Set the tick labels to show the values of the matrix
+    ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+    ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
+    # Rotate the x-axis tick labels to be vertical
+    # plt.xticks(rotation=90)
+
+    # Add a colorbar to the right of the heatmap
+    cbar = plt.colorbar(heatmap)
+    cbar.set_label(f"relative to total number per session comparison")
+
+    # Add the cell values to the heatmap
+    for i in range(difference.shape[0]):
+        for j in range(difference.shape[1]):
+            plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(difference[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+    plt.title(f"level differences {difference_to_plot} \nof {freq_band} ranks {ranks_included}")
+
+    fig.tight_layout()
+    fig.savefig(figures_path + f"\\monopl_heatmap_ranks_{ranks_included}_level_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png", bbox_inches="tight")
+
+
+    return session_comparison_level_difference_df
+
+
+
+
 
 
 
