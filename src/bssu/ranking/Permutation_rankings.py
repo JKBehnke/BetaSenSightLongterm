@@ -291,30 +291,59 @@ def heatmap_distances_to_permutated_mean(
         distance_to_plot = group_df["p-value"].values.astype(float)
         distance_to_plot = distance_to_plot.reshape(4,4)
 
-        fig = px.imshow(distance_to_plot,
-                        labels=dict(x="session 1", y="session 2", color=f"p-value of difference real vs. random"),
-                        x=['postop', 'fu3m', 'fu12m', 'fu18m'],
-                        y=['postop', 'fu3m', 'fu12m', 'fu18m'],
-                        title=f"{group} channel group, p-values {freqBand} power ranks",
-                        text_auto=False)
-
         # fig = px.imshow(distance_to_plot,
-        #                 labels=dict(x="session 1", y="session 2", color=f"distance between real and permutated mean differences"),
+        #                 labels=dict(x="session 1", y="session 2", color=f"p-value of difference real vs. random"),
         #                 x=['postop', 'fu3m', 'fu12m', 'fu18m'],
         #                 y=['postop', 'fu3m', 'fu12m', 'fu18m'],
-        #                 title=f"{group} channel group, difference of {freqBand} power ranks",
-        #                 text_auto=True)
-        fig.update_xaxes(side="top")
-        fig.update_layout(title={
-            'y':0.98,
-            'x':0.5,
-            'xanchor': 'center',
-            'yanchor': 'top'})
-        
-        fig.show()
+        #                 title=f"{group} channel group, p-values {freqBand} power ranks",
+        #                 text_auto=False)
 
-    
-    # saving image doesn´t work with plotly ... cuoldn´t figure out why        
+        # # fig = px.imshow(distance_to_plot,
+        # #                 labels=dict(x="session 1", y="session 2", color=f"distance between real and permutated mean differences"),
+        # #                 x=['postop', 'fu3m', 'fu12m', 'fu18m'],
+        # #                 y=['postop', 'fu3m', 'fu12m', 'fu18m'],
+        # #                 title=f"{group} channel group, difference of {freqBand} power ranks",
+        # #                 text_auto=True)
+        # fig.update_xaxes(side="top")
+        # fig.update_layout(title={
+        #     'y':0.98,
+        #     'x':0.5,
+        #     'xanchor': 'center',
+        #     'yanchor': 'top'})
+        
+        # fig.show()
+
+         # plot a heatmap
+        fig, ax = plt.subplots()
+
+        heatmap = ax.pcolor(distance_to_plot, cmap=plt.cm.YlOrRd)
+        # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+        # Set the x and y ticks to show the indices of the matrix
+        ax.set_xticks(np.arange(distance_to_plot.shape[1])+0.5, minor=False)
+        ax.set_yticks(np.arange(distance_to_plot.shape[0])+0.5, minor=False)
+
+        # Set the tick labels to show the values of the matrix
+        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
+        
+        # Add a colorbar to the right of the heatmap
+        cbar = plt.colorbar(heatmap)
+        cbar.set_label(f"p-value of difference real vs. random")
+
+        # Add the cell values to the heatmap
+        for i in range(distance_to_plot.shape[0]):
+            for j in range(distance_to_plot.shape[1]):
+                plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(distance_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+        # Add a title
+        plt.title(f"{group} channel group, p-values {freqBand} power ranks")
+
+        fig.tight_layout()
+        fig.savefig(figures_path + f"\\heatmap_distances_to_permutated_mean_{group}_{freqBand}_{data2permute}_{normalization}_{filterSignal}", bbox_inches="tight")
+
+            
 
 
 

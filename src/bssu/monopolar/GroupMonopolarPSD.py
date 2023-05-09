@@ -227,6 +227,9 @@ def monopol_psd_correlations_sessions(
     sessions = ["postop", "fu3m", "fu12m", "fu18m"]
     contacts = ["0", "1A", "1B", "1C", "2A", "2B", "2C", "3"]
     pairs = list(itertools.product(sessions, sessions))
+    comparison = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                  "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m",
+                  "fu12m_fu12m", "fu12m_fu18m", "fu18m_fu18m"]
 
     # load the monolopar beta psd for for each electrode at different timepoints
     data_weightedByCoordinates = loadResults.load_GroupMonoRef_weightedPsdCoordinateDistance_pickle(
@@ -238,6 +241,7 @@ def monopol_psd_correlations_sessions(
     sub_hem_keys = list(data_weightedByCoordinates.subject_hemisphere.unique())
 
     weightedByCoordinate_Dataframe = pd.DataFrame() # concat all Dataframes from all sub, hem, sessions
+    sample_size_dict = {}
 
     ################## CHOOSE ONLY 8 CONTACTS AND RANK AGAIN ##################
     for STN in sub_hem_keys:
@@ -311,13 +315,24 @@ def monopol_psd_correlations_sessions(
                 spearman_correlation = stats.spearmanr(STN_session_1.relativePSD_to_beta_Rank1from8.values, STN_session_2.relativePSD_to_beta_Rank1from8.values)
             
             # dictionary to store the spearman r values and pval per STN and session combination
-            session_pair_STNs[f"{session_1}_{session_2}_{STN}"] = [session_1, session_2, STN, spearman_correlation.statistic, spearman_correlation.pvalue]
+            session_pair_STNs[f"{session_1}_{session_2}_{STN}"] = [session_1, session_2, f"{session_1}_{session_2}", STN, spearman_correlation.statistic, spearman_correlation.pvalue]
 
     # save the dictionary as a Dataframe
     results_DF = pd.DataFrame(session_pair_STNs)
-    results_DF.rename(index={0: "session_1", 1: "session_2", 2: "subject_hemisphere", 3: f"spearman_r", 4: f"pval"}, inplace=True)
+    results_DF.rename(index={0: "session_1", 1: "session_2", 2: "session_comparison", 3: "subject_hemisphere", 4: f"spearman_r", 5: f"pval"}, inplace=True)
     results_DF = results_DF.transpose()
 
+    # get sample size
+    for s_comp in comparison:
+
+        s_comp_df = results_DF.loc[results_DF.session_comparison == s_comp]
+        s_comp_count = s_comp_df["session_comparison"].count()
+
+        sample_size_dict[f"{s_comp}"] = [s_comp, s_comp_count]
+
+    sample_size_df = pd.DataFrame(sample_size_dict)
+    sample_size_df.rename(index={0: "session_comparison", 1: "sample_size"}, inplace=True)
+    sample_size_df = sample_size_df.transpose()
 
     ################## CALCULATE THE MEAN OR MEDIAN OF ALL SPEARMAN R CORRELATION VALUES OF EACH SESSION COMBINATION ##################
     spearman_m = {}
@@ -360,29 +375,61 @@ def monopol_psd_correlations_sessions(
         # reshape the medians of spearman r values into 4x4 matrix
         spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
     
+    # # plot a heatmap
+    # fig = px.imshow(spearmanr_to_plot,
+    #             labels=dict(x="session 1", y="session 2", color=f"spearman correlation {mean_or_median}"),
+    #             x=['postop', 'fu3m', 'fu12m', 'fu18m'],
+    #             y=['postop', 'fu3m', 'fu12m', 'fu18m'],
+    #             title=f"Correlation per electrode of {freqBand} {ranks_or_relPsd}",
+    #             text_auto=True
+    #            )
+    
+    # fig.update_xaxes(side="top")
+    # fig.update_layout(title={
+    #     'y':0.98,
+    #     'x':0.5,
+    #     'xanchor': 'center',
+    #     'yanchor': 'top'})
+    # fig.show()
+    # fig.write_image(os.path.join(figures_path, f"Monopol_session_correlations_heatmap_{freqBand}_{ranks_or_relPsd}_{mean_or_median}.png"))
+    
     # plot a heatmap
-    fig = px.imshow(spearmanr_to_plot,
-                labels=dict(x="session 1", y="session 2", color=f"spearman correlation {mean_or_median}"),
-                x=['postop', 'fu3m', 'fu12m', 'fu18m'],
-                y=['postop', 'fu3m', 'fu12m', 'fu18m'],
-                title=f"Correlation per electrode of {freqBand} {ranks_or_relPsd}",
-                text_auto=True
-               )
+    fig, ax = plt.subplots()
+
+    heatmap = ax.pcolor(spearmanr_to_plot, cmap=plt.cm.YlOrRd)
+    # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+    # Set the x and y ticks to show the indices of the matrix
+    ax.set_xticks(np.arange(spearmanr_to_plot.shape[1])+0.5, minor=False)
+    ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
+
+    # Set the tick labels to show the values of the matrix
+    ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+    ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
     
-    fig.update_xaxes(side="top")
-    fig.update_layout(title={
-        'y':0.98,
-        'x':0.5,
-        'xanchor': 'center',
-        'yanchor': 'top'})
-    fig.show()
-    fig.write_image(os.path.join(figures_path, f"Monopol_session_correlations_heatmap_{freqBand}_{ranks_or_relPsd}_{mean_or_median}.png"))
-    
+    # Add a colorbar to the right of the heatmap
+    cbar = plt.colorbar(heatmap)
+    cbar.set_label(f"spearman correlation {mean_or_median}")
+
+    # Add the cell values to the heatmap
+    for i in range(spearmanr_to_plot.shape[0]):
+        for j in range(spearmanr_to_plot.shape[1]):
+            plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(spearmanr_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+    # Add a title
+    plt.title(f"correlation of {freqBand} {ranks_or_relPsd}")
+
+    fig.tight_layout()
+    fig.savefig(figures_path + f"\\monopol_session_correlations_heatmap_{freqBand}_{ranks_or_relPsd}_{mean_or_median}.png", bbox_inches="tight")
+
+
 
 
     return {
         "results_DF":results_DF,
-        "spearman_m_df":spearman_m_df
+        "spearman_m_df":spearman_m_df,
+        "sample_size": sample_size_df
     }
 
 
