@@ -454,6 +454,109 @@ def write_GroupMonopolar_weightedPsdCoordinateDistance_relToRank1(
 
 
 
+def write_Group_monoRef_only_segmental_weight_psd_by_distance(
+        incl_sub: list,
+        signalFilter: str,
+        normalization: str,
+        freqBand: str
+):
+
+    """
+    Read from existing pickle file "sub{sub}_{hemisphere}_monoRef_only_segmental_weight_psd_by_distance{freqBand}_{normalization}_{filterSignal}.pickle"
+    
+    coumns:
+        - coord_z
+        - coord_xy
+        - subject_hemisphere
+        - session
+        - estimated_monopolar_psd_beta
+        - contact
+        - rank
+    
+    Input:
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "029", "030", "031", "032", "033", "037", "038", "041", "045"]
+        - signalFilter: str "unfiltered", "band-pass"
+        - normalization: str "rawPsd", "normPsdToTotalSum", "normPsdToSum1_100Hz", "normPsdToSum40_90Hz"
+        - freqBand: str e.g. "beta", "highBeta", "lowBeta"
+
+    1) Load for each subject, hemisphere and session single Dataframes from the given pickle file
+    
+    2) from index -> add new column with contacts "contact"
+
+    2) add new column:  "relativePSD_to_{freqBand}_Rank1"
+        - calculates relative PSD to beta rank 1 within each group (rank1 PSD = 1.0)
+        - adds relative PSD value to each row accordingly 
+    
+    3) concatenate all dataframes from single subject_hemispheres at single sessions together
+
+  
+    Output: 
+        - saving Dataframe as .pickle file in results path
+        filename: group_monoRef_only_segmental_weight_psd_by_distance_{freqBand}_{normalization}_{signalFilter}.pickle
+    
+    """
+
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    hemispheres = ["Right", "Left"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+
+    relToRank1_dataframe = pd.DataFrame()
+
+    for sub in incl_sub:
+
+        for hem in hemispheres:
+
+            # load the pickle file "sub{sub}_{hemisphere}_monoRef_weightedPsdByCoordinateDistance_{freqBand}_{normalization}_{filterSignal}.pickle 
+            # from each subject folder
+            sub_hem_result = loadResults.load_monoRef_only_segmental_weight_psd_by_distance(
+                sub=sub,
+                hemisphere=hem,
+                freqBand=freqBand,
+                normalization=normalization,
+                filterSignal=signalFilter
+            )
+
+            for ses in sessions:
+
+                # check if session exists for a subject
+                sub_session_keys = list(sub_hem_result.keys()) # list of fu3m_monopolar_Dataframe, fu12m_bipolar_Dataframe
+                combined_sub_session_keys = "_".join(sub_session_keys)
+
+                if ses not in combined_sub_session_keys:
+                    continue
+                
+
+                # load the Dataframe of a single session from the given subject hemisphere
+                session_DF = sub_hem_result[f"{ses}_monopolar_Dataframe"]
+
+                # reset index
+                session_DF = session_DF.reset_index()
+                session_DF_copy = session_DF.copy()
+
+                # add column with PSD relative to rank 1 PSD to DF
+                # if rank = 1.0 define averagedPSD value of the same row as beta_rank_1
+                beta_rank_1 = session_DF_copy[session_DF_copy["rank"] == 1.0] # taking the row containing 1.0 in rank
+                beta_rank_1 = beta_rank_1[f"estimated_monopolar_psd_{freqBand}"].values[0] # just taking psdAverage of rank 1.0
+
+                session_DF_copy[f"relativePSD_to_{freqBand}_Rank1"] = session_DF_copy.apply(lambda row: row[f"estimated_monopolar_psd_{freqBand}"] / beta_rank_1, axis=1) # in each row add to new value psd/beta_rank1
+
+                
+                # concatenate all dataframes together
+                relToRank1_dataframe = pd.concat([relToRank1_dataframe, session_DF_copy], ignore_index=True)
+    
+    ### save the Dataframes with pickle 
+    relToRank1_dataframe_filepath = os.path.join(results_path, f"group_monoRef_only_segmental_weight_psd_by_distance_{freqBand}_{normalization}_{signalFilter}.pickle")
+    with open(relToRank1_dataframe_filepath, "wb") as file:
+        pickle.dump(relToRank1_dataframe, file)
+    
+    print("file: ", 
+          f"group_monoRef_only_segmental_weight_psd_by_distance_{freqBand}_{normalization}_{signalFilter}.pickle",
+          "\nwritten in: ", results_path)
+
+    return relToRank1_dataframe
 
 
 

@@ -543,6 +543,83 @@ def load_monoRef_weightedPsdCoordinateDistance_pickle(
     return data
 
 
+def load_monoRef_only_segmental_weight_psd_by_distance(
+        sub: str,
+        hemisphere: str,
+        freqBand: str,
+        normalization: str,
+        filterSignal: str,
+):
+
+    """
+    Reads Pickle file from the subjects results folder: 
+        - sub{sub}_{hemisphere}_monoRef_only_segmental_weight_psd_by_distance{freqBand}_{normalization}_{filterSignal}.pickle
+    
+    
+    loaded file is a dictionary with keys:
+        - f"{session}_bipolar_Dataframe": bipolar channels, averaged PSD in freq band, coordinates z- and xy-axis of mean point between two contacts
+        - f"{session}_monopolar_Dataframe": 10 monopolar contacts, averaged monopolar PSD in freq band, rank of averagedPsd values
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder of a subject
+    sub_results_path = find_folders.get_local_path(folder="results", sub=sub)
+
+    filename = f"sub{sub}_{hemisphere}_monoRef_only_segmental_weight_psd_by_distance{freqBand}_{normalization}_{filterSignal}.pickle"
+
+    filepath = os.path.join(sub_results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", sub_results_path)
+
+    return data
+
+
+
+
+def load_Group_monoRef_only_segmental_weight_psd_by_distance(
+        freqBand: str,
+        normalization: str,
+        filterSignal: str,
+):
+
+    """
+    Reads Pickle file from the results folder: 
+        - "group_monoRef_only_segmental_weight_psd_by_distance_{freqBand}_{normalization}_{signalFilter}.pickle"
+    
+    
+    loaded file is a dictionary with keys:
+        - f"{session}_bipolar_Dataframe": bipolar channels, averaged PSD in freq band, coordinates z- and xy-axis of mean point between two contacts
+        - f"{session}_monopolar_Dataframe": 10 monopolar contacts, averaged monopolar PSD in freq band, rank of averagedPsd values
+
+    Returns: 
+        - data: loaded pickle file as a Dataframe 
+
+    """
+    
+
+    # find the path to the results folder of a subject
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    filename = f"group_monoRef_only_segmental_weight_psd_by_distance_{freqBand}_{normalization}_{filterSignal}.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+
+    print("pickle file loaded: ",filename, "\nloaded from: ", results_path)
+
+    return data
+
+
+
 def load_monopol_rel_psd_from0To8_pickle(
         freqBand: str,
         normalization: str,
