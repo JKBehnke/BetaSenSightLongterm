@@ -625,13 +625,14 @@ def mono_rank_differences(
 
 
 
-def mono_rank_level_difference_heatmap(
+def mono_rank_difference_heatmap(
         freq_band:str,
         normalization:str,
         filter_signal:str,
         ranks_included:list,
         difference_to_plot:str,
-        level_or_direction:str
+        level_or_direction:str,
+        only_segmental:str,
 ):
     """
     Research question: how many levels do beta ranks change over time across electrodes?
@@ -645,6 +646,7 @@ def mono_rank_level_difference_heatmap(
             -> defining what values to plot in the heatmap
             "1_or_less" will plot relative amount how often a difference <= 1 occured for each session comparison
         - level_or_direction: str, e.g. "level" or "direction"
+        - only_segmental: str, "yes" -> then monopolar estimation method only includes segmental bipolar channels and calculates psd only for segmental contacts
 
     1) load the dataframe written by the function mono_rank_level_differences()
         - containing columns: session_comparison, session_1, session_2, subject_hemisphere, rank, level_session_1, level_session_2, level_abs_difference
@@ -662,13 +664,22 @@ def mono_rank_level_difference_heatmap(
     results_path = findfolders.get_local_path(folder="GroupResults")
     figures_path = findfolders.get_local_path(folder="GroupFigures")
 
-    # load the dataframe with differences of levels for each rank from 1 to 8 across electrodes
-    difference_df = mono_rank_differences(
-        freq_band=freq_band,
-        normalization=normalization,
-        filter_signal=filter_signal,
-        level_or_direction=level_or_direction
-    )
+    if only_segmental == "yes":
+         # load the dataframe with differences of levels for each rank from 1 to 6 across electrodes
+        difference_df = mono_rank_differences_only_segmental_rec_used(
+            freq_band=freq_band,
+            normalization=normalization,
+            filter_signal=filter_signal,
+        )
+
+    else:
+        # load the dataframe with differences of levels for each rank from 1 to 8 across electrodes
+        difference_df = mono_rank_differences(
+            freq_band=freq_band,
+            normalization=normalization,
+            filter_signal=filter_signal,
+            level_or_direction=level_or_direction
+        )
 
     comparisons = ["0_0", "0_3", "0_12", "0_18", 
                     "3_0", "3_3", "3_12", "3_18", 
@@ -846,13 +857,139 @@ def mono_rank_level_difference_heatmap(
     plt.title(f"{level_or_direction} differences of {difference_to_plot} \nof {freq_band} ranks {ranks_included}")
 
     fig.tight_layout()
-    fig.savefig(figures_path + f"\\monopl_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png", bbox_inches="tight")
 
+    if only_segmental == "yes":
+        fig_name = f"\\monopol_only_segm_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png"
+    
+    else: 
+        fig_name = f"\\monopol_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png"
+
+    fig.savefig(figures_path + fig_name, bbox_inches="tight")
 
 
     return {
-        "session_comparison_level_difference_df": session_comparison_difference_df,
+        "session_comparison_difference_df": session_comparison_difference_df,
         "description_results": description_results}
 
 
 
+def mono_rank_differences_only_segmental_rec_used(
+        freq_band:str,
+        normalization:str,
+        filter_signal:str,
+
+):
+
+    """
+    load the group dataframe of monopolar estimated psd values:
+        e.g. group_monoRef_only_segmental_weight_psd_by_distance_beta_rawPsd_band-pass.pickle
+
+    Input: 
+        - freq_band: str, e.g. "beta", "lowBeta"
+        - normalization: str, e.g. "rawPsd"
+        - filter_signal: str, e.g. "band-pass"
+    
+    1) for each session comparison:
+        - check which stn have recordings at both sessions
+        - for each rank from 1-6 compare the direction of session 1 to session 2 
+        - store the differences of direction 0 or 1 into a dataframe
+            
+
+
+    """
+
+
+    # load the monolopar beta psd for for each electrode at different timepoints
+    data_weightedByCoordinates = loadResults.load_Group_monoRef_only_segmental_weight_psd_by_distance(
+        freqBand=freq_band,
+        normalization=normalization,
+        filterSignal=filter_signal
+    )
+
+    
+    ranks_range = [1, 2, 3, 4, 5, 6]
+
+    comparisons = ["0_0", "0_3", "0_12", "0_18", 
+                    "3_0", "3_3", "3_12", "3_18", 
+                    "12_0", "12_3", "12_12", "12_18",
+                    "18_0", "18_3", "18_12", "18_18"]
+
+
+    # first check, which STNs and sessions exist in data 
+    sub_hem_keys = list(data_weightedByCoordinates.subject_hemisphere.unique())
+
+
+    ################## DIRECTION DIFFERENCE OF EACH RANK ##################
+
+    # replace all session names by integers
+    data_weightedByCoordinates = data_weightedByCoordinates.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0, 3, 12, 18])
+
+    # Type of ranks should be integers 
+    data_weightedByCoordinates["rank"] = data_weightedByCoordinates["rank"].astype(int)
+
+    # new column with direction of contact
+    weightedByCoordinate_Dataframe_copy = data_weightedByCoordinates.copy()
+
+    weightedByCoordinate_Dataframe_copy = weightedByCoordinate_Dataframe_copy.assign(contact_direction=weightedByCoordinate_Dataframe_copy["contact"]).rename(columns={"contact_direction": "contact_direction"})
+    weightedByCoordinate_Dataframe_copy["contact_direction"] = weightedByCoordinate_Dataframe_copy["contact_direction"].replace(to_replace=["1A", "2A"], value=["A", "A"]) # direction A
+    weightedByCoordinate_Dataframe_copy["contact_direction"] = weightedByCoordinate_Dataframe_copy["contact_direction"].replace(to_replace=["1B", "2B"], value=["B", "B"]) # direction B
+    weightedByCoordinate_Dataframe_copy["contact_direction"] = weightedByCoordinate_Dataframe_copy["contact_direction"].replace(to_replace=["1C", "2C"], value=["C", "C"]) # ldirection C
+
+    difference_dict = {}
+
+    for comp in comparisons:
+
+        comp_split = comp.split("_")
+        session_1 = int(comp_split[0]) # first session as integer
+        session_2 = int(comp_split[1])
+
+        for stn in sub_hem_keys:
+
+            # check for each STN, which ones have both sessions
+            stn_dataframe = weightedByCoordinate_Dataframe_copy.loc[weightedByCoordinate_Dataframe_copy.subject_hemisphere == stn]
+
+            if session_1 not in stn_dataframe.session.values:
+                continue
+
+            elif session_2 not in stn_dataframe.session.values:
+                continue
+
+            stn_session_1 = stn_dataframe.loc[stn_dataframe.session == session_1]
+            stn_session_2 = stn_dataframe.loc[stn_dataframe.session == session_2]
+
+            # go through each rank and calculate the difference of direction between two sessions
+            for rank in ranks_range:
+
+                rank_session_1 = stn_session_1.loc[stn_session_1["rank"] == rank] # row of one rank of session 1
+                rank_session_2 = stn_session_2.loc[stn_session_2["rank"] == rank] # row of one rank of session 2
+
+                
+                rank_contact_direction_session_1 = rank_session_1.contact_direction.values[0] # direction of rank as str
+                rank_contact_direction_session_2 = rank_session_2.contact_direction.values[0] # direction of rank as str
+
+                if rank_contact_direction_session_1 == rank_contact_direction_session_2:
+                    direction_difference_rank = 0
+                
+                else:
+                    direction_difference_rank = 1
+                
+                # store in dictionary
+                difference_dict[f"{comp}_{stn}_{rank}"] = [comp, session_1, session_2, stn, rank, rank_contact_direction_session_1, rank_contact_direction_session_2, direction_difference_rank]
+            
+
+
+    # transform dictionary to dataframe
+    difference_df = pd.DataFrame(difference_dict)
+    difference_df.rename(index={0: "session_comparison",
+                                    1: "session_1",
+                                    2: "session_2",
+                                    3: "subject_hemisphere",
+                                    4: "rank",
+                                    5: "direction_session_1",
+                                    6: "direction_session_2",
+                                    7: "direction_difference"}, 
+                                    inplace=True)
+
+    difference_df = difference_df.transpose()
+
+    return difference_df
