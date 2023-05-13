@@ -48,6 +48,7 @@ def get_input_w_wo_knee(message: str) -> str:
 
 def fooof_fit_tfr(incl_sub: list):
     """
+    FIRST ATTEMPT VERSION 1.0 -> plotting version without and with knee in aperiodic component!
 
     Input: 
         - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
@@ -356,7 +357,8 @@ def fooof_fit_tfr(incl_sub: list):
 
 def fooof_fit_power_spectra(incl_sub: list):
     """
-
+    NEW VERSION ONLY MODELING WITHOUT KNEE BECAUSE NOT NEEDED IN THE STN    
+    
     Input: 
         - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038", "041", "060"]
       
@@ -418,9 +420,9 @@ def fooof_fit_power_spectra(incl_sub: list):
 
     ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
 
-    fooof_results = {}
-
     for subject in incl_sub:
+
+        fooof_results = {}
 
         # get path to results folder of each subject
         local_figures_path = findfolders.get_local_path(folder="figures", sub=subject)
@@ -491,12 +493,10 @@ def fooof_fit_power_spectra(incl_sub: list):
 
                     # titles
                     fig.suptitle(f"sub {subject}, {hemisphere} hemisphere, {ses}, bipolar channel: {chan}",
-                                         ha="center", fontsize=20)
+                                         fontsize=25)
                     
-                    ax[0].set_title("unfiltered, raw power spectrum", fontsize=25)
-                    ax[1].set_title("FOOOF model", fontsize=25)
-                    ax[2].set_title("FOOOF model", fontsize=25)
-                    ax[3].set_title("power spectrum of periodic component", fontsize=25)
+                    ax[0].set_title("unfiltered, raw power spectrum", fontsize=20, y=0.97, pad=-20)
+                    ax[3].set_title("power spectrum of periodic component", fontsize=20)
                     
                     fig.tight_layout()
                     fig.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.png", bbox_inches="tight")
@@ -589,19 +589,11 @@ def fooof_fit_power_spectra(incl_sub: list):
 
         # save DF in subject results folder
         fooof_results_df.to_json(os.path.join(local_results_path, f"fooof_model_sub{subject}.json"))
-
     	
    
     return {
         "fooof_results_df": fooof_results_df, 
         }
-
-
-
-
-
-
-
 
 
 
@@ -897,12 +889,12 @@ def fooof_low_vs_high_beta_ratio():
         session_df = peaks_per_session.loc[peaks_per_session.session==ses]
 
         low_beta_peaks = session_df.loc[session_df.frequency_band=="low_beta"]
-        low_beta_peaks = low_beta_peaks.number_chans_with_peaks.values
-        low_beta_peaks = low_beta_peaks[0]
+        low_beta_peaks = np.sum(low_beta_peaks.number_chans_with_peaks.values)
+        #low_beta_peaks = low_beta_peaks[0]
 
         high_beta_peaks = session_df.loc[session_df.frequency_band=="high_beta"]
-        high_beta_peaks = high_beta_peaks.number_chans_with_peaks.values
-        high_beta_peaks = high_beta_peaks[0]
+        high_beta_peaks = np.sum(high_beta_peaks.number_chans_with_peaks.values)
+        #high_beta_peaks = high_beta_peaks[0]
 
         # number of low + high beta peaks
         beta_peaks = low_beta_peaks + high_beta_peaks

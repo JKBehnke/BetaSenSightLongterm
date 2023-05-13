@@ -931,7 +931,7 @@ def write_fooof_group_json(incl_sub: list):
     from each subject result folder
 
     Input
-        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038", "041", "060"]]
 
     """
     # results folder for group results
