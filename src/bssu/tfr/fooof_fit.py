@@ -395,13 +395,16 @@ def fooof_fit_power_spectra(incl_sub: list):
         - 4: "fooof_r_sq", 
         - 5: "fooof_exponent", 
         - 6: "fooof_offset", 
-        - 7: "fooof_knee", 
-        - 8: "fooof_number_peaks",
-        - 9: "alpha_peak_CF_power_bandWidth",
-        - 10: "low_beta_peak_CF_power_bandWidth",
-        - 11: "high_beta_peak_CF_power_bandWidth",
-        - 12: "beta_peak_CF_power_bandWidth",
-        - 13: "gamma_peak_CF_power_bandWidth",
+        - 7: "fooof_power_spectrum", # with 95 values, 1 Hz frequency resolution, so 1-95 Hz
+        - 8: "periodic_plus_aperiodic_power_log",
+        - 9: "fooof_periodic_flat",
+        - 10: "fooof_number_peaks",
+        - 11: "alpha_peak_CF_power_bandWidth",
+        - 12: "low_beta_peak_CF_power_bandWidth",
+        - 13: "high_beta_peak_CF_power_bandWidth",
+        - 14: "beta_peak_CF_power_bandWidth",
+        - 15: "gamma_peak_CF_power_bandWidth", 
+        
          
     5) save Dataframe into results folder of each subject
         - filename: "fooof_model_sub{subject}.json"
@@ -489,7 +492,8 @@ def fooof_fit_power_spectra(incl_sub: list):
 
                     # plot only the fooof spectrum of the periodic component
                     fooof_power_spectrum = 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
-                    plot_spectrum(np.arange(len(fooof_power_spectrum)), fooof_power_spectrum, log_freqs=False, log_powers=False, ax=ax[3])
+                    plot_spectrum(np.arange(1, (len(fooof_power_spectrum)+1)), fooof_power_spectrum, log_freqs=False, log_powers=False, ax=ax[3])
+                    # frequencies: 1-95 Hz with 1 Hz resolution
 
                     # titles
                     fig.suptitle(f"sub {subject}, {hemisphere} hemisphere, {ses}, bipolar channel: {chan}",
