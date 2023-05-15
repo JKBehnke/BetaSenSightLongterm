@@ -939,7 +939,36 @@ def load_fooof_rank_beta_peak_power():
     
     return data
 
+def load_fooof_highest_beta_channels(
+        fooof_spectrum:str
+):
 
+    """
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+
+    Load the file: "highest_beta_channels_fooof_{fooof_spectrum}.pickle"
+    from the group result folder
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"highest_beta_channels_fooof_{fooof_spectrum}.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
 def load_power_spectra_session_comparison(

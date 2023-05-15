@@ -545,12 +545,12 @@ def cluster_permutation_fooof_power_spectra_highest_beta(
     results_df = results_df.transpose()
 
     # save the results DF into results path
-    results_df_filepath = os.path.join(results_path, f"cluster_permutation_fooof_highest_beta_spectra_session_comparisons.pickle")
+    results_df_filepath = os.path.join(results_path, f"cluster_permutation_fooof_highest_beta_{min_freq}_{max_freq}Hz_spectra_session_comparisons.pickle")
     with open(results_df_filepath, "wb") as file:
         pickle.dump(results_df, file)
     
     print("file: ", 
-          f"cluster_permutation_fooof_highest_beta_spectra_session_comparisons.pickle",
+          f"cluster_permutation_fooof_highest_beta_{min_freq}_{max_freq}Hz_spectra_session_comparisons.pickle",
           "\nwritten in: ", results_path
           )
 

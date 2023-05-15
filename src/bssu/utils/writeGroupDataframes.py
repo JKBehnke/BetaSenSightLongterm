@@ -969,6 +969,106 @@ def write_fooof_group_json(incl_sub: list):
     return group_fooof_dataframe
 
 
+def highest_beta_channels_fooof(
+        fooof_spectrum:str
+):
+    """
+    Load the file "fooof_model_group_data.json"
+    from the group result folder
+
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+    1) calculate beta average for each channel and rank within 1 stn, 1 session and 1 channel group
+    
+    2) rank beta averages and only select the channels with rank 1.0 
+
+    Output highest_beta_df
+        - containing all stns, all sessions, all channels with rank 1.0 within their channel group
+    
+    """
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # load the group dataframe
+    fooof_group_result = loadResults.load_group_fooof_result()
+
+    # create new column: first duplicate column fooof power spectrum, then apply calculation to each row -> average of indices [13:36] so averaging the beta range
+    fooof_group_result_copy = fooof_group_result.copy()
+
+    if fooof_spectrum == "periodic_spectrum":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_power_spectrum"]
+    
+    elif fooof_spectrum == "periodic_plus_aperiodic":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["periodic_plus_aperiodic_power_log"]
+
+    elif fooof_spectrum == "periodic_flat":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_periodic_flat"]
+    
+    
+    fooof_group_result_copy["beta_average"] = fooof_group_result_copy["beta_average"].apply(lambda row: np.mean(row[13:36]))
+
+
+    ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+    stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
+
+    highest_beta_df = pd.DataFrame()
+
+    for stn in stn_unique:
+
+        stn_df = fooof_group_result_copy.loc[fooof_group_result_copy.subject_hemisphere == stn]
+
+        for ses in sessions:
+
+            # check if session exists
+            if ses not in stn_df.session.values:
+                continue
+
+            else:
+                stn_ses_df = stn_df.loc[stn_df.session == ses] # df of only 1 stn and 1 session
+
+            for group in channel_group:
+
+                if group == "ring":
+                    channels = ['01', '12', '23']
+                    
+                elif group == "segm_inter":
+                    channels = ["1A2A", "1B2B", "1C2C"]
+                
+                elif group == "segm_intra":
+                    channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+                group_comp_df = stn_ses_df.loc[stn_ses_df["bipolar_channel"].isin(channels)].reset_index() # df of only 1 stn, 1 session and 1 channel group
+
+                # rank beta average of channels within one channel group
+                group_comp_df_copy = group_comp_df.copy()
+                group_comp_df_copy["beta_rank"] = group_comp_df_copy["beta_average"].rank(ascending=False) 
+
+                # only keep the row with beta rank 1.0
+                group_comp_df_copy = group_comp_df_copy.loc[group_comp_df_copy.beta_rank == 1.0]
+
+                # save to ranked_beta_df
+                highest_beta_df = pd.concat([highest_beta_df, group_comp_df_copy])
+    
+    # save dictionary as pickle file
+    highest_beta_df_filepath = os.path.join(results_path, f"highest_beta_channels_fooof_{fooof_spectrum}.pickle")
+    with open(highest_beta_df_filepath, "wb") as file:
+        pickle.dump(highest_beta_df, file)
+
+    print("file: ", 
+          f"highest_beta_channels_fooof_{fooof_spectrum}.pickle",
+          "\nwritten in: ", results_path
+          )
+
+    return highest_beta_df
+
+
 def write_ses_comparison_power_spectra(
         incl_sub: list,
         incl_channels: str,

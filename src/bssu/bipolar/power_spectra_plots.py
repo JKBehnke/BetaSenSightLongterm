@@ -614,7 +614,8 @@ def power_spectra_grand_average_per_session(
 
 def grand_average_FOOOF_spectra(
         std_or_sem:str,
-        spectrum_to_plot:str
+        spectrum_to_plot:str,
+        highest_beta_chans_only:str
 ):
     
     """
@@ -626,14 +627,22 @@ def grand_average_FOOOF_spectra(
             "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
             "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
             "periodic_flat"             -> model._peak_fit
+        
+        - highest_beta_chans_only: "yes" -> only plotting average of channels with highest beta in their channel group per session and STN
 
 
+        save figure: "grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png"
     """
 
     figures_path = find_folders.get_local_path(folder="GroupFigures")
 
     # load the fooof group result
-    fooof_group_result = loadResults.load_group_fooof_result()
+    if highest_beta_chans_only == "yes":
+        # load the dataframe with only one channel with highest beta per channel group, session and STN
+        fooof_group_result = loadResults.load_fooof_highest_beta_channels(fooof_spectrum=spectrum_to_plot)
+
+    else:
+        fooof_group_result = loadResults.load_group_fooof_result()
 
     sessions = ["postop", "fu3m", "fu12m", "fu18m"]
     channel_group = ["ring", "segm_inter", "segm_intra"]
@@ -710,8 +719,16 @@ def grand_average_FOOOF_spectra(
                         power_spectrum_session_grand_average+shadowed,
                         color="gainsboro", alpha=0.5)
 
+        # TITLE
+        if highest_beta_chans_only == "yes":
+            plt.title(f"Grand average FOOOF power spectra of \nonly highest beta channels of the {group} group", fontdict={"size": 18})
+            all_or_one = "highest_beta_channels"
 
-        plt.title(f"Grand average FOOOF power spectra across {group} channels", fontdict={"size": 18})
+        else:
+            plt.title(f"Grand average FOOOF power spectra across all {group} channels", fontdict={"size": 18})
+            all_or_one = "all_channels"
+        
+        # plot settings
         plt.legend(loc= 'upper right', fontsize=14)
 
         # add lines for freq Bands
@@ -728,11 +745,11 @@ def grand_average_FOOOF_spectra(
 
         fig.tight_layout()
 
-        fig.savefig(figures_path + f"\\grand_average_FOOOF_power_spectra_{group}_{spectrum_to_plot}_{std_or_sem}.png",
+        fig.savefig(figures_path + f"\\grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
                 bbox_inches = "tight")
 
     print("figure: ", 
-          f"grand_average_FOOOF_power_spectra_{group}_{spectrum_to_plot}_{std_or_sem}.png",
+          f"grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
           "\nwritten in: ", figures_path
           )
     
