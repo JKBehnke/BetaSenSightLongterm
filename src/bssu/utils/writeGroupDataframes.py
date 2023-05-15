@@ -1019,6 +1019,7 @@ def highest_beta_channels_fooof(
     stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
 
     highest_beta_df = pd.DataFrame()
+    beta_ranks_all_channels = pd.DataFrame()
 
     for stn in stn_unique:
 
@@ -1050,13 +1051,16 @@ def highest_beta_channels_fooof(
                 group_comp_df_copy = group_comp_df.copy()
                 group_comp_df_copy["beta_rank"] = group_comp_df_copy["beta_average"].rank(ascending=False) 
 
+                beta_ranks = group_comp_df_copy.copy()
+
                 # only keep the row with beta rank 1.0
                 group_comp_df_copy = group_comp_df_copy.loc[group_comp_df_copy.beta_rank == 1.0]
 
                 # save to ranked_beta_df
+                beta_ranks_all_channels = pd.concat([beta_ranks_all_channels, beta_ranks])
                 highest_beta_df = pd.concat([highest_beta_df, group_comp_df_copy])
     
-    # save dictionary as pickle file
+    # save DF as pickle file
     highest_beta_df_filepath = os.path.join(results_path, f"highest_beta_channels_fooof_{fooof_spectrum}.pickle")
     with open(highest_beta_df_filepath, "wb") as file:
         pickle.dump(highest_beta_df, file)
@@ -1065,8 +1069,22 @@ def highest_beta_channels_fooof(
           f"highest_beta_channels_fooof_{fooof_spectrum}.pickle",
           "\nwritten in: ", results_path
           )
+    
+    # save DF as pickle file
+    beta_ranks_all_channels_filepath = os.path.join(results_path, f"beta_ranks_all_channels_fooof_{fooof_spectrum}.pickle")
+    with open(beta_ranks_all_channels_filepath, "wb") as file:
+        pickle.dump(beta_ranks_all_channels, file)
 
-    return highest_beta_df
+    print("file: ", 
+          f"beta_ranks_all_channels_fooof_{fooof_spectrum}.pickle",
+          "\nwritten in: ", results_path
+          )
+
+
+    return {
+        "highest_beta_df": highest_beta_df,
+        "beta_ranks_all_channels": beta_ranks_all_channels
+    }
 
 
 def write_ses_comparison_power_spectra(

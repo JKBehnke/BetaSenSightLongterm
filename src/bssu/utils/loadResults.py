@@ -939,8 +939,9 @@ def load_fooof_rank_beta_peak_power():
     
     return data
 
-def load_fooof_highest_beta_channels(
-        fooof_spectrum:str
+def load_fooof_beta_ranks(
+        fooof_spectrum:str,
+        all_or_one_chan: str
 ):
 
     """
@@ -949,6 +950,8 @@ def load_fooof_highest_beta_channels(
             "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
             "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
             "periodic_flat"             -> model._peak_fit
+        
+        - all_or_one_chan: str "highest_beta" or "beta_ranks_all"
 
 
     Load the file: "highest_beta_channels_fooof_{fooof_spectrum}.pickle"
@@ -960,7 +963,7 @@ def load_fooof_highest_beta_channels(
     results_path = find_folders.get_local_path(folder="GroupResults")
 
     # create filename
-    filename = f"highest_beta_channels_fooof_{fooof_spectrum}.pickle"
+    filename = f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}.pickle"
 
     filepath = os.path.join(results_path, filename)
 
