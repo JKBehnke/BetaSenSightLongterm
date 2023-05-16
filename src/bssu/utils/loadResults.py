@@ -954,7 +954,7 @@ def load_fooof_beta_ranks(
         - all_or_one_chan: str "highest_beta" or "beta_ranks_all"
 
 
-    Load the file: "highest_beta_channels_fooof_{fooof_spectrum}.pickle"
+    Load the file: f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}.pickle"
     from the group result folder
 
     """

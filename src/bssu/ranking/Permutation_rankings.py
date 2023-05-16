@@ -346,6 +346,277 @@ def heatmap_distances_to_permutated_mean(
             
 
 
+def permutation_fooof_beta_ranks(
+        fooof_spectrum:str,
+        ):
+    
+    """
+    Perform a permutation test 
+    
+        - for all channel groups: Ring, SegmIntra, SegmInter
+        - and all session comparisons
+
+        
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+    
+    1) Load the fooof beta rank dataframes: e.g. beta_ranks_all_channels_fooof_periodic_spectrum.pickle
+
+    2) for each comparison 
+                    ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
+                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+
+        and for each group ["ring", "segm_inter", "segm_intra"]
+        
+        - per STN:  calculate the MEAN difference of ranks 
+        - get average of all STN MEAN differences of ranks
+    
+    3) loop over each STN and shuffle ranks from session x and session y
+        - number of shuffle = 1000
+        - calculate the absolute difference between ranks for each BIP recording
+        - calculate the MEAN of abs differences for each shuffle and store in a list difference_random_MEANranks
+    
+    4) Statistics:
+        calculate the distance of the REAL mean from the mean of all randomized means divided by the standard deviation
+        - distanceMeanReal_MeanRandom = (mean_difference - np.mean(difference_random_MEANranks)) / np.std(difference_random_MEANranks)
+
+        calculate the p-value 
+        - (pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung)
+        - pval = 1-norm.cdf(abs(distanceMeanReal_MeanRandom)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
+    
+        
+    5) Plot the distribution of the permutated MEAN values (should be normally distributed)
+        - mark a red line for the REAL MEAN
+        - annotation with the p value
+        - one figure for each comparison: 3 subplots for 3 channel groups
+    
+    6) save a Dataframe with statistics results
+        - "Permutation_BIP_{data2permute}_{freqBand}_{normalization}_{filterSignal}.pickle"
+        - columns: comparison, channelGroup, MEAN_differenceOfRanks, distanceMEANreal_MEANrandom, p-value
+    
+
+    """
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    # load FOOOF beta rank DF
+    beta_rank_DF = loadResults.load_fooof_beta_ranks(
+        fooof_spectrum=fooof_spectrum,
+        all_or_one_chan="beta_ranks_all"
+        )
+    
+    # new column with stn and channel info combined
+    beta_rank_DF_copy = beta_rank_DF.copy()
+    beta_rank_DF_copy["stn_channel"] = beta_rank_DF_copy.subject_hemisphere.values + "_" + beta_rank_DF_copy.bipolar_channel.values
+
+    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
+                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+
+    channel_groups = ["ring", "segm_inter", "segm_intra"]
+
+
+    ##########################    WRITE COMPARISON DATAFRAMES PER SESSION COMPARISON  ##########################
+    # for each session comparison, get STNs that have recordings at both sessions
+    # subtract rank_session1 from rank_session2 and take the absolute value
+
+    comparisons_storage = {}
+    sample_size_dict = {}
+
+    for group in channel_groups:
+
+        if group == "ring":
+            channels = ['01', '12', '23']
+        
+        elif group == "segm_inter":
+            channels = ["1A2A", "1B2B", "1C2C"]
+        
+        elif group == "segm_intra":
+            channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+        # dataframe only of one channel group
+        group_df = beta_rank_DF_copy.loc[beta_rank_DF_copy["bipolar_channel"].isin(channels)]
+
+        for comparison in compare_sessions:
+
+            two_sessions = comparison.split("_")
+            session_1 = two_sessions[0]
+            session_2 = two_sessions[1]
+
+            # Dataframe per session
+            session_1_df = group_df.loc[(group_df["session"]==session_1)]
+            session_2_df = group_df.loc[(group_df["session"]==session_2)]
+
+            # list of STNs per session
+            session_1_stns = list(session_1_df.subject_hemisphere.unique())
+            session_2_stns = list(session_2_df.subject_hemisphere.unique())
+
+            # list of STNs included in both sessions
+            STN_list = list(set(session_1_stns) & set(session_2_stns))
+            STN_list.sort()
+
+            # get the rows with STNs with both sessions
+            comparison_df_1 = session_1_df.loc[session_1_df["subject_hemisphere"].isin(STN_list)]
+            comparison_df_2 = session_2_df.loc[session_2_df["subject_hemisphere"].isin(STN_list)]
+
+            # subtract ranks from each other row by row from session 1 to session 2
+            abs_difference_ranks = np.absolute(comparison_df_1.beta_rank.values - comparison_df_2.beta_rank.values) # array with differences of ranks of one session comparison
+            sample_size = len(abs_difference_ranks)
+
+            comparison_df_merged = comparison_df_1.merge(comparison_df_2, left_on="stn_channel", right_on="stn_channel")
+            comparison_df_merged_copy = comparison_df_merged.copy()
+            comparison_df_merged_copy["abs_difference_ranks"] = abs_difference_ranks
+
+            sample_size_dict[f"{group}_{comparison}"] = [group, comparison, sample_size]
+            comparisons_storage[f"{group}_{comparison}"] = comparison_df_merged_copy
+
+
+
+    ##########################      GET MEAN OF RANK DIFFERENCES PER SESSION COMPARISON AND SHUFFLE RANKS   ##########################
+    # 1) get the mean first of all channels within one STN and then across STNs
+    # 2) permute within STNs, get mean within STNs and then across permuted STNs
+
+    permutation_fooof_beta_ranks = {}
+
+    # shuffle repetitions: 1000 times
+    number_of_shuffle = np.arange(1, 1001, 1)
+    fontdict = {"size": 25}
+
+    for comp in compare_sessions:
+        
+        # Figure Layout per comparison: 3 rows (Ring, SegmIntra, SegmInter), 1 column
+        fig, axes = plt.subplots(3,1,figsize=(10,15)) 
+
+        for g, group in enumerate(channel_groups):
+
+            # Dataframe of one comparison and one channel group
+            comp_group_DF = comparisons_storage[f"{group}_{comp}"]
+
+            # list of available STNs
+            stn_list = list(comp_group_DF["subject_hemisphere_x"].unique())
+
+            # list with all mean differences per comparison and channel group
+            stn_real_mean_differences = []
+
+            for stn in stn_list:
+
+                # store the mean of differences per stn
+                stn_real_mean = np.mean(comp_group_DF.abs_difference_ranks.values)
+                stn_real_mean_differences.append(stn_real_mean)
+            
+            # real mean of all stns
+            mean_comp_group = np.mean(stn_real_mean_differences)
+            std_comp_group = np.std(stn_real_mean_differences)
+            sample_size = len(stn_real_mean_differences) # number of STNs in one session comparison 
+            
+
+            ############ SHUFFLE ############
+            # list of 1000x mean differences between shuffled rank_x and rank_y
+            all_shuffled_mean_differences = []
+
+            # repeat shuffle 1000 times
+            for s, shuffle in enumerate(number_of_shuffle):
+                # will contain mean differences per stn of one shuffles, so later on need to merge lists to one list
+                difference_random_stn_mean_ranks = [] 
+
+                for STN in stn_list:
+
+                    stn_data = comp_group_DF.loc[comp_group_DF.subject_hemisphere_x == STN]
+
+                    rank_x = list(stn_data.beta_rank_x.values)
+                    rank_y = list(stn_data.beta_rank_y.values)
+
+                    # shuffle within one STN
+                    np.random.shuffle(rank_x)
+                    np.random.shuffle(rank_y)
+
+                    # calculate the difference between random rank_x and rank_y, store in list
+                    difference_random_STN_ranks = list(abs(np.array(rank_x) - np.array(rank_y)))
+
+                    # get mean of differences of one stn
+                    difference_random_stn_mean_ranks.append(np.mean(difference_random_STN_ranks))
+
+                # store the MEANs of differences of one shuffle in list
+                all_shuffled_mean_differences.append(np.mean(difference_random_stn_mean_ranks))
+
+        
+            ############ CALCULATE DISTANCE AND P-VAL OF REAL MEAN FROM MEAN OF ALL RANDOMIZED MEANS  ############
+            distance_real_vs_random_mean = (mean_comp_group - np.mean(all_shuffled_mean_differences)) / np.std(all_shuffled_mean_differences)
+
+            # calculate the p-value 
+            # pval = 2-2*norm.cdf(abs(distanceMeanReal_MeanRandom)) # zweiseitige Berechnung
+            pval = 1-norm.cdf(abs(distance_real_vs_random_mean)) # einseitige Berechnung: wieviele Standardabweichungen der Real Mean vom randomized Mean entfernt ist
+            
+            sample_size_shuffled = len(all_shuffled_mean_differences)
+
+            # store all values in dictionary
+            permutation_fooof_beta_ranks[f"{comp}_{group}"] = [comp, group, sample_size, std_comp_group, mean_comp_group, distance_real_vs_random_mean, "{:.15f}".format(pval), sample_size_shuffled]
+            
+
+            ############ PLOT ############
+            sns.histplot(all_shuffled_mean_differences, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
+
+            # mark with red line: real mean of the rank differences of comp_group_DF
+            axes[g].axvline(mean_comp_group, c="r")
+            axes[g].text(mean_comp_group +0.02, 50, 
+                "Mean difference between \nranks of both sessions \n\n p-value: {:.2f}".format(pval),
+                c="r", fontsize=15)
+
+            axes[g].set_title(f"{group} channels", fontdict=fontdict)
+
+        for ax in axes:
+
+            ax.set_xlabel(f"MEAN Difference between beta ranks", fontsize=25)
+            ax.set_ylabel("Count", fontsize=25)
+
+            ax.tick_params(axis="x", labelsize=25)
+            ax.tick_params(axis="y", labelsize=25)
+
+        fig.suptitle(f"Permutation analysis: {comp} comparisons", fontsize=30)
+        fig.subplots_adjust(wspace=0, hspace=0)
+        fig.tight_layout()
+
+        fig.savefig(figures_path + f"\\permutation_beta_ranks_fooof_spectra_{comp}.png", bbox_inches="tight")
+
+        
+    # Permutation_BIP transform from dictionary to Dataframe
+    permutation_result_df = pd.DataFrame(permutation_fooof_beta_ranks)
+    permutation_result_df.rename(index={
+        0: "comparison", 
+        1: "channel_group", 
+        2: "sample_size_stn",
+        3: "standard_deviation_real_different_ranks",
+        4: "mean_real_different_ranks",
+        5: "distance_real_vs_random_mean_different_ranks",
+        6: "p-value",
+        7: "sample_size_random_shuffles"
+        }, 
+        inplace=True)
+    permutation_result_df = permutation_result_df.transpose()
+
+    ## save the Permutation Dataframes with pickle 
+    Permutation_BIP_filepath = os.path.join(results_path, f"permutation_beta_ranks_fooof_spectra.pickle")
+    with open(Permutation_BIP_filepath, "wb") as file:
+        pickle.dump(permutation_result_df, file)
+
+    print("file: ", 
+            f"permutation_beta_ranks_fooof_spectra.pickle",
+            "\nwritten in: ", results_path
+            )
+
+    
+    return {
+        "comparisons_storage":comparisons_storage,
+        "permutation_result_df":permutation_result_df
+    }
 
 
 def Permutation_monopolarRanks_compareMethods(
