@@ -1012,6 +1012,43 @@ def load_power_spectra_session_comparison(
     return data
 
 
+def load_fooof_monopolar_weighted_psd(
+        fooof_spectrum:str,
+        segmental:str
+):
+
+    """
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+        
+        - segmental: "yes"              -> only using segmental channels to weight monopolar psd
+
+
+
+    Load the file: f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}.pickle"
+    from the group result folder
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    if segmental=="yes":
+        bipolar_chans = "only_segmental_"
+
+    # create filename
+    filename = f"fooof_monoRef_{bipolar_chans}weight_beta_psd_by_distance_{fooof_spectrum}.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
 

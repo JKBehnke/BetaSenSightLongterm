@@ -10,6 +10,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy
+import pickle
 
 # local Imports
 from .. utils import find_folders as findfolders
@@ -431,6 +432,249 @@ def monopol_psd_correlations_sessions(
         "spearman_m_df":spearman_m_df,
         "sample_size": sample_size_df
     }
+
+
+def fooof_monopol_psd_spearman_betw_sessions(
+        fooof_spectrum:str,
+        mean_or_median:str        
+        
+):
+
+    """
+    Load file: 
+    containing DF with all monopolar PSD estimates in a frequency band, their ranks along an electrode and their PSD relative to the highest PSD of an electrode.
+
+
+    Input:
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+        
+        - mean_or_median: str, e.g. "mean", "median"
+
+
+    1) After loading the data, only select the contacts 0, 1A, 1B, 1C, 2A, 2B, 2C and 3
+        - rank again from 1-8 -> column "Rank8contacts"
+        - calculate the relative PSD normalized to the highest PSD within an electrode -> column "relativePSD_to_beta_Rank1from8"
+    
+    2) Use scipy.stats.spearmanr to correlate each STN electrode at two sessions
+        - choose between ranks or rel PSD normalized to the highest PSD per electrode
+        - STN = one hemisphere of one subject
+        - pairs of sessions: 
+            [('postop', 'postop'),
+            ('postop', 'fu3m'),
+            ('postop', 'fu12m'),
+            ('postop', 'fu18m'),
+            ('fu3m', 'postop'),
+            ('fu3m', 'fu3m'),
+            ('fu3m', 'fu12m'),
+            ('fu3m', 'fu18m'),
+            ('fu12m', 'postop'),
+            ('fu12m', 'fu3m'),
+            ('fu12m', 'fu12m'),
+            ('fu12m', 'fu18m'),
+            ('fu18m', 'postop'),
+            ('fu18m', 'fu3m'),
+            ('fu18m', 'fu12m'),
+            ('fu18m', 'fu18m')]
+    
+    3) save values in results_DF with columns:
+        - session_1
+        - session_2
+        - subject_hemisphere
+        - spearman_r (r value from -1 to 1, 0=no correlation; 1=positive correlation, ???)
+        - pval
+    
+    4) Calculate the Mean or Median of all STN correlation r values per session combination
+
+    5) Restructure the column of means or medians to 4x4 matrices with floats
+
+    6) Plot a Heatmap using plotly visualizing the mean or medians of all session combinations
+
+
+    """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+
+    session_comparison = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                  "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m",
+                  "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m", 
+                  "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+    
+    # load fooof monopolar weighted psd 
+    loaded_fooof_monopolar = loadResults.load_fooof_monopolar_weighted_psd(
+    fooof_spectrum=fooof_spectrum,
+    segmental="yes"
+    )
+
+
+    # from the list of all existing sub_hem STNs, get only the STNs with existing sessions 1 + 2 
+    session_pair_stn_list = {}
+    sample_size_dict = {}
+
+    # for each session comparison select STNs that have recordings for both
+    for comparison in session_comparison:
+
+        both_sessions = list(comparison.split("_"))
+
+        # define session 1 and 2
+        session_1 = both_sessions[0] # e.g. "postop"
+        session_2 = both_sessions[1] # e.g. "fu3m"
+
+        session_1_df = loaded_fooof_monopolar[f"{session_1}_monopolar_Dataframe"]
+        session_2_df = loaded_fooof_monopolar[f"{session_2}_monopolar_Dataframe"]
+
+        #find STNs with both sessions
+        session_1_stns = list(session_1_df.subject_hemisphere.unique())
+        session_2_stns = list(session_2_df.subject_hemisphere.unique())
+
+        stn_comparison_list = list(set(session_1_stns) & set(session_2_stns))
+        stn_comparison_list.sort()
+
+        comparison_df_1 = session_1_df.loc[session_1_df["subject_hemisphere"].isin(stn_comparison_list)]
+        comparison_df_2 = session_2_df.loc[session_2_df["subject_hemisphere"].isin(stn_comparison_list)]
+
+        comparsion_df = pd.concat([comparison_df_1, comparison_df_2], axis=0)
+
+        # correlate each electrode seperately
+        for sub_hem in stn_comparison_list:
+
+            # only run, if sub_hem STN exists in both session Dataframes
+            if sub_hem not in comparsion_df.subject_hemisphere.values:
+                continue
+
+            # only take one electrode at both sessions and get spearman correlation
+            stn_comparison = comparsion_df.loc[comparsion_df["subject_hemisphere"] == sub_hem]
+
+            stn_session1 = stn_comparison.loc[stn_comparison.session == session_1]
+            stn_session2 = stn_comparison.loc[stn_comparison.session == session_2]
+
+            # correlate the beta psd of both sessions to each other
+            spearman_psd_stn = stats.spearmanr(stn_session1.estimated_monopolar_beta_psd.values, stn_session2.estimated_monopolar_beta_psd.values)
+
+            # store values in a dictionary
+            session_pair_stn_list[f"{comparison}_{sub_hem}"] = [session_1, session_2, comparison, sub_hem, spearman_psd_stn.statistic, spearman_psd_stn.pvalue]
+
+            
+
+    # save the dictionary as a Dataframe
+    results_DF = pd.DataFrame(session_pair_stn_list)
+    results_DF.rename(index={0: "session_1", 1: "session_2", 2: "session_comparison", 3: "subject_hemisphere", 4: f"spearman_r", 5: f"pval"}, inplace=True)
+    results_DF = results_DF.transpose()
+
+    # get sample size
+    for s_comp in session_comparison:
+
+        s_comp_df = results_DF.loc[results_DF.session_comparison == s_comp]
+        s_comp_count = s_comp_df["session_comparison"].count()
+
+        sample_size_dict[f"{s_comp}"] = [s_comp, s_comp_count]
+
+    sample_size_df = pd.DataFrame(sample_size_dict)
+    sample_size_df.rename(index={0: "session_comparison", 1: "sample_size"}, inplace=True)
+    sample_size_df = sample_size_df.transpose()
+
+
+
+    ################## CALCULATE THE MEAN OR MEDIAN OF ALL SPEARMAN R CORRELATION VALUES OF EACH SESSION COMBINATION ##################
+    spearman_m = {}
+
+    # calculate the MEAN or median of each session pair
+    for comp in session_comparison:
+
+        # define session 1 and session 2 to correlate
+        both_sessions = list(comp.split("_"))
+
+        # define session 1 and 2
+        session_1 = both_sessions[0] # e.g. "postop"
+        session_2 = both_sessions[1] # e.g. "fu3m"
+
+        pairs_df = results_DF.loc[(results_DF.session_1 == session_1)]
+        pairs_df = pairs_df.loc[(pairs_df.session_2 == session_2)]
+
+        if mean_or_median == "mean":
+            m_spearmanr = pairs_df.spearman_r.mean() 
+            m_pval = pairs_df.pval.mean()
+        
+        elif mean_or_median == "median":
+            m_spearmanr = pairs_df.spearman_r.median() 
+            m_pval = pairs_df.pval.median()
+
+        spearman_m[f"{comp}_spearman_m"] = [session_1, session_2, m_spearmanr, m_pval]
+
+    # write a Dataframe with the mean or median spearman values per session combination
+    spearman_m_df = pd.DataFrame(spearman_m)
+    spearman_m_df.rename(index={0: "session_1", 1: "session_2", 2: f"{mean_or_median}_spearmanr", 3: f"{mean_or_median}_pval"}, inplace=True)
+    spearman_m_df = spearman_m_df.transpose()
+
+    ################## PLOT A HEAT MAP OF SPEARMAN CORRELATION MEAN OR MEDIAN VALUES PER SESSION COMBINATION ##################
+
+    # transform spearman mean or median values to floats and 4x4 matrices
+    if mean_or_median == "mean":
+        spearmanr_to_plot = spearman_m_df.mean_spearmanr.values.astype(float)
+        # reshape the mean of spearman r values into 4x4 matrix
+        spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
+
+    elif mean_or_median == "median":
+        spearmanr_to_plot = spearman_m_df.median_spearmanr.values.astype(float)
+        # reshape the medians of spearman r values into 4x4 matrix
+        spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
+
+
+    # plot a heatmap
+    fig, ax = plt.subplots()
+
+    heatmap = ax.pcolor(spearmanr_to_plot, cmap=plt.cm.YlOrRd)
+    # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+    # Set the x and y ticks to show the indices of the matrix
+    ax.set_xticks(np.arange(spearmanr_to_plot.shape[1])+0.5, minor=False)
+    ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
+
+    # Set the tick labels to show the values of the matrix
+    ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+    ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
+
+    # Add a colorbar to the right of the heatmap
+    cbar = plt.colorbar(heatmap)
+    cbar.set_label(f"spearman correlation {mean_or_median}")
+
+    # Add the cell values to the heatmap
+    for i in range(spearmanr_to_plot.shape[0]):
+        for j in range(spearmanr_to_plot.shape[1]):
+            plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(spearmanr_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+    # Add a title
+    plt.title(f"{mean_or_median} of spearman correlation of beta psd")
+
+    fig.tight_layout()
+    fig.savefig(figures_path + f"\\{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.png", bbox_inches="tight")
+
+    # save DF as pickle file
+    spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_monopol_beta_correlations_only_segmental_{mean_or_median}.pickle")
+    with open(spearman_m_df_filepath, "wb") as file:
+        pickle.dump(spearman_m_df, file)
+
+    print("file: ", 
+          f"{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.pickle",
+          "\nwritten in: ", results_path
+          )
+
+
+    return {
+        "results_DF": results_DF,
+        "sample_size_df": sample_size_df,
+        "spearman_m_df": spearman_m_df
+    }
+
+
+
 
 
 def mono_rank_differences(
