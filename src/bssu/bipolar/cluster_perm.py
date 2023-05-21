@@ -3,8 +3,11 @@ import pandas as pd
 import os
 import numpy as np
 import pickle
+import matplotlib.pyplot as plt
+from cycler import cycler
 
 import scipy.stats as st
+
 import mne
 from mne.stats import permutation_cluster_test
 
@@ -681,4 +684,165 @@ def cluster_permutation_fooof_power_spectra_highest_beta(
         "fooof_group_result": fooof_group_result
           }
             
+
+
+def grand_average_power_spectra_fooof_highest_beta(
+        std_or_sem:str,
+        spectrum_to_plot:str,
+        highest_beta_session:str
+        
+):
+    """
+    Plot an average power spectrum of FOOOF modeled spectra per session for each channel group.
+
+    Input: 
+        - std_or_sem: "std" or "sem" plotting SEM or standard deviation
+        - spectrum_to_plot: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+        
+        - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+
+        save figure: "grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png"
+    """
+
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    # load the fooof group result
+    if highest_beta_session == "highest_each_session":
+        # load the dataframe with only one channel with highest beta per channel group, session and STN
+        fooof_group_result = loadResults.load_fooof_highest_beta_channels(fooof_spectrum=spectrum_to_plot)
+
+    elif highest_beta_session == "highest_postop":
+        fooof_group_result = highest_beta_channels_fooof(
+            fooof_spectrum=spectrum_to_plot,
+            highest_beta_session=highest_beta_session
+        )
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+
+    ############# PLOT THE GRAND AVERAGE POWER SPECTRUM PER SESSION #############
+    average_spectra = {}
+
+    # Plot all power spectra in one figure, one color for each session
+    for group in channel_group:
+
+        if group == "ring":
+            channels = ['01', '12', '23']
+        
+        elif group == "segm_inter":
+            channels = ["1A2A", "1B2B", "1C2C"]
+        
+        elif group == "segm_intra":
+            channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+        group_df = fooof_group_result.loc[fooof_group_result["bipolar_channel"].isin(channels)]
+
+        # 4 colors used for the cycle of matplotlib 
+        cycler_colors = cycler("color", ["turquoise", "sandybrown", "plum", "cornflowerblue"])
+        plt.rc('axes', prop_cycle=cycler_colors)
+
+        fig = plt.figure(layout="tight")
+
+        for ses in sessions:
+
+            session_df = group_df.loc[group_df.session==ses]
+
+            frequencies = np.arange(1, 96) # 1-95 Hz, 1 Hz resolution
+
+            # choose what to plot:
+            if spectrum_to_plot == "periodic_spectrum":
+                column_name = "fooof_power_spectrum"
+                y_label = f"average Power [uV^2/Hz] +- {std_or_sem}"
+            
+            elif spectrum_to_plot == "periodic_plus_aperiodic":
+                column_name = "periodic_plus_aperiodic_power_log"
+                y_label = f"average log(Power) +- {std_or_sem}"
+            
+            elif spectrum_to_plot == "periodic_flat":
+                column_name = "fooof_periodic_flat"
+                y_label = f"average Power of periodic component +- {std_or_sem}"
+
+            # transform all arrays with 95 values into a new dataframe with 95 columns = 1 column for each position (1-95)
+            df_transposed = pd.DataFrame(session_df[column_name].tolist())
+
+            power_spectrum_session_grand_average = df_transposed.apply(lambda x: np.mean(x), axis=0) # mean along columns: for each position (1-95) -> outcome=pd.Series with 95 values
+
+            # CALCULATE STANDARD DEVIATION AND SEM for each position 
+            standard_deviation_session = df_transposed.apply(lambda x: np.std(x), axis=0)
+            sem_session = df_transposed.apply(lambda x: st.sem(x), axis=0)
+
+            # save and return 
+            average_spectra[f"{ses}_{group}"] = [ses, group, frequencies, power_spectrum_session_grand_average, standard_deviation_session, sem_session,
+                                            len(session_df.fooof_power_spectrum.values)]
+            
+            # Plot the grand average power spectrum per session
+            plt.plot(frequencies, power_spectrum_session_grand_average, label=ses, linewidth=3)
+
+            # choose plotting sem or std
+            if std_or_sem == "sem":
+                shadowed = sem_session
+            
+            if std_or_sem == "std":
+                shadowed = standard_deviation_session
+
+            # plot the standard deviation as shaded grey area
+            plt.fill_between(frequencies, 
+                        power_spectrum_session_grand_average-shadowed,
+                        power_spectrum_session_grand_average+shadowed,
+                        color="gainsboro", alpha=0.5)
+
+        # TITLE
+        if highest_beta_session == "highest_each_session":
+            plt.title(f"Grand average FOOOF power spectra of \nthe highest beta channels of the {group} group", fontdict={"size": 18})
+            highest_channel = "highest_beta_channels"
+
+        elif highest_beta_session == "highest_postop":
+            plt.title(f"Grand average FOOOF power spectra of \nhighest beta channel from baseline (postop) from {group} channels", fontdict={"size": 18})
+            highest_channel = "highest_postop_beta_channels"
+        
+        # plot settings
+        plt.legend(loc= 'upper right', fontsize=14)
+
+        # add lines for freq Bands
+        plt.axvline(x=8, color='dimgrey', linestyle='--')
+        plt.axvline(x=13, color='dimgrey', linestyle='--')
+        plt.axvline(x=20, color='dimgrey', linestyle='--')
+        plt.axvline(x=35, color='dimgrey', linestyle='--')
+
+        plt.xlabel("Frequency [Hz]", fontdict={"size": 14})
+        # plt.xlim(1, 95)
+
+        plt.ylabel(y_label, fontdict={"size": 14})
+        #plt.ylim(-0.05, 3)
+
+        fig.tight_layout()
+
+        fig.savefig(figures_path + f"\\grand_average_FOOOF_{highest_channel}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
+                bbox_inches = "tight")
+
+    print("figure: ", 
+          f"grand_average_FOOOF_{highest_channel}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
+          "\nwritten in: ", figures_path
+          )
+    
+    average_spectra_df = pd.DataFrame(average_spectra)
+    average_spectra_df.rename(index={
+        0: "session",
+        1: "channel_group",
+        2: "frequencies",
+        3: "power_spectrum_grand_average",
+        4: "standard_deviation",
+        5: "sem",
+        6: "sample_size"
+    }, inplace=True)
+    average_spectra_df = average_spectra_df.transpose()
+
+    
+    return average_spectra_df
+    
+
 

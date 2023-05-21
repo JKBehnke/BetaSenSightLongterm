@@ -958,11 +958,20 @@ def fooof_low_vs_high_beta_ratio():
     return session_low_vs_high_peak_df
 
 
-def fooof_highest_beta_peak_cf():
+def fooof_highest_beta_peak_analysis(
+        highest_beta_session:str,
+        cf_or_power:str
+):
 
     """
-    Load the group FOOOF json file as Dataframe: 
-    "fooof_model_group_data.json" from the group result folder
+
+    Input:
+        - highest_beta_session: str "highest_postop" or "all_channels" or "highest_each_session"
+        - cf_or_power: str "power" or "center_frequency"
+
+
+    Load the group FOOOF json file as Dataframe, depending on input
+        - "all_channels" -> "fooof_model_group_data.json" from the group result folder
 
     Plot a violinplot of the center frequencies of the highest Peaks within the beta band (13-35 Hz) at different sessions
         - x = session
@@ -977,110 +986,165 @@ def fooof_highest_beta_peak_cf():
     results_path = findfolders.get_local_path(folder="GroupResults")
 
     # load the json file as df
-    fooof_result = loadResults.load_group_fooof_result()
+    if highest_beta_session == "all_channels":
+        fooof_result = loadResults.load_group_fooof_result()
+        title_name = "Highest Beta Peak Center Frequency (all channels)"
+    
+    elif highest_beta_session == "highest_postop":
+        fooof_result = highest_beta_channels_fooof(
+            fooof_spectrum="periodic_spectrum",
+            highest_beta_session=highest_beta_session
+        )
+        title_name = "Highest Beta Peak Center Frequency (highest beta channel, baseline postop)"
+    
+    elif highest_beta_session == "highest_each_session":
+        fooof_result = highest_beta_channels_fooof(
+            fooof_spectrum="periodic_spectrum",
+            highest_beta_session=highest_beta_session
+        )
+        title_name = "Highest Beta Peak Center Frequency (only highest beta channels)"
 
     sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    channel_group = ["ring", "segm_inter", "segm_intra"]
     beta_peak_parameters = {}
+    group_description = {}
 
-    for ses in sessions:
+    for group in channel_group:
 
-        if ses == "postop":
-            numeric_session = 0 # violinplot only allowed integers, not strings for x axis
+        if group == "ring":
+            channels = ['01', '12', '23']
         
-        elif ses == "fu3m":
-            numeric_session = 3
+        elif group == "segm_inter":
+            channels = ["1A2A", "1B2B", "1C2C"]
         
-        elif ses == "fu12m":
-            numeric_session = 12
+        elif group == "segm_intra":
+            channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
         
-        elif ses == "fu18m":
-            numeric_session = 18
+        channel_group_df = fooof_result.loc[fooof_result.bipolar_channel.isin(channels)]
 
-        session_df = fooof_result.loc[fooof_result.session==ses]
-        beta_peaks_wo_None = []
+        for ses in sessions:
 
-        # only get the rows with Peaks (drop all rows with None)
-        for item in session_df.beta_peak_CF_power_bandWidth.values:
-        
-            if None not in item:
-                beta_peaks_wo_None.append(item)
+            if ses == "postop":
+                numeric_session = 0 # violinplot only allowed integers, not strings for x axis
+            
+            elif ses == "fu3m":
+                numeric_session = 3
+            
+            elif ses == "fu12m":
+                numeric_session = 12
+            
+            elif ses == "fu18m":
+                numeric_session = 18
 
-        beta_peak_ses_df = session_df.loc[session_df["beta_peak_CF_power_bandWidth"].isin(beta_peaks_wo_None)]
+            session_df = channel_group_df.loc[channel_group_df.session==ses]
+            beta_peaks_wo_None = []
 
-        # get only the center frequency from the column beta_peak_CF_power_bandWidth
-        for i, item in enumerate(beta_peak_ses_df.beta_peak_CF_power_bandWidth.values):
-            # item is a list of center frequency, power, band width of highest Peak in beta band
+            # only get the rows with Peaks (drop all rows with None)
+            for item in session_df.beta_peak_CF_power_bandWidth.values:
+            
+                if None not in item:
+                    beta_peaks_wo_None.append(item)
 
-            beta_cf = item[0]
-            beta_power = item[1]
-            beta_band_width = item[2]
+            beta_peak_ses_df = session_df.loc[session_df["beta_peak_CF_power_bandWidth"].isin(beta_peaks_wo_None)]
 
-            beta_peak_parameters[f"{ses}_{i}"] = [numeric_session, beta_cf, beta_power, beta_band_width]
+            # get only the center frequency from the column beta_peak_CF_power_bandWidth
+            for i, item in enumerate(beta_peak_ses_df.beta_peak_CF_power_bandWidth.values):
+                # item is a list of center frequency, power, band width of highest Peak in beta band
+
+                beta_cf = item[0]
+                beta_power = item[1]
+                beta_band_width = item[2]
+
+                beta_peak_parameters[f"{group}_{ses}_{i}"] = [group, numeric_session, beta_cf, beta_power, beta_band_width]
 
 
     # save the results in a dataframe
     beta_peak_parameters_df = pd.DataFrame(beta_peak_parameters)
     beta_peak_parameters_df.rename(index={
-        0: "session",
-        1: "beta_cf",
-        2: "beta_power",
-        3: "beta_band_width",
+        0: "channel_group",
+        1: "session",
+        2: "beta_cf",
+        3: "beta_power",
+        4: "beta_band_width",
     }, inplace=True)
     beta_peak_parameters_df = beta_peak_parameters_df.transpose()
 
 
     ##################### PLOT VIOLINPLOT OF CENTER FREQUENCIES OF HIGHEST BETA PEAKS #####################
+    if cf_or_power == "center_frequency":
+        parameter = "beta_cf"
 
-    fig = plt.figure()
-    ax = fig.add_subplot()
+    elif cf_or_power == "power":
+        parameter = "beta_power"
+    
 
-    sns.violinplot(data=beta_peak_parameters_df, x="session", y="beta_cf", palette="pastel", inner="box", ax=ax)
+    for c_group in channel_group:
+        # only get channel group data
+        parameters_to_plot = beta_peak_parameters_df.loc[beta_peak_parameters_df.channel_group == c_group]
+        # make sure columns are numeric
+        parameters_to_plot["session"] = parameters_to_plot["session"].astype(int)
+        parameters_to_plot[parameter] = parameters_to_plot[parameter].astype(float)
 
-    # statistical test: doesn't work if groups have different sample size
-    num_sessions = [0.0, 3.0, 12.0, 18.0]
-    pairs = list(combinations(num_sessions, 2))
 
-    annotator = Annotator(ax, pairs, data=beta_peak_parameters_df, x='session', y='beta_cf')
-    annotator.configure(test='Mann-Whitney', text_format='star') # or t-test_ind ??
-    annotator.apply_and_annotate()
+        fig = plt.figure()
+        ax = fig.add_subplot()
 
-    sns.stripplot(
-        data=beta_peak_parameters_df,
-        x="session",
-        y="beta_cf",
-        ax=ax,
-        size=6,
-        color="black",
-        alpha=0.2, # Transparency of dots
-    )
+        sns.violinplot(data=parameters_to_plot, x="session", y=parameter, palette="pastel", inner="box", ax=ax)
 
-    sns.despine(left=True, bottom=True) # get rid of figure frame
+        # statistical test: doesn't work if groups have different sample size
+        num_sessions = [0.0, 3.0, 12.0, 18.0]
+        pairs = list(combinations(num_sessions, 2))
 
-    plt.title("Highest Beta Peak Center Frequency")
-    plt.ylabel("Peak center frequency \nin beta band (13-35 Hz)")
-    plt.xlabel("session")
+        annotator = Annotator(ax, pairs, data=parameters_to_plot, x='session', y=parameter)
+        annotator.configure(test='Mann-Whitney', text_format='star') # or t-test_ind ??
+        annotator.apply_and_annotate()
 
-    fig.tight_layout()
-    fig.savefig(figures_path + "\\fooof_highest_beta_peak_center_freq.png", bbox_inches="tight")
+        sns.stripplot(
+            data=parameters_to_plot,
+            x="session",
+            y=parameter,
+            ax=ax,
+            size=6,
+            color="black",
+            alpha=0.2, # Transparency of dots
+        )
 
-    print("figure: ", 
-          "fooof_highest_beta_peak_center_freq.png",
-          "\nwritten in: ", figures_path
-          )
+        sns.despine(left=True, bottom=True) # get rid of figure frame
 
-    ##################### DESCRIPTION OF EACH SESSION GROUP #####################
-    # describe each group
-    num_sessions = [0.0, 3.0, 12.0, 18.0]
-    group_description = {}
+        if highest_beta_session == "all_channels":
+            title_name = f"{c_group} channels: Highest beta peak {cf_or_power} \n(of all channels)"
+    
+        elif highest_beta_session == "highest_postop":
+            title_name = f"{c_group} channels: Highest beta peak {cf_or_power} \n(of highest beta channel, baseline postop)"
+        
+        elif highest_beta_session == "highest_each_session":
+            title_name = f"{c_group} channels: Highest beta peak {cf_or_power} \n(only highest beta channels)"
 
-    for ses in num_sessions:
+        plt.title(title_name)
+        plt.ylabel(f"Peak {cf_or_power} \nin beta band (13-35 Hz)")
+        plt.xlabel("session")
 
-        group = beta_peak_parameters_df.loc[beta_peak_parameters_df.session==ses]
-        group = np.array(group.beta_cf.values)
+        fig.tight_layout()
+        fig.savefig(figures_path + f"\\fooof_highest_beta_peak_{cf_or_power}_{highest_beta_session}_{c_group}.png", bbox_inches="tight")
 
-        description = scipy.stats.describe(group)
+        print("figure: ", 
+            f"fooof_highest_beta_peak_{cf_or_power}_{highest_beta_session}_{c_group}.png",
+            "\nwritten in: ", figures_path
+            )
 
-        group_description[f"{ses}_months_postop"] = description
+        ##################### DESCRIPTION OF EACH SESSION GROUP #####################
+        # describe each group
+        num_sessions = [0.0, 3.0, 12.0, 18.0]
+
+        for ses in num_sessions:
+
+            session_group = parameters_to_plot.loc[parameters_to_plot.session==ses]
+            session_group = np.array(session_group.beta_cf.values).astype(float)
+
+            description = scipy.stats.describe(session_group)
+
+            group_description[f"{c_group}_{ses}_months_postop"] = description
 
 
     description_results = pd.DataFrame(group_description)
@@ -1088,12 +1152,12 @@ def fooof_highest_beta_peak_cf():
     description_results = description_results.transpose()
 
     # save Dataframe with data 
-    description_results_filepath = os.path.join(results_path, "fooof_center_freq_session_description_highest_beta_peak.pickle")
+    description_results_filepath = os.path.join(results_path, f"fooof_{cf_or_power}_session_description_highest_beta_peak_{highest_beta_session}.pickle")
     with open(description_results_filepath, "wb") as file:
         pickle.dump(description_results, file)
     
     print("file: ", 
-          "fooof_center_freq_session_description_highest_beta_peak.pickle",
+          f"fooof_{cf_or_power}_session_description_highest_beta_peak_{highest_beta_session}.pickle",
           "\nwritten in: ", results_path
           )
     
@@ -1544,7 +1608,199 @@ def fooof_count_rank1_or_2(
 
 
 
+def highest_beta_channels_fooof(
+        fooof_spectrum:str,
+        highest_beta_session:str
+):
+    """
+    Load the file "fooof_model_group_data.json"
+    from the group result folder
 
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+        - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+    1) calculate beta average for each channel and rank within 1 stn, 1 session and 1 channel group
+    
+    2) rank beta averages and only select the channels with rank 1.0 
+
+    Output highest_beta_df
+        - containing all stns, all sessions, all channels with rank 1.0 within their channel group
+    
+    """
+
+    # load the group dataframe
+    fooof_group_result = loadResults.load_group_fooof_result()
+
+    # create new column: first duplicate column fooof power spectrum, then apply calculation to each row -> average of indices [13:36] so averaging the beta range
+    fooof_group_result_copy = fooof_group_result.copy()
+
+    if fooof_spectrum == "periodic_spectrum":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_power_spectrum"]
+    
+    elif fooof_spectrum == "periodic_plus_aperiodic":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["periodic_plus_aperiodic_power_log"]
+
+    elif fooof_spectrum == "periodic_flat":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_periodic_flat"]
+    
+    
+    fooof_group_result_copy["beta_average"] = fooof_group_result_copy["beta_average"].apply(lambda row: np.mean(row[13:36]))
+
+
+    ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+
+    stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
+
+    beta_rank_df = pd.DataFrame()
+
+    for stn in stn_unique:
+
+        stn_df = fooof_group_result_copy.loc[fooof_group_result_copy.subject_hemisphere == stn]
+
+        for ses in sessions:
+
+            # check if session exists
+            if ses not in stn_df.session.values:
+                continue
+
+            else:
+                stn_ses_df = stn_df.loc[stn_df.session == ses] # df of only 1 stn and 1 session
+
+
+            for group in channel_group:
+
+                if group == "ring":
+                    channels = ['01', '12', '23']
+                    
+                elif group == "segm_inter":
+                    channels = ["1A2A", "1B2B", "1C2C"]
+                
+                elif group == "segm_intra":
+                    channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+                group_comp_df = stn_ses_df.loc[stn_ses_df["bipolar_channel"].isin(channels)].reset_index() # df of only 1 stn, 1 session and 1 channel group
+
+                # rank beta average of channels within one channel group
+                group_comp_df_copy = group_comp_df.copy()
+                group_comp_df_copy["beta_rank"] = group_comp_df_copy["beta_average"].rank(ascending=False) 
+
+                # save to ranked_beta_df
+                beta_rank_df = pd.concat([beta_rank_df, group_comp_df_copy])
+    
+    # depending on input: keep only rank 1.0 or keep postop rank 1 or 3MFU rank 1 channel
+    if highest_beta_session == "highest_each_session":
+        # only keep the row with beta rank 1.0
+        highest_beta_df = beta_rank_df.loc[beta_rank_df.beta_rank == 1.0]
+    
+    elif highest_beta_session == "highest_postop":
+        highest_beta_df = pd.DataFrame()
+        # for each stn get channel name of beta rank 1 in postop and select the channels for the other timepoints
+        for stn in stn_unique:
+
+            stn_data = beta_rank_df.loc[beta_rank_df.subject_hemisphere == stn]
+            
+            for ses in sessions:
+                # check if postop exists
+                if "postop" not in stn_data.session.values:
+                    continue
+
+                elif ses not in stn_data.session.values:
+                    continue
+                
+                else: 
+                    postop_rank1_channels = stn_data.loc[stn_data.session=="postop"]
+                    postop_rank1_channels = postop_rank1_channels.loc[postop_rank1_channels.beta_rank == 1.0]
+
+                    stn_ses_data = stn_data.loc[stn_data.session == ses]
+                
+                for group in channel_group:
+
+                    if group == "ring":
+                        channels = ['01', '12', '23']
+                    
+                    elif group == "segm_inter":
+                        channels = ["1A2A", "1B2B", "1C2C"]
+                    
+                    elif group == "segm_intra":
+                        channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+                    group_data = stn_ses_data.loc[stn_ses_data["bipolar_channel"].isin(channels)].reset_index()
+
+                    # get channel name of rank 1 channel in postop in this channel group
+                    postop_1_row = postop_rank1_channels.loc[postop_rank1_channels["bipolar_channel"].isin(channels)]
+                    postop_1_channelname = postop_1_row.bipolar_channel.values[0]
+
+                    # select only this channel in all the other sessions
+                    selected_rows = group_data.loc[group_data.bipolar_channel == postop_1_channelname]
+                    highest_beta_df = pd.concat([highest_beta_df, postop_1_row, selected_rows])
+        
+        # drop index columns 
+        # drop duplicated postop rows
+        # highest_beta_df = highest_beta_df.drop(column=["level_0", "index"])
+        highest_beta_df = highest_beta_df.drop_duplicates(keep="first", subset=["subject_hemisphere", "session", "bipolar_channel"])
+
+
+    elif highest_beta_session == "highest_fu3m":
+        highest_beta_df = pd.DataFrame()
+        # for each stn get channel name of beta rank 1 in postop and select the channels for the other timepoints
+        for stn in stn_unique:
+
+            stn_data = beta_rank_df.loc[beta_rank_df.subject_hemisphere == stn]
+            
+            for ses in sessions:
+
+                # if session is postop, continue, because we´re only interested in follow ups here
+                if ses == "postop":
+                    continue
+
+                # check if fu3m exists
+                if "fu3m" not in stn_data.session.values:
+                    continue
+
+                elif ses not in stn_data.session.values:
+                    continue
+                
+                else: 
+                    fu3m_rank1_channels = stn_data.loc[stn_data.session=="fu3m"]
+                    fu3m_rank1_channels = fu3m_rank1_channels.loc[fu3m_rank1_channels.beta_rank == 1.0]
+
+                    stn_ses_data = stn_data.loc[stn_data.session == ses]
+                
+                for group in channel_group:
+
+                    if group == "ring":
+                        channels = ['01', '12', '23']
+                    
+                    elif group == "segm_inter":
+                        channels = ["1A2A", "1B2B", "1C2C"]
+                    
+                    elif group == "segm_intra":
+                        channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+                    group_data = stn_ses_data.loc[stn_ses_data["bipolar_channel"].isin(channels)].reset_index()
+
+                    # get channel name of rank 1 channel in fu3m in this channel group
+                    fu3m_1_row = fu3m_rank1_channels.loc[fu3m_rank1_channels["bipolar_channel"].isin(channels)]
+                    fu3m_1_channelname = fu3m_1_row.bipolar_channel.values[0]
+
+                    # select only this channel in all the other sessions
+                    selected_rows = group_data.loc[group_data.bipolar_channel == fu3m_1_channelname]
+                    highest_beta_df = pd.concat([highest_beta_df, fu3m_1_row, selected_rows])
+        
+        # drop index columns 
+        # drop duplicated postop rows
+        # highest_beta_df = highest_beta_df.drop(column=["level_0", "index"])
+        highest_beta_df = highest_beta_df.drop_duplicates(keep="first", subset=["subject_hemisphere", "session", "bipolar_channel"])
+
+    return highest_beta_df
+        
 
 
 
