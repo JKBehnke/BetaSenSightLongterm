@@ -1038,6 +1038,9 @@ def load_fooof_monopolar_weighted_psd(
 
     if segmental=="yes":
         bipolar_chans = "only_segmental_"
+    
+    else:
+        bipolar_chans = "segments_and_rings_"
 
     # create filename
     filename = f"fooof_monoRef_{bipolar_chans}weight_beta_psd_by_distance_{fooof_spectrum}.pickle"

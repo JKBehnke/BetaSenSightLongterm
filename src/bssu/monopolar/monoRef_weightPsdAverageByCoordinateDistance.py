@@ -583,8 +583,10 @@ def monoRef_only_segmental_weight_psd_by_distance(
 
 
 
-def fooof_monoRef_only_segmental_weight_psd_by_distance(
+def fooof_monoRef_weight_psd_by_distance(
     fooof_spectrum:str,
+    only_segmental:str
+    
 ):
 
     """
@@ -594,6 +596,8 @@ def fooof_monoRef_only_segmental_weight_psd_by_distance(
             "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
             "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
             "periodic_flat"             -> model._peak_fit
+        
+        - only_segmental: str e.g. "yes" or "no"
 
 
     1) define imaginary coordinates only for segmental contacts
@@ -667,22 +671,44 @@ def fooof_monoRef_only_segmental_weight_psd_by_distance(
     # z coordinates of the vertical axis
     # xy coordinates of the polar plane around the percept device
 
-    segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
-    segmental_channels = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
+    #segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+    #segmental_channels = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
     incl_sessions = ["postop", "fu3m", "fu12m", "fu18m"]
 
 
     d = 2
     r = 0.65 # change this radius as you wish - needs to be optimised
-    contact_coordinates = {
+
+    if only_segmental == "yes":
+        contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+        channels = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
+        contact_coordinates = {
+                            '1A':[d*1.0,r*np.cos(0)+r*1j*np.sin(0)],
+                            '1B':[d*1.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
+                            '1C':[d*1.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)],
+                            '2A':[d*2.0,r*np.cos(0)+r*1j*np.sin(0)],
+                            '2B':[d*2.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
+                            '2C':[d*2.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)]}
+
+        # contact_coordinates = tuple z-coord + xy-coord
+
+    elif only_segmental == "no":
+        contacts = ["0", "3", "1A", "1B", "1C", "2A", "2B", "2C"]
+        channels = ["01", "12", "23", "1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
+        contact_coordinates = {
+                        '0': [d*0.0,0+0*1j],
+                        '1': [d*1.0,0+0*1j],
+                        '2': [d*2.0,0+0*1j],
+                        '3': [d*3.0,0+0*1j],
                         '1A':[d*1.0,r*np.cos(0)+r*1j*np.sin(0)],
                         '1B':[d*1.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
                         '1C':[d*1.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)],
                         '2A':[d*2.0,r*np.cos(0)+r*1j*np.sin(0)],
                         '2B':[d*2.0,r*np.cos(2*np.pi/3)+r*1j*np.sin(2*np.pi/3)],
                         '2C':[d*2.0,r*np.cos(4*np.pi/3)+r*1j*np.sin(4*np.pi/3)]}
-
+    
     # contact_coordinates = tuple z-coord + xy-coord
+
 
     ##################### lets plot the monopolar contact coordinates! #####################
     # Configure Plotly to be rendered inline in the notebook.
@@ -729,8 +755,8 @@ def fooof_monoRef_only_segmental_weight_psd_by_distance(
         all_or_one_chan="beta_ranks_all"
     )
 
-    # only take rows of segmented channels
-    beta_average_DF = beta_average_DF.loc[beta_average_DF.bipolar_channel.isin(segmental_channels)]
+    # only take rows of channels of interest
+    beta_average_DF = beta_average_DF.loc[beta_average_DF.bipolar_channel.isin(channels)]
 
     session_data = {}
     # loop over sessions
@@ -753,8 +779,19 @@ def fooof_monoRef_only_segmental_weight_psd_by_distance(
             bipolar_channel = session_Dataframe_coord.loc[idx,'bipolar_channel'] # e.g. 1A2A
             
             # extracting individual monopolar contact names from bipolar channels
-            contact_1 = bipolar_channel[:2] # 1A
-            contact_2 = bipolar_channel[2:] # 2A   
+            if len(bipolar_channel)==4: # if len ==4 e.g. 1A2A
+                contact_1 = bipolar_channel[:2] # 1A
+                contact_2 = bipolar_channel[2:] # 2A
+                #channel_group = "segments"    
+
+            elif len(bipolar_channel)==2:
+
+                if only_segmental == "yes":
+                    continue
+                else:
+                    contact_1 = bipolar_channel[0] # 0
+                    contact_2 = bipolar_channel[1] # 1   
+                    #channel_group = "ring"   
             
             # storing monopolar contact names for bipolar contacts
             # e.g. channel 1A2A: contact1 = 1A, contact2 = 2A
@@ -807,7 +844,7 @@ def fooof_monoRef_only_segmental_weight_psd_by_distance(
             mono_data_copy["session"] = f"{ses}"
             mono_data_copy["subject_hemisphere"] = f"{stn}"
 
-            for contact in segmental_contacts:
+            for contact in contacts:
 
                 # extracting coordinates for mono polar contacts
                 coord_z = mono_data.loc[contact,'coord_z']
@@ -852,13 +889,19 @@ def fooof_monoRef_only_segmental_weight_psd_by_distance(
 
             session_data[f"{ses}_monopolar_Dataframe"] = pd.concat([session_data[f"{ses}_monopolar_Dataframe"], mono_data_copy])
 
+    if only_segmental == "yes":
+        filename = "only_segmental_"
+    
+    else: 
+        filename = "segments_and_rings_"
+        
 
     # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
-    session_data_filepath = os.path.join(results_paths, f"fooof_monoRef_only_segmental_weight_beta_psd_by_distance_{fooof_spectrum}.pickle")
+    session_data_filepath = os.path.join(results_paths, f"fooof_monoRef_{filename}weight_beta_psd_by_distance_{fooof_spectrum}.pickle")
     with open(session_data_filepath, "wb") as file:
         pickle.dump(session_data, file)
 
-    print(f"New file: fooof_monoRef_only_segmental_weight_beta_psd_by_distance_{fooof_spectrum}.pickle",
+    print(f"New file: fooof_monoRef_{filename}weight_beta_psd_by_distance_{fooof_spectrum}.pickle",
             f"\nwritten in: {results_paths}" )
     
 
