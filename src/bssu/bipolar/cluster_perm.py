@@ -441,9 +441,9 @@ def highest_beta_channels_fooof(
             
             for ses in sessions:
 
-                # if session is postop, continue, because we´re only interested in follow ups here
-                if ses == "postop":
-                    continue
+                # # if session is postop, continue, because we´re only interested in follow ups here
+                # if ses == "postop":
+                #     continue
 
                 # check if fu3m exists
                 if "fu3m" not in stn_data.session.values:
@@ -553,16 +553,9 @@ def cluster_permutation_fooof_power_spectra_highest_beta(
 
 
     ################################ Dataframes for each session comparison ################################
-    if highest_beta_session == "highest_each_session":
-        compare_sessions = ["postop_fu3m", "postop_fu12m", "postop_fu18m", 
-                            "fu3m_fu12m", "fu3m_fu18m", "fu12m_fu18m"]
-        
-    elif highest_beta_session == "highest_postop":
-        compare_sessions = ["postop_fu3m", "postop_fu12m", "postop_fu18m", 
-                            "fu3m_fu12m", "fu3m_fu18m", "fu12m_fu18m"]
-        
-    elif highest_beta_session == "highest_fu3m":
-        compare_sessions = ["fu3m_fu12m", "fu3m_fu18m", "fu12m_fu18m"]
+    
+    compare_sessions = ["postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                        "fu3m_fu12m", "fu3m_fu18m", "fu12m_fu18m"]
     
     channel_group = ["ring", "segm_inter", "segm_intra"]
 
@@ -720,6 +713,12 @@ def grand_average_power_spectra_fooof_highest_beta(
             fooof_spectrum=spectrum_to_plot,
             highest_beta_session=highest_beta_session
         )
+    
+    elif highest_beta_session == "highest_fu3m":
+        fooof_group_result = highest_beta_channels_fooof(
+            fooof_spectrum=spectrum_to_plot,
+            highest_beta_session=highest_beta_session
+        )
 
     sessions = ["postop", "fu3m", "fu12m", "fu18m"]
     channel_group = ["ring", "segm_inter", "segm_intra"]
@@ -803,6 +802,10 @@ def grand_average_power_spectra_fooof_highest_beta(
         elif highest_beta_session == "highest_postop":
             plt.title(f"Grand average FOOOF power spectra of \nhighest beta channel from baseline (postop) from {group} channels", fontdict={"size": 18})
             highest_channel = "highest_postop_beta_channels"
+        
+        elif highest_beta_session == "highest_fu3m":
+            plt.title(f"Grand average FOOOF power spectra of \nhighest beta channel from baseline (3MFU) from {group} channels", fontdict={"size": 18})
+            highest_channel = "highest_fu3m_beta_channels"
         
         # plot settings
         plt.legend(loc= 'upper right', fontsize=14)

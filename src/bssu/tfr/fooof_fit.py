@@ -966,7 +966,7 @@ def fooof_highest_beta_peak_analysis(
     """
 
     Input:
-        - highest_beta_session: str "highest_postop" or "all_channels" or "highest_each_session"
+        - highest_beta_session: str "highest_postop" or "all_channels" or "highest_each_session" or "highest_fu3m"
         - cf_or_power: str "power" or "center_frequency"
 
 
@@ -996,6 +996,13 @@ def fooof_highest_beta_peak_analysis(
             highest_beta_session=highest_beta_session
         )
         title_name = "Highest Beta Peak Center Frequency (highest beta channel, baseline postop)"
+    
+    elif highest_beta_session == "highest_fu3m":
+        fooof_result = highest_beta_channels_fooof(
+            fooof_spectrum="periodic_spectrum",
+            highest_beta_session=highest_beta_session
+        )
+        title_name = "Highest Beta Peak Center Frequency (highest beta channel, baseline 3MFU)"
     
     elif highest_beta_session == "highest_each_session":
         fooof_result = highest_beta_channels_fooof(
@@ -1117,6 +1124,9 @@ def fooof_highest_beta_peak_analysis(
     
         elif highest_beta_session == "highest_postop":
             title_name = f"{c_group} channels: Highest beta peak {cf_or_power} \n(of highest beta channel, baseline postop)"
+        
+        elif highest_beta_session == "highest_fu3m":
+            title_name = f"{c_group} channels: Highest beta peak {cf_or_power} \n(of highest beta channel, baseline 3MFU)"
         
         elif highest_beta_session == "highest_each_session":
             title_name = f"{c_group} channels: Highest beta peak {cf_or_power} \n(only highest beta channels)"
@@ -1756,9 +1766,9 @@ def highest_beta_channels_fooof(
             
             for ses in sessions:
 
-                # if session is postop, continue, because we´re only interested in follow ups here
-                if ses == "postop":
-                    continue
+                # # if session is postop, continue, because we´re only interested in follow ups here
+                # if ses == "postop":
+                #     continue
 
                 # check if fu3m exists
                 if "fu3m" not in stn_data.session.values:
