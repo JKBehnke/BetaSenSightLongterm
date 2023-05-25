@@ -469,6 +469,7 @@ def fooof_fit_power_spectra(incl_sub: list):
                     # Plot the unfiltered Power spectrum in first ax
                     plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False,
                                     ax=ax[0])
+                    ax[0].grid(False)
                     
 
                     ############ SET FOOOF MODEL ############
@@ -489,6 +490,9 @@ def fooof_fit_power_spectra(incl_sub: list):
                     # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
                     model.plot(ax=ax[1], plt_log=True) # to evaluate the aperiodic component
                     model.plot(ax=ax[2], plt_log=False) # To see the periodic component better without log in frequency axis
+                    ax[1].grid(False)
+                    ax[2].grid(False)
+
 
                     # plot only the fooof spectrum of the periodic component
                     fooof_power_spectrum = 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
@@ -501,9 +505,17 @@ def fooof_fit_power_spectra(incl_sub: list):
                     
                     ax[0].set_title("unfiltered, raw power spectrum", fontsize=20, y=0.97, pad=-20)
                     ax[3].set_title("power spectrum of periodic component", fontsize=20)
+
+                    # mark beta band
+                    x1 = 13
+                    x2 = 35
+                    ax[3].axvspan(x1, x2, color="whitesmoke")
+                    ax[3].grid(False)
                     
                     fig.tight_layout()
+                    fig.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.svg", bbox_inches="tight", format="svg")
                     fig.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.png", bbox_inches="tight")
+
                     
                     # extract parameters from the chosen model
                     # model.print_results()

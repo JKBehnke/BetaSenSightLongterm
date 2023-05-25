@@ -343,7 +343,10 @@ def heatmap_distances_to_permutated_mean(
         fig.tight_layout()
         fig.savefig(figures_path + f"\\heatmap_distances_to_permutated_mean_{group}_{freqBand}_{data2permute}_{normalization}_{filterSignal}", bbox_inches="tight")
 
-            
+
+
+
+
 
 
 def permutation_fooof_beta_ranks(
@@ -565,26 +568,28 @@ def permutation_fooof_beta_ranks(
             sns.histplot(all_shuffled_mean_differences, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
 
             # mark with red line: real mean of the rank differences of comp_group_DF
-            axes[g].axvline(mean_comp_group, c="r")
+            axes[g].axvline(mean_comp_group, c="r", linewidth=3)
             axes[g].text(mean_comp_group +0.02, 50, 
-                "Mean difference between \nranks of both sessions \n\n p-value: {:.2f}".format(pval),
-                c="r", fontsize=15)
+                "real mean \nof beta rank difference \n\n p-value: {:.3f}".format(pval),
+                c="k", fontsize=20)
 
-            axes[g].set_title(f"{group} channels", fontdict=fontdict)
+            axes[g].set_title(f"{group} channel group", fontdict=fontdict)
 
         for ax in axes:
 
-            ax.set_xlabel(f"MEAN Difference between beta ranks", fontsize=25)
+            ax.set_xlabel(f"Mean difference between beta ranks", fontsize=25)
             ax.set_ylabel("Count", fontsize=25)
 
             ax.tick_params(axis="x", labelsize=25)
             ax.tick_params(axis="y", labelsize=25)
+            ax.grid(False)
 
-        fig.suptitle(f"Permutation analysis: {comp} comparisons", fontsize=30)
+        fig.suptitle(f"Permutation analysis of beta ranks: {comp} session comparison", fontsize=30)
         fig.subplots_adjust(wspace=0, hspace=0)
         fig.tight_layout()
 
         fig.savefig(figures_path + f"\\permutation_beta_ranks_fooof_spectra_{comp}.png", bbox_inches="tight")
+        fig.savefig(figures_path + f"\\permutation_beta_ranks_fooof_spectra_{comp}.svg", bbox_inches="tight", format="svg")
 
         
     # Permutation_BIP transform from dictionary to Dataframe
@@ -617,6 +622,73 @@ def permutation_fooof_beta_ranks(
         "comparisons_storage":comparisons_storage,
         "permutation_result_df":permutation_result_df
     }
+
+
+
+def heatmap_distances_to_permutated_mean(
+
+):
+    """
+    
+    Input:
+        - 
+    
+    Load the pickle file  
+        filename: "permutation_beta_ranks_fooof_spectra.pickle" 
+
+
+    """
+
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+
+
+    # load the Permutation results
+    permutation_result = loadResults.load_fooof_permutation_bip_beta_ranks()
+
+    for group in channel_group:
+
+        group_df = permutation_result.loc[permutation_result.channel_group==group]
+
+        distance_to_plot = group_df["p-value"].values.astype(float)
+        distance_to_plot = distance_to_plot.reshape(4,4)
+
+        # plot a heatmap
+        fig, ax = plt.subplots()
+
+        heatmap = ax.pcolor(distance_to_plot, cmap=plt.cm.YlOrRd)
+        # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+        # Set the x and y ticks to show the indices of the matrix
+        ax.set_xticks(np.arange(distance_to_plot.shape[1])+0.5, minor=False)
+        ax.set_yticks(np.arange(distance_to_plot.shape[0])+0.5, minor=False)
+
+        # Set the tick labels to show the values of the matrix
+        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
+        
+        # Add a colorbar to the right of the heatmap
+        cbar = plt.colorbar(heatmap)
+        cbar.set_label(f"p-value of difference real vs. random beta ranks")
+
+        # Add the cell values to the heatmap
+        for i in range(distance_to_plot.shape[0]):
+            for j in range(distance_to_plot.shape[1]):
+                plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(distance_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+        # Add a title
+        plt.title(f"{group} channel group", fontdict={"size":20})
+
+        fig.tight_layout()
+        fig.savefig(figures_path + f"\\heatmap_fooof_p_values_permutated_mean_{group}.png", bbox_inches="tight")
+        fig.savefig(figures_path + f"\\heatmap_fooof_p_values_permutated_mean_{group}.svg", bbox_inches="tight", format="svg")
+    
+    
+
+
+
 
 
 def Permutation_monopolarRanks_compareMethods(

@@ -1054,7 +1054,37 @@ def load_fooof_monopolar_weighted_psd(
     return data
 
 
+def load_fooof_permutation_bip_beta_ranks():
 
+    """
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+        
+        - segmental: "yes"              -> only using segmental channels to weight monopolar psd
+
+
+
+    Load the file: f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}.pickle"
+    from the group result folder
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"permutation_beta_ranks_fooof_spectra.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
 
