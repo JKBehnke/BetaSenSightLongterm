@@ -655,6 +655,7 @@ def fooof_monopol_psd_spearman_betw_sessions(
 
     fig.tight_layout()
     fig.savefig(figures_path + f"\\{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.png", bbox_inches="tight")
+    fig.savefig(figures_path + f"\\{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.svg", bbox_inches="tight", format="svg")
 
     # save DF as pickle file
     spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_monopol_beta_correlations_only_segmental_{mean_or_median}.pickle")
@@ -1623,12 +1624,15 @@ def fooof_mono_rank_difference_heatmap(
     fig.tight_layout()
 
     if level_or_direction == "direction":
-        fig_name = f"\\fooof_monopol_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
+        fig_name_png = f"\\fooof_monopol_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
+        fig_name_svg = f"\\fooof_monopol_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.svg"
     
     elif level_or_direction == "level": 
-        fig_name = f"\\fooof_monopol_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
+        fig_name_png = f"\\fooof_monopol_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
+        fig_name_svg = f"\\fooof_monopol_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.svg"
 
-    fig.savefig(figures_path + fig_name, bbox_inches="tight")
+    fig.savefig(figures_path + fig_name_png, bbox_inches="tight")
+    fig.savefig(figures_path + fig_name_svg, bbox_inches="tight", format="svg")
 
 
     return {

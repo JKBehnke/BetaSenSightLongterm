@@ -826,6 +826,8 @@ def grand_average_power_spectra_fooof_highest_beta(
 
         fig.savefig(figures_path + f"\\grand_average_FOOOF_{highest_channel}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
                 bbox_inches = "tight")
+        fig.savefig(figures_path + f"\\grand_average_FOOOF_{highest_channel}_{group}_{spectrum_to_plot}_{std_or_sem}.svg",
+                bbox_inches = "tight", format="svg")
 
     print("figure: ", 
           f"grand_average_FOOOF_{highest_channel}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
