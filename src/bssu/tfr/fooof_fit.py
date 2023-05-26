@@ -1907,7 +1907,8 @@ def fooof_mixedlm_highest_beta_channels(
 
         data_analysis = group_dict[group]
 
-        md = smf.mixedlm(f"session ~ {data_to_fit}", data=data_analysis, groups="group")
+        md = smf.mixedlm(f"session ~ {data_to_fit}", data=data_analysis, groups=data_analysis["group"], 
+                         re_formula=f"~{data_to_fit}") # re_formula=f"1 + {data_to_fit}" what does 1+ do? random intercept?
         mdf = md.fit()
                         
         print(mdf.summary())
@@ -1932,8 +1933,8 @@ def fooof_mixedlm_highest_beta_channels(
 
             sub_data = data_analysis[data_analysis.group==group_id]
 
-            axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.tab20(group_id))
-            axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.tab20(group_id))
+            axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
+            axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
 
     for ax in axes:
 
