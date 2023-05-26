@@ -11,6 +11,8 @@ import seaborn as sns
 from statannotations.Annotator import Annotator
 from itertools import combinations
 import scipy
+import statsmodels.formula.api as smf
+from sklearn.preprocessing import LabelEncoder
 import fooof
 from fooof.plts.spectra import plot_spectrum
 
@@ -1765,7 +1767,7 @@ def highest_beta_channels_fooof(
         
         # drop index columns 
         # drop duplicated postop rows
-        # highest_beta_df = highest_beta_df.drop(column=["level_0", "index"])
+        highest_beta_df = highest_beta_df.drop(columns=["level_0", "index"])
         highest_beta_df = highest_beta_df.drop_duplicates(keep="first", subset=["subject_hemisphere", "session", "bipolar_channel"])
 
 
@@ -1818,15 +1820,149 @@ def highest_beta_channels_fooof(
         
         # drop index columns 
         # drop duplicated postop rows
-        # highest_beta_df = highest_beta_df.drop(column=["level_0", "index"])
+        highest_beta_df = highest_beta_df.drop(columns=["level_0", "index"])
         highest_beta_df = highest_beta_df.drop_duplicates(keep="first", subset=["subject_hemisphere", "session", "bipolar_channel"])
 
     return highest_beta_df
         
 
 
+def fooof_mixedlm_highest_beta_channels(
+        fooof_spectrum:str,
+        highest_beta_session:str,
+        data_to_fit:str
+):
+    """
+    
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+        - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency"
 
 
+    Load the dataframe with highest beta channels in a given baseline session
+
+    
+
+    """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+    fontdict = {"size": 25}
+
+    # Load the dataframe with only highest beta channels
+    highest_beta_channels = highest_beta_channels_fooof(
+        fooof_spectrum=fooof_spectrum,
+        highest_beta_session=highest_beta_session
+        )
+    
+
+    le = LabelEncoder()
+
+    # define split array function
+    split_array = lambda x: pd.Series(x)
+
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+
+    ring = ['01', '12', '23']
+    segm_inter = ["1A2A", "1B2B", "1C2C"]
+    segm_intra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+    group_dict = {}
+
+    ############################## create a single dataframe for each channel group with only one highest beta channels per STN ##############################
+    for group in channel_group:
+
+        if group == "ring":
+            group_df = highest_beta_channels.loc[highest_beta_channels.bipolar_channel.isin(ring)]
+
+        elif group == "segm_inter":
+            group_df = highest_beta_channels.loc[highest_beta_channels.bipolar_channel.isin(segm_inter)]
+
+        elif group == "segm_intra":
+            group_df = highest_beta_channels.loc[highest_beta_channels.bipolar_channel.isin(segm_intra)]
+        
+        # session values have to be integers, add column group with integers for each STN electrode 
+        group_df_copy = group_df.copy()
+        group_df_copy["group"] = le.fit_transform(group_df_copy["subject_hemisphere"])
+        group_df_copy["session"] = group_df_copy.session.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0,3,12,18])
+
+        # split beta peak column into three columns
+        group_df_copy[["beta_center_frequency", "beta_peak_power", "beta_band_width"]] = group_df_copy["beta_peak_CF_power_bandWidth"].apply(split_array)
+        group_df_copy = group_df_copy.drop(columns=["alpha_peak_CF_power_bandWidth", "gamma_peak_CF_power_bandWidth"])
+        
+        group_df_copy = group_df_copy.dropna()
+
+
+        group_dict[group] = group_df_copy
+    
+
+    ############################## perform linear mixed effects model ##############################
+    for g, group in enumerate(channel_group):
+
+        data_analysis = group_dict[group]
+
+        md = smf.mixedlm(f"session ~ {data_to_fit}", data=data_analysis, groups="group")
+        mdf = md.fit()
+                        
+        print(mdf.summary())
+
+        # add predictions column to dataframe
+        yp = mdf.fittedvalues
+        group_dict[group]["predictions"] = yp
+
+
+    ############################## perform linear mixed effects model ##############################
+    fig, axes = plt.subplots(3,1,figsize=(10,15)) 
+
+    for g, group in enumerate(channel_group):
+
+        data_analysis = group_dict[group]
+
+        # one subplot per channel group
+        axes[g].set_title(f"{group} channel group", fontdict=fontdict)
+
+        # plot the result
+        for group_id in data_analysis.group.unique():
+
+            sub_data = data_analysis[data_analysis.group==group_id]
+
+            axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.tab20(group_id))
+            axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.tab20(group_id))
+
+    for ax in axes:
+
+        ax.set_xlabel(f"{data_to_fit}", fontsize=25)
+        ax.set_ylabel("months post-surgery", fontsize=25)
+
+        ax.tick_params(axis="x", labelsize=25)
+        ax.tick_params(axis="y", labelsize=25)
+        ax.grid(False)
+
+    fig.suptitle(f"Linear mixed effects model: {highest_beta_session} beta channels", fontsize=30)
+    fig.subplots_adjust(wspace=0, hspace=0)
+
+    fig.tight_layout()
+    fig.savefig(figures_path + f"\\lme_{data_to_fit}_{highest_beta_session}_beta_channels.png", bbox_inches="tight")
+
+
+    print("figure: ", 
+        f"lme_{data_to_fit}_{highest_beta_session}_beta_channels.png",
+        "\nwritten in: ", figures_path
+        )
+
+
+
+
+    return {
+        "group_dict": group_dict,
+        
+        }
 
 
 
