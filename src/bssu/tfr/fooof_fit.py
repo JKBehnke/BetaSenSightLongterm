@@ -1867,6 +1867,7 @@ def fooof_mixedlm_highest_beta_channels(
     # define split array function
     split_array = lambda x: pd.Series(x)
 
+    sessions = [0,3,12,18]
     channel_group = ["ring", "segm_inter", "segm_intra"]
 
     ring = ['01', '12', '23']
@@ -1874,6 +1875,8 @@ def fooof_mixedlm_highest_beta_channels(
     segm_intra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
 
     group_dict = {}
+    mdf_result = {}
+    sample_size = {}
 
     ############################## create a single dataframe for each channel group with only one highest beta channels per STN ##############################
     for group in channel_group:
@@ -1910,12 +1913,21 @@ def fooof_mixedlm_highest_beta_channels(
         md = smf.mixedlm(f"session ~ {data_to_fit}", data=data_analysis, groups=data_analysis["group"], 
                          re_formula=f"~{data_to_fit}") # re_formula=f"1 + {data_to_fit}" what does 1+ do? random intercept?
         mdf = md.fit()
-                        
+
+        # save linear model result              
         print(mdf.summary())
+        mdf_result[group] = mdf.summary()
 
         # add predictions column to dataframe
         yp = mdf.fittedvalues
         group_dict[group]["predictions"] = yp
+
+        for ses in sessions:
+            count = data_analysis.loc[data_analysis.session==ses]
+            count = count.subject_hemisphere.count()
+
+            # save sample size
+            sample_size[f"{group}_{ses}mfu"] = [group, ses, count]
 
 
     ############################## perform linear mixed effects model ##############################
@@ -1957,12 +1969,19 @@ def fooof_mixedlm_highest_beta_channels(
         "\nwritten in: ", figures_path
         )
 
-
+    sample_size_df = pd.DataFrame(sample_size)
+    sample_size_df.rename(index={
+        0: "channel_group",
+        1: "session",
+        2: "count",
+    }, inplace=True)
+    sample_size_df = sample_size_df.transpose()
 
 
     return {
         "group_dict": group_dict,
-        
+        "mdf_result":mdf_result,
+        "sample_size": sample_size_df
         }
 
 
