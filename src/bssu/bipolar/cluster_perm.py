@@ -811,16 +811,20 @@ def grand_average_power_spectra_fooof_highest_beta(
         plt.legend(loc= 'upper right', fontsize=14)
 
         # add lines for freq Bands
-        plt.axvline(x=8, color='dimgrey', linestyle='--')
+        # plt.axvline(x=8, color='dimgrey', linestyle='--')
         plt.axvline(x=13, color='dimgrey', linestyle='--')
-        plt.axvline(x=20, color='dimgrey', linestyle='--')
+        # plt.axvline(x=20, color='dimgrey', linestyle='--')
         plt.axvline(x=35, color='dimgrey', linestyle='--')
+        # x1 = 13
+        # x2 = 35
+        # plt.axvspan(x1, x2, color="whitesmoke")
 
         plt.xlabel("Frequency [Hz]", fontdict={"size": 14})
         # plt.xlim(1, 95)
 
         plt.ylabel(y_label, fontdict={"size": 14})
-        #plt.ylim(-0.05, 3)
+        plt.ylim(-0.05, 3.5)
+        plt.grid(False)
 
         fig.tight_layout()
 

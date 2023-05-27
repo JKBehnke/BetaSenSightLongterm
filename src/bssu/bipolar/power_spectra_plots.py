@@ -869,7 +869,7 @@ def FOOOF_spectra_per_channel(
                     plt.xlabel("Frequency [Hz]", fontdict={"size": 30})
                     plt.xlim(2, 50)
                     plt.ylabel("Power [µV°2/Hz]", fontdict={"size": 30})
-                    plt.ylim(-0.02, 3)
+                    plt.ylim(-0.02, 3.5)
                     plt.xticks(fontsize= 20), plt.yticks(fontsize= 20)
                     plt.legend(loc= 'upper right', edgecolor="black", fontsize=20)
                     plt.grid(False)

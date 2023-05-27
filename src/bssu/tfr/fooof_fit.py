@@ -11,6 +11,7 @@ import seaborn as sns
 from statannotations.Annotator import Annotator
 from itertools import combinations
 import scipy
+from scipy import stats
 import statsmodels.formula.api as smf
 from sklearn.preprocessing import LabelEncoder
 import fooof
@@ -1878,7 +1879,7 @@ def fooof_mixedlm_highest_beta_channels(
 
     group_dict = {}
     mdf_result = {}
-    sample_size = {}
+    prediction_result = {}
 
     ############################## create a single dataframe for each channel group with only one highest beta channels per STN ##############################
     for group in channel_group:
@@ -1930,12 +1931,27 @@ def fooof_mixedlm_highest_beta_channels(
         group_dict[group]["predictions"] = yp
 
         for ses in incl_sessions:
-            count = data_analysis.loc[data_analysis.session==ses]
-            count = count.subject_hemisphere.count()
+            ses_data = data_analysis.loc[data_analysis.session==ses]
+            count = ses_data.subject_hemisphere.count()
+
+            # get mean of predictions
+            mean_yp = np.mean(ses_data.predictions)
+            std_yp = np.std(ses_data.predictions)
+            sem_yp = stats.sem(ses_data.predictions)
 
             # save sample size
-            sample_size[f"{group}_{ses}mfu"] = [group, ses, count]
+            prediction_result[f"{group}_{ses}mfu"] = [group, ses, count, mean_yp, std_yp, sem_yp]
 
+    prediction_result_df = pd.DataFrame(prediction_result)
+    prediction_result_df.rename(index={
+        0: "channel_group",
+        1: "session",
+        2: "count",
+        3: "mean_yp",
+        4: "std_yp",
+        5: "sem_yp"
+    }, inplace=True)
+    prediction_result_df = prediction_result_df.transpose()
 
     ############################## perform linear mixed effects model ##############################
     fig, axes = plt.subplots(3,1,figsize=(10,15)) 
@@ -1943,20 +1959,24 @@ def fooof_mixedlm_highest_beta_channels(
     for g, group in enumerate(channel_group):
 
         data_analysis = group_dict[group]
+        prediction_data = prediction_result_df.loc[prediction_result_df.channel_group == group]
 
         # one subplot per channel group
         axes[g].set_title(f"{group} channel group", fontdict=fontdict)
 
         # plot the result
-        for group_id in data_analysis.group.unique():
+        for id, group_id in enumerate(data_analysis.group.unique()):
 
             sub_data = data_analysis[data_analysis.group==group_id]
 
             # axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
             # axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
 
-            axes[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
-            axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
+            axes[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted((id+1)*10)) # color=plt.cm.tab20(group_id)
+            axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.5)
+
+        axes[g].plot(prediction_data["session"], prediction_data["mean_yp"], color="k", linewidth=5)
+        # axes[g].fill_between(prediction_data["session"], prediction_data["mean_yp"]-prediction_data["sem_yp"], prediction_data["mean_yp"]+prediction_data["sem_yp"], color='lightgray', alpha=0.5)
 
 
     for ax in axes:
@@ -1981,13 +2001,7 @@ def fooof_mixedlm_highest_beta_channels(
         "\nwritten in: ", figures_path
         )
 
-    sample_size_df = pd.DataFrame(sample_size)
-    sample_size_df.rename(index={
-        0: "channel_group",
-        1: "session",
-        2: "count",
-    }, inplace=True)
-    sample_size_df = sample_size_df.transpose()
+    
 
     # save results
     mdf_result_filepath = os.path.join(results_path, f"fooof_lme_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
@@ -2006,7 +2020,7 @@ def fooof_mixedlm_highest_beta_channels(
     return {
         "group_dict": group_dict,
         "mdf_result":mdf_result,
-        "sample_size": sample_size_df
+        "prediction_result_df": prediction_result_df
         }
 
 
