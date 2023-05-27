@@ -1830,7 +1830,8 @@ def highest_beta_channels_fooof(
 def fooof_mixedlm_highest_beta_channels(
         fooof_spectrum:str,
         highest_beta_session:str,
-        data_to_fit:str
+        data_to_fit:str,
+        incl_sessions:list
 ):
     """
     
@@ -1843,6 +1844,8 @@ def fooof_mixedlm_highest_beta_channels(
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
         - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency"
+
+        - incl_sessions: [0,3] or [3,12,18] o [0,3,12,18]
 
 
     Load the dataframe with highest beta channels in a given baseline session
@@ -1867,7 +1870,6 @@ def fooof_mixedlm_highest_beta_channels(
     # define split array function
     split_array = lambda x: pd.Series(x)
 
-    sessions = [0,3,12,18]
     channel_group = ["ring", "segm_inter", "segm_intra"]
 
     ring = ['01', '12', '23']
@@ -1901,6 +1903,8 @@ def fooof_mixedlm_highest_beta_channels(
         
         group_df_copy = group_df_copy.dropna()
 
+        # only select sessions that are in incl_sessions
+        group_df_copy = group_df_copy.loc[group_df_copy.session.isin(incl_sessions)]
 
         group_dict[group] = group_df_copy
     
@@ -1910,8 +1914,11 @@ def fooof_mixedlm_highest_beta_channels(
 
         data_analysis = group_dict[group]
 
-        md = smf.mixedlm(f"session ~ {data_to_fit}", data=data_analysis, groups=data_analysis["group"], 
-                         re_formula=f"~{data_to_fit}") # re_formula=f"1 + {data_to_fit}" what does 1+ do? random intercept?
+        # md = smf.mixedlm(f"session ~ {data_to_fit}", data=data_analysis, groups=data_analysis["group"], 
+        #                  re_formula=f"~{data_to_fit}") # re_formula=f"1 + {data_to_fit}" what does 1+ do? random intercept?
+
+        md = smf.mixedlm(f"{data_to_fit} ~ session", data=data_analysis, groups=data_analysis["group"], 
+                         ) # re_formula=f"1 + {data_to_fit}" what does 1+ do? random intercept?, fixed effects -> is there are overall slope across patients?
         mdf = md.fit()
 
         # save linear model result              
@@ -1922,7 +1929,7 @@ def fooof_mixedlm_highest_beta_channels(
         yp = mdf.fittedvalues
         group_dict[group]["predictions"] = yp
 
-        for ses in sessions:
+        for ses in incl_sessions:
             count = data_analysis.loc[data_analysis.session==ses]
             count = count.subject_hemisphere.count()
 
@@ -1945,23 +1952,28 @@ def fooof_mixedlm_highest_beta_channels(
 
             sub_data = data_analysis[data_analysis.group==group_id]
 
-            axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
-            axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
+            # axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
+            # axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
+
+            axes[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
+            axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
+
 
     for ax in axes:
 
-        ax.set_xlabel(f"{data_to_fit}", fontsize=25)
-        ax.set_ylabel("months post-surgery", fontsize=25)
+        ax.set_ylabel(f"{data_to_fit}", fontsize=25)
+        ax.set_xlabel("months post-surgery", fontsize=25)
 
         ax.tick_params(axis="x", labelsize=25)
         ax.tick_params(axis="y", labelsize=25)
         ax.grid(False)
 
-    fig.suptitle(f"Linear mixed effects model: {highest_beta_session} beta channels", fontsize=30)
+    fig.suptitle(f"Linear fixed effects model: {highest_beta_session} beta channels", fontsize=30)
     fig.subplots_adjust(wspace=0, hspace=0)
 
     fig.tight_layout()
-    fig.savefig(figures_path + f"\\lme_{data_to_fit}_{highest_beta_session}_beta_channels.png", bbox_inches="tight")
+    fig.savefig(figures_path + f"\\lme_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
+    fig.savefig(figures_path + f"\\lme_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
 
 
     print("figure: ", 
@@ -1976,6 +1988,19 @@ def fooof_mixedlm_highest_beta_channels(
         2: "count",
     }, inplace=True)
     sample_size_df = sample_size_df.transpose()
+
+    # save results
+    mdf_result_filepath = os.path.join(results_path, f"fooof_lme_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
+    with open(mdf_result_filepath, "wb") as file:
+        pickle.dump(mdf_result, file)
+    
+    print("file: ", 
+          f"fooof_mdf_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle",
+          "\nwritten in: ", results_path
+          )
+
+
+
 
 
     return {
