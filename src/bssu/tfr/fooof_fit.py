@@ -1961,6 +1961,14 @@ def fooof_mixedlm_highest_beta_channels(
         data_analysis = group_dict[group]
         prediction_data = prediction_result_df.loc[prediction_result_df.channel_group == group]
 
+        # get the intercept and slope of the result 
+        result_part_2 = mdf_result[group].tables[1] # part containing model intercept, slope, std.error
+        model_intercept = float(result_part_2["Coef."].values[0])
+        model_slope = float(result_part_2["Coef."].values[1])
+        group_variance = float(result_part_2["Coef."].values[2])
+        std_error_intercept = float(result_part_2["Std.Err."].values[0])
+
+
         # one subplot per channel group
         axes[g].set_title(f"{group} channel group", fontdict=fontdict)
 
@@ -1977,7 +1985,7 @@ def fooof_mixedlm_highest_beta_channels(
 
         axes[g].plot(prediction_data["session"], prediction_data["mean_yp"], color="k", linewidth=5)
         # axes[g].fill_between(prediction_data["session"], prediction_data["mean_yp"]-prediction_data["sem_yp"], prediction_data["mean_yp"]+prediction_data["sem_yp"], color='lightgray', alpha=0.5)
-
+        # axes[g].plot(prediction_data["session"], model_slope * prediction_data["mean_yp"] + model_intercept, color="k", linewidth=5)
 
     for ax in axes:
 
