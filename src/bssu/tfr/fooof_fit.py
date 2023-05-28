@@ -1972,7 +1972,7 @@ def fooof_mixedlm_highest_beta_channels(
         # one subplot per channel group
         axes[g].set_title(f"{group} channel group", fontdict=fontdict)
 
-        # plot the result
+        # plot the result for each electrode
         for id, group_id in enumerate(data_analysis.group.unique()):
 
             sub_data = data_analysis[data_analysis.group==group_id]
@@ -1983,9 +1983,22 @@ def fooof_mixedlm_highest_beta_channels(
             axes[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted((id+1)*10)) # color=plt.cm.tab20(group_id)
             axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.5)
 
-        axes[g].plot(prediction_data["session"], prediction_data["mean_yp"], color="k", linewidth=5)
+        # plot the model regression line
+        if 0 in incl_sessions:
+
+            if 18 in incl_sessions:
+                x=np.arange(0,19)
+            
+            else:
+                x=np.arange(0,4)
+
+        elif 0 not in incl_sessions:
+            x=np.arange(3,19)
+
+        y=x*model_slope + model_intercept
+        # axes[g].plot(prediction_data["session"], prediction_data["mean_yp"], color="k", linewidth=5)
         # axes[g].fill_between(prediction_data["session"], prediction_data["mean_yp"]-prediction_data["sem_yp"], prediction_data["mean_yp"]+prediction_data["sem_yp"], color='lightgray', alpha=0.5)
-        # axes[g].plot(prediction_data["session"], model_slope * prediction_data["mean_yp"] + model_intercept, color="k", linewidth=5)
+        axes[g].plot(x, y, color="k", linewidth=5)
 
     for ax in axes:
 
