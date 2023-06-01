@@ -1833,7 +1833,8 @@ def fooof_mixedlm_highest_beta_channels(
         fooof_spectrum:str,
         highest_beta_session:str,
         data_to_fit:str,
-        incl_sessions:list
+        incl_sessions:list,
+        shape_of_model:str
 ):
     """
     
@@ -1849,8 +1850,48 @@ def fooof_mixedlm_highest_beta_channels(
 
         - incl_sessions: [0,3] or [3,12,18] o [0,3,12,18]
 
+        - shape_of_model: e.g. "straight", "curved", "asymptotic"
+
 
     Load the dataframe with highest beta channels in a given baseline session
+
+    ASYMPTOTIC LINE
+    lme model: smf.mixedlm(f"{data_to_fit} ~ session + session_asymptotic", data=data_analysis, groups=data_analysis["group"], re_formula="1") 
+        - this is a mixed linear effects model
+        - dependent variable = data_to_fit e.g. beta average
+        - independent variable = predictor = session + session_asymptotic
+        - groups = electrode ID 
+        - re_formula = "1" specifying a random intercept model, assuming the same effect of the predictor across groups but different intercepts for each group
+        
+    The model will fit a curved line, the sum of a linear function (ax + b) and an asymptotic function a * (x / (1 + x)) + b 
+        y = a1 * x + a2 * (x / (1 + x))  + b
+
+        - a1 = coef of the linear model (output as Coef. of session)
+        - a2 = coef of the asymptotic model (output as Coef. of session_asymptotic)
+        - x = continuous range from 0 to 18 (min and max session)
+        - b = model intercept (output as Coef. of Intercept)
+
+
+    CURVED LINE
+    lme model: smf.mixedlm(f"{data_to_fit} ~ session + session_sq", data=data_analysis, groups=data_analysis["group"], re_formula="1") 
+        - this is a mixed linear effects model
+        - dependent variable = data_to_fit e.g. beta average
+        - independent variable = predictor = session + session squared
+        - groups = electrode ID 
+        - re_formula = "1" specifying a random intercept model, assuming the same effect of the predictor across groups but different intercepts for each group
+        
+    The model will fit a curved line, the sum of a linear function (ax + b) and an exponential function (ax^2 + b) 
+        y = a1 * x + a2 * x**2  + b
+
+        - a1 = coef of the linear model (output as Coef. of session)
+        - a2 = coef of the squared model (output as Coef. of session_sq)
+        - x = continuous range from 0 to 18 (min and max session)
+        - b = model intercept (output as Coef. of Intercept)
+
+    
+    Two figures
+
+
 
     
 
@@ -1878,10 +1919,9 @@ def fooof_mixedlm_highest_beta_channels(
     segm_inter = ["1A2A", "1B2B", "1C2C"]
     segm_intra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
 
-    group_dict = {}
-    mdf_result = {}
-    prediction_result = {}
-    model_output = {}
+    group_dict = {} # data with predictions
+    sample_size_dict = {} # 
+    model_output = {} # md.fit()
 
     ############################## create a single dataframe for each channel group with only one highest beta channels per STN ##############################
     for group in channel_group:
@@ -1920,13 +1960,20 @@ def fooof_mixedlm_highest_beta_channels(
         #predictor_x = data_analysis.session.values
         data_analysis = data_analysis.copy()
         data_analysis["session_sq"] = data_analysis.session**2 
+        data_analysis["session_asymptotic"] = data_analysis.session / (1 + data_analysis.session)
         
-        md = smf.mixedlm(f"{data_to_fit} ~ session + session_sq", data=data_analysis, groups=data_analysis["group"], 
-                          re_formula="1") 
-        # session = linear, session_sq = **2 -> adding both gives a curved line
+        if shape_of_model == "asymptotic":
+            md = smf.mixedlm(f"{data_to_fit} ~ session + session_asymptotic", data=data_analysis, groups=data_analysis["group"], 
+                                re_formula="1") 
 
-        # md = smf.mixedlm(f"{data_to_fit} ~ session", data=data_analysis, groups=data_analysis["group"], 
-        #                  re_formula="1") 
+        elif shape_of_model == "curved":
+            md = smf.mixedlm(f"{data_to_fit} ~ session + session_sq", data=data_analysis, groups=data_analysis["group"], 
+                                re_formula="1") 
+        
+        elif shape_of_model == "straight":
+            md = smf.mixedlm(f"{data_to_fit} ~ session", data=data_analysis, groups=data_analysis["group"], 
+                                re_formula="1")
+        
         # re_formula defining the random effect 
         # re_formula = 1 specifying random intercept model, assuming same effect of predictor for all groups
         # re_formula = f"1 + session" specifying random intercept and slope model
@@ -1934,7 +1981,6 @@ def fooof_mixedlm_highest_beta_channels(
 
         # save linear model result              
         print(mdf.summary())
-        mdf_result[group] = mdf.summary()
         model_output[group] = mdf
 
 
@@ -1947,15 +1993,15 @@ def fooof_mixedlm_highest_beta_channels(
             count = ses_data.subject_hemisphere.count()
 
             # save sample size
-            prediction_result[f"{group}_{ses}mfu"] = [group, ses, count]
+            sample_size_dict[f"{group}_{ses}mfu"] = [group, ses, count]
 
-    prediction_result_df = pd.DataFrame(prediction_result)
-    prediction_result_df.rename(index={
+    sample_size_df = pd.DataFrame(sample_size_dict)
+    sample_size_df.rename(index={
         0: "channel_group",
         1: "session",
         2: "count",
     }, inplace=True)
-    prediction_result_df = prediction_result_df.transpose()
+    sample_size_df = sample_size_df.transpose()
 
     ############################## plot the observed values and the model ##############################
     fig_1, axes_1 = plt.subplots(3,1,figsize=(10,15)) 
@@ -1965,22 +2011,28 @@ def fooof_mixedlm_highest_beta_channels(
 
         data_analysis = group_dict[group] # this is the dataframe with data
         mdf_group = model_output[group] # this is md.fit()
-        #prediction_data = prediction_result_df.loc[prediction_result_df.channel_group == group]
 
-        # get the intercept and slope of the result 
-        result_part_2 = mdf_result[group].tables[1] # part containing model intercept, slope, std.error
+        # get the results
+        result_part_2 = mdf_group.summary().tables[1] # part containing model intercept, slope, std.error
         model_intercept = float(result_part_2["Coef."].values[0])
         model_slope = float(result_part_2["Coef."].values[1])
-        model_slope_2 = float(result_part_2["Coef."].values[2])
-        group_variance = float(result_part_2["Coef."].values[3])
+
+        if shape_of_model == "asymptotic" or "curved":
+            model_slope_2 = float(result_part_2["Coef."].values[2])
+            #group_variance = float(result_part_2["Coef."].values[3])
+
         std_error_intercept = float(result_part_2["Std.Err."].values[0])
+        # p_val_intercept = float(result_part_2["P>|z|"].values[0])
+        # p_val_session = float(result_part_2["P>|z|"].values[1])
+        # p_val_session2 = float(result_part_2["P>|z|"].values[2])
+        conf_int = mdf_group.conf_int(alpha=0.05) # table with confidence intervals for intercept, session, session2 and group var
 
 
         # one subplot per channel group
         axes_1[g].set_title(f"{group} channel group", fontdict=fontdict)
         axes_2[g].set_title(f"{group} channel group", fontdict=fontdict)
 
-        # plot the result for each electrode
+        ################## plot the result for each electrode ##################
         for id, group_id in enumerate(data_analysis.group.unique()):
 
             sub_data = data_analysis[data_analysis.group==group_id]
@@ -1988,10 +2040,10 @@ def fooof_mixedlm_highest_beta_channels(
             # axes[g].scatter(sub_data[f"{data_to_fit}"], sub_data["session"] ,color=plt.cm.twilight_shifted(group_id*10)) # color=plt.cm.tab20(group_id)
             # axes[g].plot(sub_data[f"{data_to_fit}"], sub_data["predictions"], color=plt.cm.twilight_shifted(group_id*10))
 
-            axes_1[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted((id+1)*10)) # color=plt.cm.tab20(group_id)
+            axes_1[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted((id+1)*10), alpha=0.3) # color=plt.cm.tab20(group_id)
             # plot the predictions
             # axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.5)
-            axes_1[g].plot(sub_data["session"], sub_data[f"{data_to_fit}"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.5)
+            axes_1[g].plot(sub_data["session"], sub_data[f"{data_to_fit}"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.3)
 
         # plot the model regression line
         if 0 in incl_sessions:
@@ -2005,28 +2057,37 @@ def fooof_mixedlm_highest_beta_channels(
         elif 0 not in incl_sessions:
             x=np.arange(3,19)
 
-        y=x*model_slope + x**2 * model_slope_2 + model_intercept
+        ################## plot the modeled curved line ##################
+        if shape_of_model == "curved":
+            y=x*model_slope + x**2 * model_slope_2 + model_intercept # curved model
+        
+        elif shape_of_model == "asymptotic":
+            y = x*model_slope + (x / (1+x))*model_slope_2 + model_intercept # asymptotic model
+        
+        elif shape_of_model == "straight":
+            y = x*model_slope + model_intercept # straight line
+
+        axes_1[g].plot(x, y, color="k", linewidth=5)
         # linear model: coef*x (=linear) + coef*x^2 (=exponential) + intercept
         # coef defines the slope
 
         # pred = mdf_group.predict(exog=dict(x=x))
-        conf_int = mdf_group.conf_int(alpha=0.05)
-
         # calculate the confidence interval
         # cov_params = mdf_group.cov_params()
         # mse = np.mean(mdf_group.resid.values**2)
         # t_value = stats.t.ppf(0.975, df=mdf_group.df_resid)
         # standard_errors = np.sqrt(np.diag(cov_params))
-        #lower_bound = y - t_value * standard_errors * np.sqrt(mse)
-        #upper_bound = y + t_value * standard_errors * np.sqrt(mse)
+        # lower_bound = y - t_value * standard_errors * np.sqrt(mse)
+        # upper_bound = y + t_value * standard_errors * np.sqrt(mse)
 
-        
+        # lower_bound = y + 1.96 *
+
         # axes[g].plot(prediction_data["session"], prediction_data["mean_yp"], color="k", linewidth=5)
-        # axes[g].fill_between(prediction_data["session"], prediction_data["mean_yp"]-prediction_data["sem_yp"], prediction_data["mean_yp"]+prediction_data["sem_yp"], color='lightgray', alpha=0.5)
-        axes_1[g].plot(x, y, color="k", linewidth=5)
-        #axes_1[g].fill_between(x, lower_bound, upper_bound, color="k", linewidth=5, alpha=0.3)
+        # axes[g].fill_between(prediction_data["session"], prediction_data["mean_yp"]-prediction_data["sem_yp"], prediction_data["mean_yp"]+prediction_data["sem_yp"], color='lightgray', alpha=0.5)        
+        # axes_1[g].fill_between(x, lower_bound, upper_bound, color="k", linewidth=5, alpha=0.3)
 
-        # plot the residuals: number of residuals equals the number of observations (number of channels I input)
+        ################### plot the residuals against predictions ##################
+        # number of residuals equals the number of observations (number of channels I input)
         resid = mdf_group.resid
         predicted_values = mdf_group.fittedvalues
         axes_2[g].scatter(predicted_values, resid, color="k", alpha=0.2)
@@ -2045,8 +2106,8 @@ def fooof_mixedlm_highest_beta_channels(
     fig_1.subplots_adjust(wspace=0, hspace=0)
 
     fig_1.tight_layout()
-    fig_1.savefig(figures_path + f"\\lme_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
-    fig_1.savefig(figures_path + f"\\lme_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
+    fig_1.savefig(figures_path + f"\\lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
+    fig_1.savefig(figures_path + f"\\lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
 
     print("figure: ", 
         f"lme_{data_to_fit}_{highest_beta_session}_beta_channels.png",
@@ -2065,31 +2126,29 @@ def fooof_mixedlm_highest_beta_channels(
     fig_2.suptitle(f"Linear mixed effects model residuals: {highest_beta_session} beta channels", fontsize=30)
     fig_2.subplots_adjust(wspace=0, hspace=0)
     fig_2.tight_layout()
-    fig_2.savefig(figures_path + f"\\lme_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
-    fig_2.savefig(figures_path + f"\\lme_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
+    fig_2.savefig(figures_path + f"\\lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
+    fig_2.savefig(figures_path + f"\\lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
 
     
 
     # save results
-    mdf_result_filepath = os.path.join(results_path, f"fooof_lme_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
+    mdf_result_filepath = os.path.join(results_path, f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
     with open(mdf_result_filepath, "wb") as file:
-        pickle.dump(mdf_result, file)
+        pickle.dump(model_output, file)
     
     print("file: ", 
-          f"fooof_mdf_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle",
+          f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle",
           "\nwritten in: ", results_path
           )
 
 
 
-
-
     return {
         "group_dict": group_dict,
-        "mdf_result":mdf_result,
-        "prediction_result_df": prediction_result_df,
+        "sample_size_df": sample_size_df,
         "conf_int":conf_int,
-        "mdf_group":mdf_group
+        "model_output":model_output,
+        "md": md
         }
 
 
@@ -2276,8 +2335,8 @@ def fooof_ploynomial_regression_model_highest_beta_channels(
 
             sub_data = data_analysis[data_analysis.group==group_id]
 
-            axes_1[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted((id+1)*10), alpha=0.2) # color=plt.cm.tab20(group_id)
-            axes_1[g].plot(sub_data["session"], sub_data[f"{data_to_fit}"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.2)
+            axes_1[g].scatter(sub_data["session"], sub_data[f"{data_to_fit}"] ,color=plt.cm.twilight_shifted((id+1)*10), alpha=0.3) # color=plt.cm.tab20(group_id)
+            axes_1[g].plot(sub_data["session"], sub_data[f"{data_to_fit}"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.3)
 
         # plot the model regression line
         if 0 in incl_sessions:
@@ -2343,7 +2402,7 @@ def fooof_ploynomial_regression_model_highest_beta_channels(
         ax.grid(False)
 
 
-    fig_2.suptitle(f"Polynomial regression model residuals: {highest_beta_session} beta channels", fontsize=30)
+    fig_2.suptitle(f"Polynomial regression model ({data_to_fit}) residuals: {highest_beta_session} beta channels", fontsize=30)
     fig_2.subplots_adjust(wspace=0, hspace=0)
     fig_2.tight_layout()
     fig_2.savefig(figures_path + f"\\ols_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
@@ -2358,12 +2417,12 @@ def fooof_ploynomial_regression_model_highest_beta_channels(
     
 
     # save results
-    # mdf_result_filepath = os.path.join(results_path, f"fooof_ols_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
-    # with open(mdf_result_filepath, "wb") as file:
-    #     pickle.dump(mdf_result, file)
+    mdf_result_filepath = os.path.join(results_path, f"fooof_ols_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
+    with open(mdf_result_filepath, "wb") as file:
+        pickle.dump(mdf_result, file)
     
     print("file: ", 
-          f"fooof_mdf_result_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle",
+          f"fooof_ols_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle",
           "\nwritten in: ", results_path
           )
 
