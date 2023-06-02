@@ -384,6 +384,8 @@ def fooof_fit_power_spectra(incl_sub: list):
         - aperiodic_mode="fixed",       # fitting without knee component, because there are no knees found so far in the STN
         - verbose=True,
 
+        frequency range for parameterization: 1-95 Hz
+
         plot a figure with the raw Power spectrum and the fitted model 
 
     3) save figure into figure folder of each subject:

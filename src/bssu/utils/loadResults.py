@@ -9,6 +9,8 @@ import json
 from .. utils import find_folders as find_folders
 
 
+
+
 def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
 
     """
@@ -1085,6 +1087,47 @@ def load_fooof_permutation_bip_beta_ranks():
         data = pickle.load(file)
     
     return data
+
+
+def load_fooof_lme_model_result(
+        highest_beta_session:str,
+        data_to_fit:str,
+        incl_sessions:list,
+        shape_of_model:str
+        
+):
+
+    """
+    Input: 
+
+        - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency"
+
+        - incl_sessions: [0,3] or [3,12,18] o [0,3,12,18]
+
+        - shape_of_model: e.g. "straight", "curved", "asymptotic"
+
+
+    Load the file: f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle"
+    from the group result folder
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
+
 
 
 
