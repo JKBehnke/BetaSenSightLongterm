@@ -1128,7 +1128,29 @@ def load_fooof_lme_model_result(
     
     return data
 
+def load_fooof_monoRef_all_contacts_weight_beta(
+):
 
+    """
+
+    Load the file: fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle 
+    from the group result folder
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename =  "fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
 
