@@ -1646,10 +1646,10 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
 
     ##################### PLOT VIOLINPLOT OF relative PSD to rank 1 OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
   
-    fig=plt.figure()
-    #fig, axes = plt.subplots(1,1,figsize=(15,12)) 
+    #fig=plt.figure()
+    fig, axes = plt.subplots(1,1,figsize=(15,12)) 
     #fontdict = {"size": 25}
-    ax = fig.add_subplot()
+    #ax = fig.add_subplot()
 
     # sns.violinplot(data=data_MonoBeta8Ranks, x="session_clinicalUse", y=y_values, hue="clinicalUse", palette="Set2", inner="box", ax=ax)
     sns.violinplot(data=data_to_analyze, 
@@ -1658,7 +1658,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
                    hue="session_clinical_activity", 
                    palette="coolwarm", 
                    inner="box", 
-                   ax=ax,
+                   ax=axes,
                    scale="count",
                    scale_hue=True,
                    dodge=True
@@ -1684,20 +1684,20 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
         x="session",
         y=y_values,
         hue="session_clinical_activity",
-        ax=ax,
+        ax=axes,
         size=5,
         color="grey", # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
-        alpha=0.2, # Transparency of dots
+        alpha=0.5, # Transparency of dots
         dodge=True, # datapoints of groups active, inactive are plotted next to each other
     )
     
     sns.despine(left=True, bottom=True) # get rid of figure frame
 
     fig.suptitle(title, fontsize= 15)
-    ax.set_ylabel(y_label, fontsize=10)
-    ax.set_xlabel("months post-surgery", fontsize=10)
-    ax.tick_params(axis="x", labelsize=10)
-    ax.tick_params(axis="y", labelsize=10)
+    axes.set_ylabel(y_label, fontsize=10)
+    axes.set_xlabel("months post-surgery", fontsize=10)
+    axes.tick_params(axis="x", labelsize=10)
+    axes.tick_params(axis="y", labelsize=10)
     #plt.ylim(y_lim)
     fig.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
     fig.tight_layout()
