@@ -19,7 +19,8 @@ from statannotations.Annotator import Annotator
 from .. utils import find_folders as find_folders
 from .. utils import loadResults as loadResults
 
-
+results_path = find_folders.get_local_path(folder="GroupResults")
+figures_path = find_folders.get_local_path(folder="GroupFigures")
 
 
 def correlateActiveClinicalContacts_monopolarPSDRanks(
@@ -1155,15 +1156,6 @@ def active_contacts_per_rank(
 
 
 
-
-
-
-
-
-
-
-
-
 def bestClinicalStimContacts_LevelsComparison():
     
     """
@@ -1296,13 +1288,441 @@ def bestClinicalStimContacts_LevelsComparison():
 
 
 
+def fooof_mono_beta_and_clinical_activity_write_dataframes():
+
+    """
+    Combine the dataframes with fooof monopolar beta power estimates and best clinical stimulation parameters
+
+    
+    """
+
+    # - loaded fooof data with monopolar beta power estimations for all contacts (n=8):
+    #     filename: fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle 
+    
+    # - load the best clnical stimulation Excel file
+    #     BestClinicalStimulation.xlsx 
+    #     in c:\Users\jebe12\Research\Longterm_beta_project\data
+    
+        
+    # 1) add to the monopolar beta power dataframe following columns:
+    #     - current_polarity
+    #     - clinical_activity
+    #     - sessioni_clinical_activity
+    
+    # 2) write a second dataframe with averaged beta power and beta ranks per group (electrode, active vs inactive)
+
+
+    # load the fooof mono beta data
+    loaded_fooof_mono_beta = loadResults.load_fooof_monoRef_all_contacts_weight_beta()
+
+    # load Excel file with best clinical stimulation parameters
+    best_clinical_stimulation = loadResults.load_BestClinicalStimulation_excel()
+    best_clinical_contacts = best_clinical_stimulation["BestClinicalContacts"]
+
+    ##################### FILTER THE monopolar beta dataframe: clinically ACTIVE contacts #####################
+    active_and_inactive_contacts_data = pd.DataFrame()
+
+    for idx, row in best_clinical_contacts.iterrows():
+
+        sub_hem = best_clinical_contacts.subject_hemisphere.values[idx]
+        session = best_clinical_contacts.session.values[idx]
+
+        ############# ACTIVE #############
+        active_contacts = str(best_clinical_contacts.CathodalContact.values[idx]) # e.g. "2A_2B_2C_3"
+        # split active Contacts into list with single contact strings
+        active_contacts_list = active_contacts.split("_") # e.g. ["2A", "2B", "2C", "3"]
+
+        # get rows with equal sub_hem and session and with monopolarChannel in the list of active_contacts
+        sub_hem_ses_active = loaded_fooof_mono_beta.loc[(loaded_fooof_mono_beta["subject_hemisphere"]==sub_hem) & (loaded_fooof_mono_beta["session"]==session) & (loaded_fooof_mono_beta["contact"].isin(active_contacts_list))]
+        sub_hem_ses_active_copy = sub_hem_ses_active.copy()
+
+        # add the current polarity and clinical activity
+        current_polarity = float(best_clinical_contacts.currentPolarity.values[idx]) # e.g. 0.33
+        sub_hem_ses_active_copy["current_polarity"] = current_polarity
+        sub_hem_ses_active_copy["clinical_activity"] = "active"
+
+        
+        ############# INACTIVE #############
+        inactive_contacts = str(best_clinical_contacts.InactiveContacts.values[idx]) # e.g. "2A_2B_2C_3"
+        # split active Contacts into list with single contact strings
+        inactive_contacts_list = inactive_contacts.split("_") # e.g. ["2A", "2B", "2C", "3"]
+
+        # get rows with equal sub_hem and session and with monopolarChannel in the list of active_contacts
+        sub_hem_ses_inactive = loaded_fooof_mono_beta.loc[(loaded_fooof_mono_beta["subject_hemisphere"]==sub_hem) & (loaded_fooof_mono_beta["session"]==session) & (loaded_fooof_mono_beta["contact"].isin(inactive_contacts_list))]
+        sub_hem_ses_inactive_copy = sub_hem_ses_inactive.copy()
+
+        # add the current polarity and clinical activity
+        sub_hem_ses_inactive_copy["current_polarity"] = 0
+        sub_hem_ses_inactive_copy["clinical_activity"] = "inactive"
+
+        # concatenate single rows to new Dataframe
+        active_and_inactive_contacts_data = pd.concat([active_and_inactive_contacts_data, sub_hem_ses_active_copy, sub_hem_ses_inactive_copy], ignore_index=True)
+        
+    
+    # clean up the dataframe
+    active_and_inactive_contacts_data = active_and_inactive_contacts_data.drop(columns=["index"]) 
+
+    # add session and clinical activity as combined new column, necessary for grouping later
+    active_and_inactive_contacts_data["session_clinical_activity"] = active_and_inactive_contacts_data[["session", "clinical_activity"]].agg("_".join, axis=1)
+    
+    
+
+    ##################### GET AVERAGE OF BETA POWER OR BETA RANKS: CREATE NEW DATAFRAME #####################
+        
+    electrode_average_active_vs_inactive = {} # store averages of ranks and psd values of active vs. inactive contacts per STN
+
+    STN_unique = list(active_and_inactive_contacts_data["subject_hemisphere"].unique()) # list of all existing STNs
+
+    for STN in STN_unique:
+        # get dataframe only of one STN
+        STN_dataframe = active_and_inactive_contacts_data.loc[(active_and_inactive_contacts_data.subject_hemisphere == STN)]
+
+        # get all existing sessions per STN
+        sessions_unique = list(STN_dataframe["session"].unique())
+
+        for ses in sessions_unique:
+            STN_session_dataframe = STN_dataframe.loc[(STN_dataframe.session == ses)]
+
+            # get average of active contacts
+            STN_session_active = STN_session_dataframe.loc[(STN_session_dataframe.clinical_activity == "active")]
+            mean_active_ranks = STN_session_active["rank_8"].values.mean()
+            mean_active_beta_psd = STN_session_active["estimated_monopolar_beta_psd"].values.mean()
+            mean_active_beta_psd_rel_to_rank1 = STN_session_active["beta_psd_rel_to_rank1"].values.mean()
+            mean_active_beta_psd_rel_range_0_to_1 = STN_session_active["beta_psd_rel_range_0_to_1"].values.mean()
+
+
+            # get average of inactive contacts
+            STN_session_inactive = STN_session_dataframe.loc[(STN_session_dataframe.clinical_activity == "inactive")]
+            mean_inactive_ranks = STN_session_inactive["rank_8"].values.mean()
+            mean_inactive_beta_psd = STN_session_inactive["estimated_monopolar_beta_psd"].values.mean()
+            mean_inactive_beta_psd_rel_to_rank1 = STN_session_inactive["beta_psd_rel_to_rank1"].values.mean()
+            mean_inactive_beta_psd_rel_range_0_to_1 = STN_session_inactive["beta_psd_rel_range_0_to_1"].values.mean()
+
+            # store MEAN values in dictionary
+            electrode_average_active_vs_inactive[f"{STN}_{ses}_active"] = [STN, ses, mean_active_ranks, mean_active_beta_psd, mean_active_beta_psd_rel_to_rank1, mean_active_beta_psd_rel_range_0_to_1, "active"]
+            electrode_average_active_vs_inactive[f"{STN}_{ses}_inactive"] = [STN, ses, mean_inactive_ranks, mean_inactive_beta_psd, mean_inactive_beta_psd_rel_to_rank1, mean_inactive_beta_psd_rel_range_0_to_1, "inactive"]
+
+
+
+    # transform the dictionary to Dataframe
+    electrode_average_active_vs_inactive_df = pd.DataFrame(electrode_average_active_vs_inactive)
+    electrode_average_active_vs_inactive_df.rename(index={0: "subject_hemisphere", 
+                                                          1: "session", 
+                                                          2: "electrode_mean_beta_rank", 
+                                                          3: "electrode_mean_beta_psd", 
+                                                          4: "electrode_mean_beta_psd_rel_to_rank1",
+                                                          5: "electrode_mean_beta_psd_rel_range_0_to_1",
+                                                          6: "clinical_activity"}, inplace=True)
+    electrode_average_active_vs_inactive_df = electrode_average_active_vs_inactive_df.transpose()
+
+    # important to transform datatype of columns MEAN_beta_rank and MEAN_beta_psd to float (otherwise Error when plotting with seaborn)
+    electrode_average_active_vs_inactive_df = electrode_average_active_vs_inactive_df.astype({"electrode_mean_beta_rank": float})
+    electrode_average_active_vs_inactive_df = electrode_average_active_vs_inactive_df.astype({"electrode_mean_beta_psd": float})
+    electrode_average_active_vs_inactive_df = electrode_average_active_vs_inactive_df.astype({"electrode_mean_beta_psd_rel_to_rank1": float})
+    electrode_average_active_vs_inactive_df = electrode_average_active_vs_inactive_df.astype({"electrode_mean_beta_psd_rel_range_0_to_1": float})
+
+    electrode_average_active_vs_inactive_df["session_clinical_activity"] = electrode_average_active_vs_inactive_df[["session", "clinical_activity"]].agg("_".join, axis=1)
+
+
+    return {
+        "single_contacts": active_and_inactive_contacts_data,
+        "electrode_average": electrode_average_active_vs_inactive_df
+        }
 
 
 
 
+def fooof_mono_beta_and_clinical_activity_statistical_test(
+        single_contacts_or_average:str,
+        feature:str
+):
+    
+    """
 
-
-
+    Input: 
+        - single_contacts_or_average: "single_contacts" or "electrode_average"
+        - feature: "rank", "raw_beta_power", "rel_beta_power_to_rank_1", "rel_beta_power_range_0_to_1"
 
 
     
+    """
+
+    beta_and_clinical_activity_data = fooof_mono_beta_and_clinical_activity_write_dataframes()
+
+    if single_contacts_or_average ==  "single_contacts":
+        data_to_analyze = beta_and_clinical_activity_data["single_contacts"]
+
+        if feature == "rank":
+            y_values = "rank_8"
+            y_label = "beta power rank per electrode"
+            title = "beta rank of clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+        
+        if feature == "raw_beta_power":
+            y_values = "estimated_monopolar_beta_psd"
+            y_label = "beta power"
+            title = "beta power of clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+        
+        if feature == "rel_beta_power_to_rank_1":
+            y_values = "beta_psd_rel_to_rank1"
+            y_label = "beta power relative to highest beta per electrode"
+            title = "beta power normalized to highest beta \nof clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+        
+        if feature == "rel_beta_power_range_0_to_1":
+            y_values = "beta_psd_rel_range_0_to_1"
+            y_label = "beta power ranging from 0 to 1 per electrode"
+            title = "beta power normalized to lowest and highest beta \nof clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+    
+    elif single_contacts_or_average ==  "electrode_average":
+        data_to_analyze = beta_and_clinical_activity_data["electrode_average"]
+
+        if feature == "rank":
+            y_values = "electrode_mean_beta_rank"
+            y_label = "beta power rank, averaged per group"
+            title = "beta rank of clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+        
+        if feature == "raw_beta_power":
+            y_values = "electrode_mean_beta_psd"
+            y_label = "beta power, averaged per group"
+            title = "beta power of clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+        
+        if feature == "rel_beta_power_to_rank_1":
+            y_values = "electrode_mean_beta_psd_rel_to_rank1"
+            y_label = "beta power relative to highest beta per electrode \naveraged per group"
+            title = "beta power normalized to highest beta \nof clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+        
+        if feature == "rel_beta_power_range_0_to_1":
+            y_values = "electrode_mean_beta_psd_rel_range_0_to_1"
+            y_label = "beta power ranging from 0 to 1 per electrode \naveraged per group"
+            title = "beta power normalized to lowest and highest beta \nof clinically active vs. inactive stimulation contacts"
+            # y_lim = 0, 1.25
+    
+    # sanity check: let me know where there are NaN values and drop these rows
+    # nan_rows = 
+
+
+
+    ##################### PERFORM STATISTICAL TEST  #####################
+
+    ses_clinical_activity= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+    ses_clinical_activity_stats_test= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18m_active", "fu18m_inactive")]
+    pairs = list(combinations(ses_clinical_activity, 2))
+    all_results_statistics = []
+    describe_arrays = {}
+
+    # pair = tuple e.g. fu3m_active, fu3m_inactive
+    # for pair in pairs:
+    for ses_activity in ses_clinical_activity_stats_test:
+
+        first_in_pair = data_to_analyze.loc[(data_to_analyze.session_clinical_activity == ses_activity[0])]
+        second_in_pair = data_to_analyze.loc[(data_to_analyze.session_clinical_activity == ses_activity[1])]
+
+        if feature == "rank":
+            if single_contacts_or_average == "single_contacts":
+                first_in_pair = np.array(first_in_pair.rank_8.values)
+                second_in_pair = np.array(second_in_pair.rank_8.values)
+
+            
+            elif single_contacts_or_average == "electrode_average":
+                first_in_pair = np.array(first_in_pair.electrode_mean_beta_rank.values)
+                second_in_pair = np.array(second_in_pair.electrode_mean_beta_rank.values)
+
+        elif feature == "raw_beta_power":
+            if single_contacts_or_average == "single_contacts":
+                first_in_pair = np.array(first_in_pair.estimated_monopolar_beta_psd.values)
+                second_in_pair = np.array(second_in_pair.estimated_monopolar_beta_psd.values)
+
+            
+            elif single_contacts_or_average == "electrode_average":
+                first_in_pair = np.array(first_in_pair.electrode_mean_beta_psd.values)
+                second_in_pair = np.array(second_in_pair.electrode_mean_beta_psd.values)
+
+
+        elif feature == "rel_beta_power_to_rank_1":
+            if single_contacts_or_average == "single_contacts":
+                first_in_pair = np.array(first_in_pair.beta_psd_rel_to_rank1.values)
+                second_in_pair = np.array(second_in_pair.beta_psd_rel_to_rank1.values)
+
+            
+            elif single_contacts_or_average == "electrode_average":
+                first_in_pair = np.array(first_in_pair.electrode_mean_beta_psd_rel_to_rank1.values)
+                second_in_pair = np.array(second_in_pair.electrode_mean_beta_psd_rel_to_rank1.values)
+        
+        elif feature == "rel_beta_power_range_0_to_1":
+            if single_contacts_or_average == "single_contacts":
+                first_in_pair = np.array(first_in_pair.beta_psd_rel_range_0_to_1.values)
+                second_in_pair = np.array(second_in_pair.beta_psd_rel_range_0_to_1.values)
+
+            
+            elif single_contacts_or_average == "electrode_average":
+                first_in_pair = np.array(first_in_pair.electrode_mean_beta_psd_rel_range_0_to_1.values)
+                second_in_pair = np.array(second_in_pair.electrode_mean_beta_psd_rel_range_0_to_1.values)
+        
+        # get sample size of each pair
+        sample_size = len(first_in_pair)
+
+        
+        # Perform Wilcoxon Test, only if same sample size in active and inactive groups -> only when averaged
+        if single_contacts_or_average == "electrode_average":
+            results_stats = pg.wilcoxon(first_in_pair, second_in_pair) # pair is always a tuple, comparing first and second component of this tuple
+        
+        elif single_contacts_or_average == "single_contacts":
+            results_stats = pg.mwu(first_in_pair, second_in_pair) # pair is always a tuple, comparing first and second component of this tuple
+
+        results_stats[f'comparison_{single_contacts_or_average}_{feature}'] = '_'.join(ses_activity) # new column "comparison" with the pair being compared e.g. fu3m_active and fu3m_inactive
+        results_stats["sample_size_one_session_activity_group"] = sample_size
+
+        all_results_statistics.append(results_stats)
+
+    significance_results = pd.concat(all_results_statistics)
+
+
+    
+    ##################### GET STATISTICAL IMPORTANT FEATURES #####################
+    # describe all 6 groups
+    for s_c in ses_clinical_activity:
+
+        # get array of each group
+        group = data_to_analyze.loc[(data_to_analyze.session_clinical_activity == s_c)]
+
+        if single_contacts_or_average == "single_contacts":
+
+            if feature == "rank":
+                group = np.array(group.rank_8.values)
+            
+            elif feature == "raw_beta_power":
+                group = np.array(group.estimated_monopolar_beta_psd.values)
+            
+            elif feature == "rel_beta_power_to_rank_1":
+                group = np.array(group.beta_psd_rel_to_rank1.values)
+            
+            elif feature == "rel_beta_power_range_0_to_1":
+                group = np.array(group.beta_psd_rel_range_0_to_1.values)
+
+        
+        elif single_contacts_or_average == "electrode_average":
+
+            if feature == "rank":
+                group = np.array(group.electrode_mean_beta_rank.values)
+            
+            elif feature == "raw_beta_power":
+                group = np.array(group.electrode_mean_beta_psd.values)
+            
+            elif feature == "rel_beta_power_to_rank_1":
+                group = np.array(group.electrode_mean_beta_psd_rel_to_rank1.values)
+            
+            elif feature == "rel_beta_power_range_0_to_1":
+                group = np.array(group.electrode_mean_beta_psd_rel_range_0_to_1.values)
+
+
+
+        description = scipy.stats.describe(group)
+
+        describe_arrays[f"{s_c}_{single_contacts_or_average}_{feature}"] = description
+
+    description_results = pd.DataFrame(describe_arrays)
+    description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_results = description_results.transpose()
+
+
+    ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
+
+    results_dictionary = {
+        "significance_results": significance_results,
+        "description_results": description_results
+    }
+
+    # save as pickle
+    results_filepath = os.path.join(results_path, f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}.pickle")
+    with open(results_filepath, "wb") as file:
+        pickle.dump(results_dictionary, file)    
+    
+
+    ##################### PLOT VIOLINPLOT OF relative PSD to rank 1 OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
+  
+    fig=plt.figure()
+    #fig, axes = plt.subplots(1,1,figsize=(15,12)) 
+    #fontdict = {"size": 25}
+    ax = fig.add_subplot()
+
+    # sns.violinplot(data=data_MonoBeta8Ranks, x="session_clinicalUse", y=y_values, hue="clinicalUse", palette="Set2", inner="box", ax=ax)
+    sns.violinplot(data=data_to_analyze, 
+                   x="session", 
+                   y=y_values, 
+                   hue="session_clinical_activity", 
+                   palette="coolwarm", 
+                   inner="box", 
+                   ax=ax,
+                   scale="count",
+                   scale_hue=True,
+                   dodge=True
+                   ) # scale="count" will scales the width of violins depending on their observations
+    
+    # statistical test
+    # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+    # pairs = list(combinations(ses_clinicalUse, 2))
+
+    # annotator = Annotator(axes, pairs, data=data_to_analyze, x='session_clinical_activity', y=y_values)
+
+    # if single_contacts_or_average == "single_contacts":
+    #     annotator.configure(test='Mann-Whitney', text_format='star')
+
+    # if single_contacts_or_average == "electrode_average":
+    #     annotator.configure(test='Wilcoxon', text_format='star')
+
+    # annotator.apply_and_annotate()
+    
+    # problem: hue=subject_hemisphere plots all single contacts per subject, but doesn´t respect groups of clinically active vs inactive..
+    sns.stripplot(
+        data=data_to_analyze,
+        x="session",
+        y=y_values,
+        hue="session_clinical_activity",
+        ax=ax,
+        size=5,
+        color="grey", # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
+        alpha=0.2, # Transparency of dots
+        dodge=True, # datapoints of groups active, inactive are plotted next to each other
+    )
+    
+    sns.despine(left=True, bottom=True) # get rid of figure frame
+
+    fig.suptitle(title, fontsize= 15)
+    ax.set_ylabel(y_label, fontsize=10)
+    ax.set_xlabel("months post-surgery", fontsize=10)
+    ax.tick_params(axis="x", labelsize=10)
+    ax.tick_params(axis="y", labelsize=10)
+    #plt.ylim(y_lim)
+    fig.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
+    fig.tight_layout()
+
+    
+
+    
+    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.png", bbox_inches="tight")
+    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.svg", bbox_inches="tight", format="svg")
+
+    
+
+
+    
+    print("new files: ", f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}.pickle",
+          "\nwritten in in: ", results_path,
+          f"\nnew figures: fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.png",
+          f"\nand fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.svg"
+          "\nwritten in: ", figures_path)
+    
+
+    return {
+        "data_to_analyze": data_to_analyze,
+        "results_dictionary": results_dictionary
+    }
+
+
+
