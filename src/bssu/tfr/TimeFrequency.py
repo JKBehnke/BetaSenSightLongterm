@@ -92,20 +92,24 @@ mapping = {
 }
 
 
-
-def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl_contact: list, pickChannels: list, hemisphere: str):
+def time_frequency(incl_sub: str, 
+                   incl_session: list, 
+                   incl_condition: list, 
+                   channel_group: str, 
+                   hemisphere: str,
+                   filter_signal:str):
     """
 
     Input: 
         - incl_sub: str e.g. "024"
         - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
         - incl_condition: list e.g. ["m0s0", "m1s0"]
-        - incl_contact: a list of contacts to include ["RingR", "SegmIntraR", "SegmInterR", "RingL", "SegmIntraL", "SegmInterL"]
-        - pickChannels: list of bipolar channels, depending on which incl_contact was chosen
-                        Ring: ['03', '13', '02', '12', '01', '23']
-                        SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
-                        SegmInter: ['1A2A', '1B2B', '1C2C']
+        - channel_group: str will choose a list of bipolar channels, depending on which incl_contact was chosen
+                        "ring": ['03', '13', '02', '12', '01', '23']
+                        "segm_intra": ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+                        "segm_inter": ['1A2A', '1B2B', '1C2C']
         - hemisphere: str e.g. "Right"
+        - filter_signal: "band-pass", "unfiltered"
        
     
     1) load data from main_class.PerceiveData using the input values.
@@ -119,6 +123,22 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
 
     # sns.set()
     # plt.style.use('seaborn-whitegrid')  
+
+    if hemisphere == "Right":
+        incl_contact = ["RingR", "SegmIntraR", "SegmInterR"]
+    
+    elif hemisphere == "Left":
+        incl_contact = ["RingL", "SegmIntraL", "SegmInterL"]
+
+    if channel_group == "ring":
+        pickChannels = ['03', '13', '02', '12', '01', '23']
+    
+    elif channel_group == "segm_inter":
+        pickChannels = ['1A2A', '1B2B', '1C2C']
+
+    elif channel_group == "segm_intra":
+        pickChannels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+    
 
     mainclass_sub = main_class.PerceiveData(
         sub = incl_sub, 
@@ -162,6 +182,7 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
     # to make some room. These numbers are are manually tweaked. 
     # You could automatically calculate them, but it's a pain.
     fig.subplots_adjust(left=0.15, top=0.95)
+    fig.suptitle(f"sub{incl_sub}, {hemisphere} hemisphere, {channel_group} group, {filter_signal}")
     
  
 
@@ -194,7 +215,7 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
 
                 temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
                 temp_data = getattr(temp_data.rest, contact)
-                temp_data = temp_data.data[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
+                temp_data = temp_data.run1.data #[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
     
                 print("DATA", temp_data)
 
@@ -217,21 +238,22 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
                 # all channel names of one loaded file (one session, one task)
                 ch_names_original = temp_data.info.ch_names
 
-                # select only relevant keys and values from the mapping dictionary to rename channels
-                mappingSelected = dict((key, mapping[key]) for key in ch_names_original if key in mapping)
+                # # select only relevant keys and values from the mapping dictionary to rename channels
+                # mappingSelected = dict((key, mapping[key]) for key in ch_names_original if key in mapping)
 
-                # rename channels using mne and the new selected mapping dictionary
-                mne.rename_channels(info=temp_data.info, mapping=mappingSelected, allow_duplicates=False)
+                # # rename channels using mne and the new selected mapping dictionary
+                # mne.rename_channels(info=temp_data.info, mapping=mappingSelected, allow_duplicates=False)
 
-                # get new channel names
-                ch_names_renamed = temp_data.info.ch_names
+                # # get new channel names
+                # ch_names_renamed = temp_data.info.ch_names
 
 
                 #################### PICK CHANNELS ####################
                 include_channelList = [] # this will be a list with all channel names selected
                 exclude_channelList = []
 
-                for n, names in enumerate(ch_names_renamed):
+                #for n, names in enumerate(ch_names_renamed):
+                for n, names in enumerate(ch_names_original):
                     
                     # add all channel names that contain the picked channels: e.g. 02, 13, etc given in the input pickChannels
                     for picked in pickChannels:
@@ -248,13 +270,13 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
                     continue
 
                 # pick channels of interest: mne.pick_channels() will output the indices of included channels in an array
-                ch_names_indices = mne.pick_channels(ch_names_renamed, include=include_channelList)
+                ch_names_indices = mne.pick_channels(ch_names_original, include=include_channelList)
 
                 # ch_names = [ch_names_renamed[idx] for idx in ch_names_indices] # new list of picked channel names based on the indeces 
 
 
                 # create a time frequency plot per channel
-                for i, ch in enumerate(ch_names_renamed):
+                for i, ch in enumerate(ch_names_original):
                     
                     # only get picked channels
                     if i not in ch_names_indices:
@@ -265,8 +287,11 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
                     # filter the signal by using the above defined butterworth filter
                     filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
 
+                    # unfiltered data
+                    unfiltered = temp_data.get_data()[i, :]
+
                     # settings for window
-                    noverlap = 0.5 
+                    noverlap = 0 # 0.5
                     win_samp = 250 # window for fft in samples e.g. 250 for 1 sec
                     # window = hann(win_samp, sym=False)
 
@@ -277,10 +302,17 @@ def time_frequency(incl_sub: str, incl_session: list, incl_condition: list, incl
                     # axes[i, t].pcolormesh(time, freq, Sxx, cmap='viridis', shading="gouraud", vmin=0, vmax=5)
                     
                     ### calculate and plot a spectogram using matplotlib
-                    axes[i, t].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                    if filter_signal == "band-pass":
+                        axes[i, t].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
                     
+                    if filter_signal == "unfiltered":
+                        axes[i, t].specgram(x = unfiltered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                    
+                    axes[i, t].grid(False)
+
+
                 
-    plt.show()
+    #plt.show()
     
-    fig.savefig(figures_path + f"\TimeFrequency_sub{incl_sub}_{hemisphere}_{pickChannels}.png")
+    fig.savefig(figures_path + f"\\time_frequency_sub{incl_sub}_{hemisphere}_{channel_group}_{filter_signal}.png")
     
