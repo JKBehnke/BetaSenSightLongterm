@@ -4,6 +4,7 @@
 import numpy as np
 import pandas as pd
 import scipy
+from scipy import stats
 from scipy.stats import norm
 import statistics
 import os
@@ -926,3 +927,306 @@ def Permutation_monopolarRanks_compareMethods(
         "Dataframe_all_sub_hem_ses": Dataframe_all_sub_hem_ses,
         "Permutation_monopolarMethods": Permutation_monopolarMethods
     }
+
+
+
+def fooof_beta_write_session_comparison_df(
+        fooof_spectrum:str,
+        ):
+    
+    """
+    Write a dictionary consisting of dataframes for each session comparison
+    
+        - for all channel groups: Ring, SegmIntra, SegmInter
+        - and all session comparisons
+
+        
+    Input: 
+        - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+    
+    1) Load the fooof beta rank dataframes: e.g. beta_ranks_all_channels_fooof_periodic_spectrum.pickle
+
+    2) for each comparison 
+                    ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
+                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+
+        and for each group ["ring", "segm_inter", "segm_intra"]
+        
+        - per STN:  calculate the MEAN difference of ranks 
+        - get average of all STN MEAN differences of ranks
+
+    
+
+    """
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    # load FOOOF beta rank DF
+    beta_rank_DF = loadResults.load_fooof_beta_ranks(
+        fooof_spectrum=fooof_spectrum,
+        all_or_one_chan="beta_ranks_all"
+        )
+    
+    # new column with stn and channel info combined
+    beta_rank_DF_copy = beta_rank_DF.copy()
+    beta_rank_DF_copy["stn_channel"] = beta_rank_DF_copy.subject_hemisphere.values + "_" + beta_rank_DF_copy.bipolar_channel.values
+
+    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
+                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+
+    channel_groups = ["ring", "segm_inter", "segm_intra"]
+
+
+    ##########################    WRITE COMPARISON DATAFRAMES PER SESSION COMPARISON  ##########################
+    # for each session comparison, get STNs that have recordings at both sessions
+    # subtract rank_session1 from rank_session2 and take the absolute value
+
+    comparisons_storage = {}
+    sample_size_dict = {}
+
+    for group in channel_groups:
+
+        if group == "ring":
+            channels = ['01', '12', '23']
+        
+        elif group == "segm_inter":
+            channels = ["1A2A", "1B2B", "1C2C"]
+        
+        elif group == "segm_intra":
+            channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+        # dataframe only of one channel group
+        group_df = beta_rank_DF_copy.loc[beta_rank_DF_copy["bipolar_channel"].isin(channels)]
+
+        for comparison in compare_sessions:
+
+            two_sessions = comparison.split("_")
+            session_1 = two_sessions[0]
+            session_2 = two_sessions[1]
+
+            # Dataframe per session
+            session_1_df = group_df.loc[(group_df["session"]==session_1)]
+            session_2_df = group_df.loc[(group_df["session"]==session_2)]
+
+            # list of STNs per session
+            session_1_stns = list(session_1_df.subject_hemisphere.unique())
+            session_2_stns = list(session_2_df.subject_hemisphere.unique())
+
+            # list of STNs included in both sessions
+            STN_list = list(set(session_1_stns) & set(session_2_stns))
+            STN_list.sort()
+
+            # get the rows with STNs with both sessions
+            comparison_df_1 = session_1_df.loc[session_1_df["subject_hemisphere"].isin(STN_list)]
+            comparison_df_2 = session_2_df.loc[session_2_df["subject_hemisphere"].isin(STN_list)]
+
+            # subtract ranks from each other row by row from session 1 to session 2
+            abs_difference_ranks = np.absolute(comparison_df_1.beta_rank.values - comparison_df_2.beta_rank.values) # array with differences of ranks of one session comparison
+            sample_size = len(abs_difference_ranks)
+
+            comparison_df_merged = comparison_df_1.merge(comparison_df_2, left_on="stn_channel", right_on="stn_channel")
+            comparison_df_merged_copy = comparison_df_merged.copy()
+            comparison_df_merged_copy["abs_difference_ranks"] = abs_difference_ranks
+
+            sample_size_dict[f"{group}_{comparison}"] = [group, comparison, sample_size]
+            comparisons_storage[f"{group}_{comparison}"] = comparison_df_merged_copy
+        
+    return comparisons_storage
+
+
+
+def fooof_bip_channel_groups_beta_spearman(
+        fooof_spectrum:str,
+        spearman_mean_or_median:str
+        ):
+    
+    """
+
+    Input:
+
+        - fooof_spectrum: "periodic_spectrum"
+        - spearman_mean_or_median: "mean", "median"
+
+    From the above function load the comparison_storage dictionary
+    fooof_beta_write_session_comparison_df()
+
+        - keys of the dictionary: "ring_fu3m_fu12m" for each channel group and session comparison
+    
+    
+    
+    
+    """
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
+    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
+                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+
+    channel_groups = ["ring", "segm_inter", "segm_intra"]
+
+    # load the data
+    session_comp_df = fooof_beta_write_session_comparison_df(
+    fooof_spectrum=fooof_spectrum
+    )
+
+    ##########################      GET MEAN OF SPEARMAN CORRELATION OF BETA POWER PER SESSION COMPARISON AND CHANNEL GROUP  ##########################
+    # 1) get the spearman correlation between all channels within one STN and then across STNs
+    # 2) calculate the mean of all spearman r and pvalues for each session comparison and channel group
+
+    fooof_beta_spearman = {}
+
+    fontdict = {"size": 25}
+
+    for comp in compare_sessions:
+        
+        # Figure Layout per comparison: 3 rows (Ring, SegmIntra, SegmInter), 1 column
+        # fig, axes = plt.subplots(3,1,figsize=(10,15)) 
+
+        for g, group in enumerate(channel_groups):
+
+            # Dataframe of one comparison and one channel group
+            comp_group_DF = session_comp_df[f"{group}_{comp}"]
+
+            # list of available STNs
+            stn_list = list(comp_group_DF["subject_hemisphere_x"].unique())
+
+            # list with all spearman r values per comparison and channel group
+            spearman_r_list = []
+            spearman_pval_list = []
+
+            for stn in stn_list:
+
+                # Dataframe of one stn
+                stn_data = comp_group_DF.loc[comp_group_DF.subject_hemisphere_x == stn]
+
+                # correlate each stn channel group session comparison seperately
+                spearman_beta = stats.spearmanr(stn_data.beta_average_x, stn_data.beta_average_y)
+                spearman_beta_r = spearman_beta.statistic
+                spearman_beta_pval = spearman_beta.pvalue
+
+                # store all spearman values of all stns in a group 
+                spearman_r_list.append(spearman_beta_r)
+                spearman_pval_list.append(spearman_beta_pval)
+
+                
+            
+            # for each channel group and session comparison - get description of data list
+            # spearman r
+            mean_spearman_comp_group = np.mean(spearman_r_list)
+            median_spearman_comp_group = np.median(spearman_r_list)
+            std_spearman_comp_group = np.std(spearman_r_list)
+
+            # spearman pval
+            mean_pval_comp_group = np.mean(spearman_pval_list)
+            median_pval_comp_group = np.median(spearman_pval_list)
+            std_pval_comp_group = np.std(spearman_pval_list)
+                
+            sample_size_spearman = len(spearman_r_list) # number of STNs in one session comparison 
+            
+
+            # store all values in dictionary
+            fooof_beta_spearman[f"{comp}_{group}"] = [comp, group, sample_size_spearman, 
+                                                    std_spearman_comp_group, mean_spearman_comp_group, median_spearman_comp_group,
+                                                    std_pval_comp_group, mean_pval_comp_group, median_pval_comp_group]
+            
+        
+    # Permutation_BIP transform from dictionary to Dataframe
+    spearman_result_df = pd.DataFrame(fooof_beta_spearman)
+    spearman_result_df.rename(index={
+        0: "comparison", 
+        1: "channel_group", 
+        2: "sample_size_stn",
+        3: "standard_deviation_spearman_values",
+        4: "mean_spearman_values",
+        5: "median_spearman_values",
+        6: "standard_deviation_pval",
+        7: "mean_pval",
+        8: "median_pval",
+        }, 
+        inplace=True)
+    spearman_result_df = spearman_result_df.transpose()
+
+    spearman_result_df[["session_1", "session_2"]] = spearman_result_df["comparison"].str.split("_", expand=True)
+
+    ################## PLOT A HEAT MAP OF SPEARMAN CORRELATION MEAN OR MEDIAN VALUES PER SESSION COMBINATION ##################
+
+    for group in channel_groups:
+
+        group_df = spearman_result_df.loc[spearman_result_df.channel_group == group]
+
+        # transform spearman mean or median values to floats and 4x4 matrices
+        if spearman_mean_or_median == "mean":
+            spearmanr_to_plot = group_df.mean_spearman_values.values.astype(float)
+            # reshape the mean of spearman r values into 4x4 matrix
+            spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
+
+        elif spearman_mean_or_median == "median":
+            spearmanr_to_plot = group_df.median_spearman_values.values.astype(float)
+            # reshape the medians of spearman r values into 4x4 matrix
+            spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
+
+
+        # plot a heatmap
+        fig, ax = plt.subplots()
+
+        heatmap = ax.pcolor(spearmanr_to_plot, cmap=plt.cm.YlOrRd)
+        # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+        # Set the x and y ticks to show the indices of the matrix
+        ax.set_xticks(np.arange(spearmanr_to_plot.shape[1])+0.5, minor=False)
+        ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
+
+        # Set the tick labels to show the values of the matrix
+        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
+
+        # Add a colorbar to the right of the heatmap
+        cbar = plt.colorbar(heatmap)
+        cbar.set_label(f"{spearman_mean_or_median} spearman r")
+
+        # Add the cell values to the heatmap
+        for i in range(spearmanr_to_plot.shape[0]):
+            for j in range(spearmanr_to_plot.shape[1]):
+                plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(spearmanr_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+        # Add a title
+        plt.title(f"Spearman correlation of beta psd \nin {group} channel group")
+
+        fig.tight_layout()
+        fig.savefig(figures_path + f"\\{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.png", bbox_inches="tight")
+        fig.savefig(figures_path + f"\\{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.svg", bbox_inches="tight", format="svg")
+
+        # save DF as pickle file
+        spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle")
+        with open(spearman_m_df_filepath, "wb") as file:
+            pickle.dump(spearman_result_df, file)
+
+        print("file: ", 
+                f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle",
+                "\nwritten in: ", results_path
+                )
+
+
+
+
+
+    return spearman_result_df
+            
+
+
+
+
+
