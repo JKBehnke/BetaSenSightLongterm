@@ -1253,7 +1253,7 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(
 
     results_paths = find_folders.get_local_path(folder="GroupResults")
 
-    sessions = ["fu3m", "fu12m", "fu18m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
 
     # load the dataframes from segmented and ring contacts
     segmented_data = fooof_monoRef_weight_psd_by_distance_segm_or_ring(

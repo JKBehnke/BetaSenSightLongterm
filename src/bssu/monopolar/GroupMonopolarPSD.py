@@ -435,8 +435,9 @@ def monopol_psd_correlations_sessions(
 
 
 def fooof_monopol_psd_spearman_betw_sessions(
-        fooof_spectrum:str,
-        mean_or_median:str        
+        mean_or_median:str,
+        only_segmental:str,
+        values_to_correlate:str        
         
 ):
 
@@ -448,15 +449,15 @@ def fooof_monopol_psd_spearman_betw_sessions(
     Input:
         - fooof_spectrum: 
             "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
-            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
-            "periodic_flat"             -> model._peak_fit
+            
         
         - mean_or_median: str, e.g. "mean", "median"
+        - only_segmental:str, "yes" -> will only included segmental contacts
+        - values_to_correlate:str  "not_normalized", "rel_to_rank_1", "rel_range_0_to_1" (only "not_normalized" can be used for only segmental, because the relative values were calucalted with ring contacts included)
 
 
     1) After loading the data, only select the contacts 0, 1A, 1B, 1C, 2A, 2B, 2C and 3
         - rank again from 1-8 -> column "Rank8contacts"
-        - calculate the relative PSD normalized to the highest PSD within an electrode -> column "relativePSD_to_beta_Rank1from8"
     
     2) Use scipy.stats.spearmanr to correlate each STN electrode at two sessions
         - choose between ranks or rel PSD normalized to the highest PSD per electrode
@@ -498,19 +499,15 @@ def fooof_monopol_psd_spearman_betw_sessions(
     results_path = findfolders.get_local_path(folder="GroupResults")
     figures_path = findfolders.get_local_path(folder="GroupFigures")
 
-    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
-    contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+    segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
 
     session_comparison = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m",
                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m", 
                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
     
-    # load fooof monopolar weighted psd 
-    loaded_fooof_monopolar = loadResults.load_fooof_monopolar_weighted_psd(
-    fooof_spectrum=fooof_spectrum,
-    segmental="yes"
-    )
+
+    loaded_fooof_monopolar = loadResults.load_fooof_monoRef_all_contacts_weight_beta()
 
 
     # from the list of all existing sub_hem STNs, get only the STNs with existing sessions 1 + 2 
@@ -526,8 +523,8 @@ def fooof_monopol_psd_spearman_betw_sessions(
         session_1 = both_sessions[0] # e.g. "postop"
         session_2 = both_sessions[1] # e.g. "fu3m"
 
-        session_1_df = loaded_fooof_monopolar[f"{session_1}_monopolar_Dataframe"]
-        session_2_df = loaded_fooof_monopolar[f"{session_2}_monopolar_Dataframe"]
+        session_1_df = loaded_fooof_monopolar.loc[loaded_fooof_monopolar.session == session_1]
+        session_2_df = loaded_fooof_monopolar.loc[loaded_fooof_monopolar.session == session_2]
 
         #find STNs with both sessions
         session_1_stns = list(session_1_df.subject_hemisphere.unique())
@@ -540,6 +537,13 @@ def fooof_monopol_psd_spearman_betw_sessions(
         comparison_df_2 = session_2_df.loc[session_2_df["subject_hemisphere"].isin(stn_comparison_list)]
 
         comparsion_df = pd.concat([comparison_df_1, comparison_df_2], axis=0)
+
+        if only_segmental == "yes":
+            comparsion_df = comparsion_df.loc[comparsion_df.contact.isin(segmental_contacts)] # only rows with segmental contacts are included
+            print("only segmental contacts included")
+        
+        else:
+            print("all contacts included")
 
         # correlate each electrode seperately
         for sub_hem in stn_comparison_list:
@@ -554,8 +558,19 @@ def fooof_monopol_psd_spearman_betw_sessions(
             stn_session1 = stn_comparison.loc[stn_comparison.session == session_1]
             stn_session2 = stn_comparison.loc[stn_comparison.session == session_2]
 
-            # correlate the beta psd of both sessions to each other
-            spearman_psd_stn = stats.spearmanr(stn_session1.estimated_monopolar_beta_psd.values, stn_session2.estimated_monopolar_beta_psd.values)
+            # choose which values to correlate
+            if values_to_correlate == "not_normalized":
+                # correlate the beta psd of both sessions to each other
+                spearman_psd_stn = stats.spearmanr(stn_session1.estimated_monopolar_beta_psd.values, stn_session2.estimated_monopolar_beta_psd.values)
+
+            elif values_to_correlate == "rel_to_rank_1":
+                # correlate the beta psd of both sessions to each other
+                spearman_psd_stn = stats.spearmanr(stn_session1.beta_psd_rel_to_rank1.values, stn_session2.beta_psd_rel_to_rank1.values)
+            
+            elif values_to_correlate == "rel_range_0_to_1":
+                # correlate the beta psd of both sessions to each other
+                spearman_psd_stn = stats.spearmanr(stn_session1.beta_psd_rel_range_0_to_1.values, stn_session2.beta_psd_rel_range_0_to_1.values)
+
 
             # store values in a dictionary
             session_pair_stn_list[f"{comparison}_{sub_hem}"] = [session_1, session_2, comparison, sub_hem, spearman_psd_stn.statistic, spearman_psd_stn.pvalue]
@@ -653,17 +668,23 @@ def fooof_monopol_psd_spearman_betw_sessions(
     # Add a title
     plt.title(f"{mean_or_median} of spearman correlation of beta psd")
 
+    if only_segmental == "yes":
+        file_add = "only_segmental"
+    
+    else:
+        file_add = "all_contacts"
+
     fig.tight_layout()
-    fig.savefig(figures_path + f"\\{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.png", bbox_inches="tight")
-    fig.savefig(figures_path + f"\\{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.svg", bbox_inches="tight", format="svg")
+    fig.savefig(figures_path + f"\\fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.png", bbox_inches="tight")
+    fig.savefig(figures_path + f"\\fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.svg", bbox_inches="tight", format="svg")
 
     # save DF as pickle file
-    spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_monopol_beta_correlations_only_segmental_{mean_or_median}.pickle")
+    spearman_m_df_filepath = os.path.join(results_path, f"fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.pickle")
     with open(spearman_m_df_filepath, "wb") as file:
         pickle.dump(spearman_m_df, file)
 
     print("file: ", 
-          f"{fooof_spectrum}_monopol_beta_correlations_only_segmental_heatmap_{mean_or_median}.pickle",
+          f"fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.pickle",
           "\nwritten in: ", results_path
           )
 
@@ -1271,6 +1292,8 @@ def fooof_mono_rank_differences(
 
     """
 
+    segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+
     if level_or_direction == "level":
         ranks_range = [1, 2, 3, 4, 5, 6, 7, 8]
         only_segmental = "no"
@@ -1281,26 +1304,35 @@ def fooof_mono_rank_differences(
         only_segmental = "yes"
 
     # load data
-    loaded_fooof_monopolar = loadResults.load_fooof_monopolar_weighted_psd(
-        fooof_spectrum=fooof_spectrum,
-        segmental=only_segmental
-        )
-    
-    # concatenate all monopolar dataframes together to one
-    fooof_monopolar_df = pd.concat([loaded_fooof_monopolar["postop_monopolar_Dataframe"],
+    if level_or_direction == "direction":
+
+        loaded_fooof_monopolar = loadResults.load_fooof_monopolar_weighted_psd(
+            fooof_spectrum=fooof_spectrum,
+            segmental=only_segmental
+            )
+        
+        fooof_monopolar_df = pd.concat([loaded_fooof_monopolar["postop_monopolar_Dataframe"],
                                     loaded_fooof_monopolar["fu3m_monopolar_Dataframe"],
                                     loaded_fooof_monopolar["fu12m_monopolar_Dataframe"],
                                     loaded_fooof_monopolar["fu18m_monopolar_Dataframe"]])
+        
+        fooof_monopolar_df_copy = fooof_monopolar_df.copy()
+        fooof_monopolar_df_copy["rank_beta"] = fooof_monopolar_df["rank"].astype(int)
     
-    if level_or_direction == "level":
-        fooof_monopolar_df = fooof_monopolar_df.dropna()
+        
+
+    elif level_or_direction == "level":
+        fooof_monopolar_df = loadResults.load_fooof_monoRef_all_contacts_weight_beta()
+
+        fooof_monopolar_df_copy = fooof_monopolar_df.copy()
+        fooof_monopolar_df_copy["rank_beta"] = fooof_monopolar_df["rank_8"].astype(int)
+    
+    
 
     # replace session names by integers
-    fooof_monopolar_df = fooof_monopolar_df.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0, 3, 12, 18])
-    fooof_monopolar_df["rank"] = fooof_monopolar_df["rank"].astype(int)
+    fooof_monopolar_df_copy = fooof_monopolar_df_copy.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0, 3, 12, 18])
 
     # add a column with the direction
-    fooof_monopolar_df_copy = fooof_monopolar_df.copy()
 
     if level_or_direction == "level":
         fooof_monopolar_df_copy = fooof_monopolar_df_copy.assign(contact_level=fooof_monopolar_df_copy["contact"]).rename(columns={"contact_level":"contact_level"})
@@ -1351,8 +1383,8 @@ def fooof_mono_rank_differences(
             # go through each rank and calculate the difference of direction between two sessions
             for rank in ranks_range:
 
-                rank_session_1 = stn_session_1.loc[stn_session_1["rank"] == rank] # row of one rank of session 1
-                rank_session_2 = stn_session_2.loc[stn_session_2["rank"] == rank] # row of one rank of session 2
+                rank_session_1 = stn_session_1.loc[stn_session_1["rank_beta"] == rank] # row of one rank of session 1
+                rank_session_2 = stn_session_2.loc[stn_session_2["rank_beta"] == rank] # row of one rank of session 2
 
                 if level_or_direction == "level":
 
