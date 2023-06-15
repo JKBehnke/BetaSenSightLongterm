@@ -917,7 +917,8 @@ def monoRef_only_segmental_weight_psd_by_distance(
 
 def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
     fooof_spectrum:str,
-    only_segmental:str
+    only_segmental:str,
+    similarity_calculation:str
 ):
 
     """
@@ -929,6 +930,8 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
             "periodic_flat"             -> model._peak_fit
         
         - only_segmental: str e.g. "yes" or "no"
+
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
 
 
     1) define imaginary coordinates for segmental contacts only or for all contacts
@@ -1205,10 +1208,15 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
                 all_dists = np.array(all_dists)
                 
                 # compute similarity from distances 
-                similarity = np.exp(-all_dists) # alternative to 1/x, but exp^-x doesn´t reach 0
+                if similarity_calculation == "inverse_distance":
+                    similarity = 1/all_dists
+
+                elif similarity_calculation == "exp_neg_distance":
+                    similarity = np.exp(-all_dists) # alternative to 1/x, but exp^-x doesn´t reach 0
+                
 
                 # weighting the beta of bipolar contacts by their similarity to the monopolar contact
-                weighted_beta = stn_ses_bipolar['beta_average'].values *  similarity # two arrays with same length = 9 bip_chans
+                weighted_beta = stn_ses_bipolar['beta_average'].values * similarity # two arrays with same length = 9 bip_chans
 
                 # storing the weighted beta for the mono polar contact
                 mono_data_copy.loc[contact,'estimated_monopolar_beta_psd'] = np.sum(weighted_beta) # sum of all 9 weighted psdAverages = one monopolar contact psdAverage
@@ -1233,19 +1241,25 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
     with open(session_data_filepath, "wb") as file:
         pickle.dump(session_data, file)
 
-    print(f"New file: fooof_monoRef_{filename}weight_beta_psd_by_distance_{fooof_spectrum}.pickle",
+    print(f"New file: fooof_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}.pickle",
             f"\nwritten in: {results_paths}" )
     
 
-    return session_data                
+    return session_data  
+           
 
 
 
 
 def fooof_monoRef_weight_psd_by_distance_all_contacts(
-        
+        similarity_calculation:str
 ):
     """
+
+    Input: 
+
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
+
     merging the monopolar estimated beta power from segmented contacts only from segmental channels 
     and the ring contacts (0 and 3) from all 13 bipolar channels 
     
@@ -1258,12 +1272,14 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(
     # load the dataframes from segmented and ring contacts
     segmented_data = fooof_monoRef_weight_psd_by_distance_segm_or_ring(
         fooof_spectrum = "periodic_spectrum",
-        only_segmental="yes"
+        only_segmental="yes",
+        similarity_calculation=similarity_calculation
     )
 
     ring_data = fooof_monoRef_weight_psd_by_distance_segm_or_ring(
         fooof_spectrum = "periodic_spectrum",
-        only_segmental="no"
+        only_segmental="no",
+        similarity_calculation=similarity_calculation
     )
 
     # clean up the dataframes
@@ -1324,11 +1340,11 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(
             all_ranked_data = pd.concat([all_ranked_data, electrode_session_copy], ignore_index=True)
 
     # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
-    all_ranked_datapath = os.path.join(results_paths, "fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle")
+    all_ranked_datapath = os.path.join(results_paths, f"fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}.pickle")
     with open(all_ranked_datapath, "wb") as file:
         pickle.dump(all_ranked_data, file)
 
-    print(f"New file: fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle",
+    print(f"New file: fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}.pickle",
             f"\nwritten in: {results_paths}" )
         
 

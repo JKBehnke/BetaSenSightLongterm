@@ -1288,16 +1288,20 @@ def bestClinicalStimContacts_LevelsComparison():
 
 
 
-def fooof_mono_beta_and_clinical_activity_write_dataframes():
+def fooof_mono_beta_and_clinical_activity_write_dataframes(
+        similarity_calculation:str
+):
 
     """
     Combine the dataframes with fooof monopolar beta power estimates and best clinical stimulation parameters
 
-    
     """
 
+    # Input:
+    #     - similarity_calculation: "inverse_distance", "exp_neg_distance"
+
     # - loaded fooof data with monopolar beta power estimations for all contacts (n=8):
-    #     filename: fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle 
+    #     filename: fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}.pickle 
     
     # - load the best clnical stimulation Excel file
     #     BestClinicalStimulation.xlsx 
@@ -1313,7 +1317,9 @@ def fooof_mono_beta_and_clinical_activity_write_dataframes():
 
 
     # load the fooof mono beta data
-    loaded_fooof_mono_beta = loadResults.load_fooof_monoRef_all_contacts_weight_beta()
+    loaded_fooof_mono_beta = loadResults.load_fooof_monoRef_all_contacts_weight_beta(
+        similarity_calculation=similarity_calculation
+    )
 
     # load Excel file with best clinical stimulation parameters
     best_clinical_stimulation = loadResults.load_BestClinicalStimulation_excel()
@@ -1431,10 +1437,351 @@ def fooof_mono_beta_and_clinical_activity_write_dataframes():
 
 
 
+def fooof_mono_beta_threshold_label(
+        similarity_calculation:str,
+        beta_threshold:float
+):
+    """
+    Input:
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
+        - beta_threshold: e.g. 0.7
+    
+    This function adds a column to the dataframe written with fooof_mono_beta_active_vs_inactive = activeStimContacts.fooof_mono_beta_and_clinical_activity_write_dataframes()
+
+    Depending on the given threshold, each row will be labeled either above_threshold or below_threshold depending on the normalized beta power and the given threshold.
+
+
+    """
+
+    beta_and_clinical_activity_data = fooof_mono_beta_and_clinical_activity_write_dataframes(
+        similarity_calculation=similarity_calculation
+    )
+
+    data_to_analyze = beta_and_clinical_activity_data["single_contacts"]
+    
+
+    # add column "beta_relevance" and add labels depending on the beta psd rel to rank 1 being above or below a threshold
+    data_to_analyze_copy = data_to_analyze.copy()
+
+    # define a function, that return the label, that will be added into the dataframe depending on the normalized beta value
+    def label_beta_power(normalized_beta):
+        if normalized_beta > beta_threshold:
+            return "above"
+        
+        elif normalized_beta < beta_threshold:
+            return "below"
+    
+
+    # Apply this function to every row and add the label to a new column
+    data_to_analyze_copy[f"beta_threshold_{beta_threshold}"] = data_to_analyze_copy["beta_psd_rel_to_rank1"].apply(lambda x: label_beta_power(x))
+
+    return data_to_analyze_copy
+
+
+
+def fooof_mono_beta_count_active_and_above_threshold(
+        similarity_calculation:str,
+        beta_threshold:float
+):
+    """
+    Input:
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
+        - beta_threshold: e.g. 0.7
+
+    Count for each STN and each session, all ratios
+        - active/all beta above threshold
+        - inactive/all beta above threshold
+        - active/all beta below threshold
+        - inactive/all beta below threshold
+
+    
+    """
+
+    sessions = ["fu3m", "fu12m", "fu18m"]
+
+
+    beta_threshold_data = fooof_mono_beta_threshold_label(
+        similarity_calculation=similarity_calculation,
+        beta_threshold=beta_threshold
+    )
+
+    sub_hem_list = list(beta_threshold_data.subject_hemisphere.unique())
+
+    activity_beta_threshold_dict = {}
+
+    for stn in sub_hem_list:
+
+        stn_data = beta_threshold_data.loc[beta_threshold_data.subject_hemisphere == stn]
+
+        for ses in sessions:
+
+            # check if session exists for this stn
+            if ses not in stn_data.session.values:
+                continue
+
+            else:
+                ses_stn_data = stn_data.loc[stn_data.session == ses]
+            
+
+            contingency_table = pd.crosstab(ses_stn_data[f"beta_threshold_{beta_threshold}"], ses_stn_data["clinical_activity"]) # table counting all binary value combinations
+            
+            # get rel values of each combination
+            total_above = np.sum(contingency_table.iloc[0]) # first row
+            total_below = np.sum(contingency_table.iloc[1]) # second row
+            total_active = np.sum(contingency_table["active"]) 
+            total_inactive = np.sum(contingency_table["inactive"])
+
+            active_from_total_above = (contingency_table["active"][0]) / total_above # how many contacts are active from all contacts that are above threshold
+            inactive_from_total_above = (contingency_table["inactive"][0]) / total_above
+
+            active_from_total_below = (contingency_table["active"][1]) / total_below # how many contacts are active from all contacts that are below threshold
+            inactive_from_total_below = (contingency_table["inactive"][1]) / total_below
+
+            above_from_total_active = (contingency_table["active"][0]) / total_active # how many contacts are above threshold from all active contacts
+            below_from_total_active = (contingency_table["active"][1]) / total_active
+
+            above_from_total_inactive = (contingency_table["inactive"][0]) / total_inactive # how many contacts are above threshold from all active contacts
+            below_from_total_inactive = (contingency_table["inactive"][1]) / total_inactive
+
+            activity_beta_threshold_dict[f"{stn}_{ses}"] = [stn, ses, 
+                                                            total_above, total_below, total_active, total_inactive,
+                                                            active_from_total_above, inactive_from_total_above,
+                                                            active_from_total_below, inactive_from_total_below,
+                                                            above_from_total_active, below_from_total_active,
+                                                            above_from_total_inactive, below_from_total_inactive]
+            
+    # write dataframe from dictionary
+    activity_beta_threshold_df = pd.DataFrame(activity_beta_threshold_dict)
+    activity_beta_threshold_df.rename(index={0: "subject_hemisphere", 
+                                             1: "session", 
+                                             2: f"total_above_{beta_threshold}", 
+                                             3: f"total_below_{beta_threshold}", 
+                                             4: "total_active",
+                                             5: "total_inactive",
+                                             6: "active_from_total_above",
+                                             7: "inactive_from_total_above",
+                                             8: "active_from_total_below",
+                                             9: "inactive_from_total_below",
+                                             10: "above_from_total_active",
+                                             11: "below_from_total_active",
+                                             12: "above_from_total_inactive",
+                                             13: "below_from_total_inactive",
+                                             }, inplace=True)
+    activity_beta_threshold_df = activity_beta_threshold_df.transpose()
+
+    return activity_beta_threshold_df
+       
+
+
+def fooof_mono_beta_threshold_plot(
+        similarity_calculation:str,
+        beta_threshold:float,
+        data_to_plot:str
+):
+    """
+    Input:
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
+        - beta_threshold: e.g. 0.7
+        - data_to_plot: e.g. "activity_from_total_above", "threshold_from_total_active", "activity_from_total_above", 
+        "activity_from_total_below", "threshold_from_total_inactive"
+    
+    """
+
+    # load data from fooof_mono_beta_count_active_and_above_threshold()
+    data_to_analyze = fooof_mono_beta_count_active_and_above_threshold(
+        similarity_calculation=similarity_calculation,
+        beta_threshold=beta_threshold
+    )
+
+    ##################### PERFORM STATISTICAL TEST  #####################
+
+    # ses_groups= ["fu3m_group1", "fu3m_group2", "fu12m_group1", "fu12m_group2", "fu18m_group1", "fu18m_group2"]
+    # ses_clinical_activity_stats_test= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18m_active", "fu18m_inactive")]
+    sessions = ["fu3m", "fu12m", "fu18m"]
+
+    all_results_statistics = []
+    describe_arrays = {}
+
+    for ses in sessions:
+
+        ses_df = data_to_analyze.loc[data_to_analyze.session == ses]
+
+        if data_to_plot == "activity_from_total_above": # how many from all contacts above threshold were clinically active?
+            first_array = np.array(ses_df.active_from_total_above.values.astype(float))
+            second_array = np.array(ses_df.inactive_from_total_above.values.astype(float))
+        
+        elif data_to_plot == "threshold_from_total_active": # how many from all active contacts were above threshold?
+            first_array = np.array(ses_df.above_from_total_active.values.astype(float))
+            second_array = np.array(ses_df.below_from_total_active.values.astype(float))
+        
+        # get sample size of each pair
+        sample_size = len(first_array)
+
+        description_group_1 = scipy.stats.describe(first_array)
+        description_group_2 = scipy.stats.describe(second_array)
+
+        describe_arrays[f"{ses}_{data_to_plot}"] = [description_group_1, description_group_2]
+
+        
+        # Perform Wilcoxon Test, same sample size in both groups are the same
+        results_stats = pg.wilcoxon(first_array, second_array) # pair is always a tuple, comparing first and second component of this tuple
+     
+        results_stats[f'comparison_{data_to_plot}'] = '_'.join(ses) # new column "comparison" with the session
+        results_stats["sample_size"] = sample_size
+
+        all_results_statistics.append(results_stats)
+
+    significance_results = pd.concat(all_results_statistics)
+
+    description_data = pd.DataFrame(describe_arrays)
+    description_data.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_data = description_data.transpose()
+
+
+    ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
+
+    # results_dictionary = {
+    #     "significance_results": significance_results,
+    #     "description_results": description_results
+    # }
+
+    # # save as pickle
+    # results_filepath = os.path.join(results_path, f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}.pickle")
+    # with open(results_filepath, "wb") as file:
+    #     pickle.dump(results_dictionary, file)    
+    
+
+    ##################### PLOT VIOLINPLOT OF relative PSD to rank 1 OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
+  
+    #fig=plt.figure()
+    fig, axes = plt.subplots(1,1,figsize=(15,12)) 
+    #fontdict = {"size": 25}
+    #ax = fig.add_subplot()
+
+    if data_to_plot == "activity_from_total_above":
+        y_label = "active_from_total_above"
+
+        sns.violinplot(data=data_to_analyze, 
+                    x="session", 
+                    y="active_from_total_above", 
+                    #hue="session_clinical_activity", 
+                    palette="coolwarm", 
+                    inner="box", 
+                    ax=axes,
+                    scale="count",
+                    scale_hue=True,
+                    dodge=True
+                    ) # scale="count" will scales the width of violins depending on their observations
+        
+        # statistical test
+        # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+        # pairs = list(combinations(ses_clinicalUse, 2))
+
+        # annotator = Annotator(axes, pairs, data=data_to_analyze, x='session_clinical_activity', y=y_values)
+
+        # if single_contacts_or_average == "single_contacts":
+        #     annotator.configure(test='Mann-Whitney', text_format='star')
+
+        # if single_contacts_or_average == "electrode_average":
+        #     annotator.configure(test='Wilcoxon', text_format='star')
+
+        # annotator.apply_and_annotate()
+        
+        # problem: hue=subject_hemisphere plots all single contacts per subject, but doesn´t respect groups of clinically active vs inactive..
+
+        sns.stripplot(
+            data=data_to_analyze,
+            x="session",
+            y="active_from_total_above",
+            # hue="session_clinical_activity",
+            ax=axes,
+            size=5,
+            color="grey", # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
+            alpha=0.5, # Transparency of dots
+            dodge=True, # datapoints of groups active, inactive are plotted next to each other
+        )
+    
+    elif data_to_plot == "threshold_from_total_active":
+
+        y_label = "above_from_total_active"
+
+        sns.violinplot(data=data_to_analyze, 
+                    x="session", 
+                    y="above_from_total_active", 
+                    #hue="session_clinical_activity", 
+                    palette="coolwarm", 
+                    inner="box", 
+                    ax=axes,
+                    scale="count",
+                    scale_hue=True,
+                    dodge=True
+                    ) # scale="count" will scales the width of violins depending on their observations
+        
+        # statistical test
+        # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
+        # pairs = list(combinations(ses_clinicalUse, 2))
+
+        # annotator = Annotator(axes, pairs, data=data_to_analyze, x='session_clinical_activity', y=y_values)
+
+        # if single_contacts_or_average == "single_contacts":
+        #     annotator.configure(test='Mann-Whitney', text_format='star')
+
+        # if single_contacts_or_average == "electrode_average":
+        #     annotator.configure(test='Wilcoxon', text_format='star')
+
+        # annotator.apply_and_annotate()
+        
+        # problem: hue=subject_hemisphere plots all single contacts per subject, but doesn´t respect groups of clinically active vs inactive..
+
+        sns.stripplot(
+            data=data_to_analyze,
+            x="session",
+            y="above_from_total_active",
+            # hue="session_clinical_activity",
+            ax=axes,
+            size=5,
+            color="grey", # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
+            alpha=0.5, # Transparency of dots
+            dodge=True, # datapoints of groups active, inactive are plotted next to each other
+        )
+    
+    sns.despine(left=True, bottom=True) # get rid of figure frame
+
+    fig.suptitle(data_to_plot, fontsize= 15)
+    axes.set_ylabel(y_label, fontsize=10)
+    axes.set_xlabel("months post-surgery", fontsize=10)
+    axes.tick_params(axis="x", labelsize=10)
+    axes.tick_params(axis="y", labelsize=10)
+    #plt.ylim(y_lim)
+    fig.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
+    fig.tight_layout()
+
+    
+    # fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png", bbox_inches="tight")
+    # fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg", bbox_inches="tight", format="svg")
+    
+    # print("new files: ", f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}.pickle",
+    #       "\nwritten in in: ", results_path,
+    #       f"\nnew figures: fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png",
+    #       f"\nand fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg"
+    #       "\nwritten in: ", figures_path)
+    
+    return {
+        "significance_results":significance_results,
+        "description_data":description_data
+    }
+
+
+
+
+
+
+
 
 def fooof_mono_beta_and_clinical_activity_statistical_test(
         single_contacts_or_average:str,
-        feature:str
+        feature:str,
+        similarity_calculation:str
 ):
     
     """
@@ -1442,12 +1789,15 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     Input: 
         - single_contacts_or_average: "single_contacts" or "electrode_average"
         - feature: "rank", "raw_beta_power", "rel_beta_power_to_rank_1", "rel_beta_power_range_0_to_1"
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
 
 
     
     """
 
-    beta_and_clinical_activity_data = fooof_mono_beta_and_clinical_activity_write_dataframes()
+    beta_and_clinical_activity_data = fooof_mono_beta_and_clinical_activity_write_dataframes(
+        similarity_calculation=similarity_calculation
+    )
 
     if single_contacts_or_average ==  "single_contacts":
         data_to_analyze = beta_and_clinical_activity_data["single_contacts"]
@@ -1639,7 +1989,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     }
 
     # save as pickle
-    results_filepath = os.path.join(results_path, f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}.pickle")
+    results_filepath = os.path.join(results_path, f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}.pickle")
     with open(results_filepath, "wb") as file:
         pickle.dump(results_dictionary, file)    
     
@@ -1705,17 +2055,17 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     
 
     
-    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.png", bbox_inches="tight")
-    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.svg", bbox_inches="tight", format="svg")
+    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png", bbox_inches="tight")
+    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg", bbox_inches="tight", format="svg")
 
     
 
 
     
-    print("new files: ", f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}.pickle",
+    print("new files: ", f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}.pickle",
           "\nwritten in in: ", results_path,
-          f"\nnew figures: fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.png",
-          f"\nand fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}.svg"
+          f"\nnew figures: fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png",
+          f"\nand fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg"
           "\nwritten in: ", figures_path)
     
 

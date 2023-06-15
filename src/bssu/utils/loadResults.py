@@ -1129,9 +1129,12 @@ def load_fooof_lme_model_result(
     return data
 
 def load_fooof_monoRef_all_contacts_weight_beta(
+        similarity_calculation:str
 ):
 
     """
+    Input:
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
 
     Load the file: fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle 
     from the group result folder
@@ -1142,7 +1145,7 @@ def load_fooof_monoRef_all_contacts_weight_beta(
     results_path = find_folders.get_local_path(folder="GroupResults")
 
     # create filename
-    filename =  "fooof_monoRef_all_contacts_weight_beta_psd_by_distance.pickle"
+    filename =  f"fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}.pickle"
 
     filepath = os.path.join(results_path, filename)
 
