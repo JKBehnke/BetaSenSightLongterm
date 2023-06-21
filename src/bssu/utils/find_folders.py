@@ -11,10 +11,10 @@ def find_project_folder():
 
     # from the cwd get path to PyPerceive_Project (=Git Repository)
     project_path = os.getcwd()
-    while project_path[-21:] != 'Longterm_beta_project':
+    while project_path[-16:] != 'ResearchProjects':
         project_path = os.path.dirname(project_path)
     
-    results_path = os.path.join(project_path, 'results')
+    results_path = os.path.join(project_path, 'BetaSenSightLongterm', 'results')
     
     return project_path, results_path
 
@@ -88,7 +88,7 @@ def get_local_path(folder: str, sub: str = None):
     """
 
     folder_options = [
-        'Research', 'Longterm_beta_project', 'GroupResults', 'results', 'GroupFigures', 'figures', 'data'
+        'Project', 'GroupResults', 'results', 'GroupFigures', 'figures', 'data'
         ]
 
     # Error checking, if folder input is in folder options
@@ -100,32 +100,29 @@ def get_local_path(folder: str, sub: str = None):
     # from your cwd get the path and stop at 'Users'
     path = os.getcwd()
 
-    while os.path.dirname(path)[-5:] != 'Users':
+    while os.path.dirname(path)[-16:] != 'ResearchProjects':
         path = os.path.dirname(path) # path is now leading to Users/username
 
     # get the Research folder and add it to the path
 
-    path = os.path.join(path, 'Research') # path is now leading to Research folder
+    path = os.path.join(path, 'BetaSenSightLongterm') # path is now leading to Research folder
 
 
     # add the folder to the path and from there open the folders depending on input folder
-    if folder == 'Research':
+    if folder == 'Project':
         return path
-
-    elif folder == 'Longterm_beta_project': 
-        return os.path.join(path, "Longterm_beta_project")
     
     elif folder == "GroupResults":
-        return os.path.join(path, "Longterm_beta_project", "results")
+        return os.path.join(path, "results")
 
     elif folder == 'results':
-        return os.path.join(path, "Longterm_beta_project", "results", f"sub-{sub}")
+        return os.path.join(path, "results", f"sub-{sub}")
     
     elif folder == 'GroupFigures':
-        return os.path.join(path, "Longterm_beta_project", "figures")
+        return os.path.join(path, "figures")
 
     elif folder == 'figures':
-        return os.path.join(path, "Longterm_beta_project", "figures", f"sub-{sub}")
+        return os.path.join(path, "figures", f"sub-{sub}")
     
     elif folder == 'data':
-        return os.path.join(path, "Longterm_beta_project", "data")
+        return os.path.join(path, "data")

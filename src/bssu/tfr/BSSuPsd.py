@@ -16,8 +16,7 @@ import os
 import mne
 
 # PyPerceive Imports
-import py_perceive
-from py_perceive.PerceiveImport.classes import main_class
+from PerceiveImport.classes import main_class
 from .. utils import find_folders as find_folders
 
 

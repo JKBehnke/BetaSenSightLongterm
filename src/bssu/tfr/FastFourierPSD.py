@@ -13,15 +13,15 @@ from scipy.signal import hann
 
 
 # PyPerceive Imports
-import py_perceive
-from py_perceive.PerceiveImport.classes import main_class
+# import py_perceive
+from PerceiveImport.classes import main_class
 from .. utils import find_folders as findfolders
 
 def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pickChannels: list, hemisphere: str, filter: str):
     """
 
     Input: 
-        - incl_sub: str e.g. "024"
+        - incl_sub: list e.g. ["024"]
         - incl_session: list ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
         - incl_condition: list e.g. ["m0s0", "m1s0"]
         - pickChannels: list of bipolar channels, depending on which incl_contact was chosen
