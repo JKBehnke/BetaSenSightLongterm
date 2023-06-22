@@ -100,7 +100,7 @@ def get_local_path(folder: str, sub: str = None):
     # from your cwd get the path and stop at 'Users'
     path = os.getcwd()
 
-    while os.path.dirname(path)[-16:] != 'ResearchProjects':
+    while os.path.dirname(path)[-4:] != 'work':
         path = os.path.dirname(path) # path is now leading to Users/username
 
     # get the Research folder and add it to the path

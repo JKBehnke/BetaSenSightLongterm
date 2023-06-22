@@ -519,8 +519,8 @@ def fooof_fit_power_spectra(incl_sub: list):
                     ax[3].grid(False)
                     
                     fig.tight_layout()
-                    fig.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.svg", bbox_inches="tight", format="svg")
-                    fig.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.png", bbox_inches="tight")
+                    fig.savefig(os.path.join(local_figures_path, f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.svg"), bbox_inches="tight", format="svg")
+                    fig.savefig(os.path.join(local_figures_path, f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.png"), bbox_inches="tight")
 
                     
                     # extract parameters from the chosen model

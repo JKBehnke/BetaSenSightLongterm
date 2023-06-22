@@ -508,7 +508,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
         fig.tight_layout()
 
         plt.show()
-        fig.savefig(figures_path + f"\\PSDspectrogram_sub{incl_sub}_{hemisphere}_{norm}_{filter}.png")
+        fig.savefig(os.path.join(figures_path, f"PSDspectrogram_sub{incl_sub}_{hemisphere}_{norm}_{filter}.png"))
                             
 
     #################### WRITE DATAFRAMES TO STORE VALUES ####################
