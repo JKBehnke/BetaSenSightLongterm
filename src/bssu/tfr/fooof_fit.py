@@ -806,7 +806,7 @@ def fooof_plot_peaks_per_session():
     fig.tight_layout()
 
     # save figure in group Figures folder
-    fig.savefig(figures_path + "\\fooof_peaks_per_session.png", bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, "fooof_peaks_per_session.png"), bbox_inches="tight")
 
     print("figure: ", 
           f"fooof_peaks_per_session.png",
@@ -878,7 +878,7 @@ def fooof_peaks_in_freq_band_stats():
         fig.tight_layout()
 
         # save figure in group Figures folder
-        fig.savefig(figures_path + f"\\fooof_{freq}_peaks_per_session_violinplot.png", bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"fooof_{freq}_peaks_per_session_violinplot.png"), bbox_inches="tight")
 
     return annotator
 
@@ -965,7 +965,7 @@ def fooof_low_vs_high_beta_ratio():
     fig.tight_layout()
 
     # save figure in group Figures folder
-    fig.savefig(figures_path + "\\fooof_low_vs_high_beta_peaks_per_session.png", bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, "fooof_low_vs_high_beta_peaks_per_session.png"), bbox_inches="tight")
 
     print("figure: ", 
           f"fooof_low_vs_high_beta_peaks_per_session.png",
@@ -1154,7 +1154,7 @@ def fooof_highest_beta_peak_analysis(
         plt.xlabel("session")
 
         fig.tight_layout()
-        fig.savefig(figures_path + f"\\fooof_highest_beta_peak_{cf_or_power}_{highest_beta_session}_{c_group}.png", bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"fooof_highest_beta_peak_{cf_or_power}_{highest_beta_session}_{c_group}.png"), bbox_inches="tight")
 
         print("figure: ", 
             f"fooof_highest_beta_peak_{cf_or_power}_{highest_beta_session}_{c_group}.png",
@@ -1514,7 +1514,7 @@ def fooof_plot_highest_beta_peak_normalized_to_baseline(
         plt.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
 
         fig.tight_layout()
-        fig.savefig(figures_path + f"\\MINUS_fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png", bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"MINUS_fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png"), bbox_inches="tight")
 
         print("figure: ", 
             f"MINUS_fooof_highest_beta_peak_{group}_from_{session_baseline}_{peak_parameter}_normalized_{normalized_to_session_baseline}.png",
@@ -2108,8 +2108,8 @@ def fooof_mixedlm_highest_beta_channels(
     fig_1.subplots_adjust(wspace=0, hspace=0)
 
     fig_1.tight_layout()
-    fig_1.savefig(figures_path + f"\\lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
-    fig_1.savefig(figures_path + f"\\lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
+    fig_1.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
+    fig_1.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
 
     print("figure: ", 
         f"lme_{data_to_fit}_{highest_beta_session}_beta_channels.png",
@@ -2128,8 +2128,8 @@ def fooof_mixedlm_highest_beta_channels(
     fig_2.suptitle(f"Linear mixed effects model residuals: {highest_beta_session} beta channels", fontsize=30)
     fig_2.subplots_adjust(wspace=0, hspace=0)
     fig_2.tight_layout()
-    fig_2.savefig(figures_path + f"\\lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
-    fig_2.savefig(figures_path + f"\\lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
+    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
+    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
 
     
 
@@ -2391,8 +2391,8 @@ def fooof_ploynomial_regression_model_highest_beta_channels(
     fig_1.suptitle(f"Polynomial regression model: {highest_beta_session} beta channels", fontsize=30)
     fig_1.subplots_adjust(wspace=0, hspace=0)
     fig_1.tight_layout()
-    fig_1.savefig(figures_path + f"\\ols_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
-    fig_1.savefig(figures_path + f"\\ols_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
+    fig_1.savefig(os.path.join(figures_path, f"ols_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
+    fig_1.savefig(os.path.join(figures_path, f"ols_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
 
 
     for ax in axes_2:
@@ -2407,8 +2407,8 @@ def fooof_ploynomial_regression_model_highest_beta_channels(
     fig_2.suptitle(f"Polynomial regression model ({data_to_fit}) residuals: {highest_beta_session} beta channels", fontsize=30)
     fig_2.subplots_adjust(wspace=0, hspace=0)
     fig_2.tight_layout()
-    fig_2.savefig(figures_path + f"\\ols_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png", bbox_inches="tight")
-    fig_2.savefig(figures_path + f"\\ols_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg", bbox_inches="tight", format="svg")
+    fig_2.savefig(os.path.join(figures_path, f"ols_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
+    fig_2.savefig(os.path.join(figures_path, f"ols_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
 
 
     print("figure: ", 

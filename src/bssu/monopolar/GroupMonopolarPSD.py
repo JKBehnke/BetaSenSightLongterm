@@ -437,7 +437,8 @@ def monopol_psd_correlations_sessions(
 def fooof_monopol_psd_spearman_betw_sessions(
         mean_or_median:str,
         only_segmental:str,
-        values_to_correlate:str        
+        values_to_correlate:str,
+        similarity_calculation:str        
         
 ):
 
@@ -454,6 +455,7 @@ def fooof_monopol_psd_spearman_betw_sessions(
         - mean_or_median: str, e.g. "mean", "median"
         - only_segmental:str, "yes" -> will only included segmental contacts
         - values_to_correlate:str  "not_normalized", "rel_to_rank_1", "rel_range_0_to_1" (only "not_normalized" can be used for only segmental, because the relative values were calucalted with ring contacts included)
+        - similarity_calculation:str "inverse_distance", "exp_neg_distance"
 
 
     1) After loading the data, only select the contacts 0, 1A, 1B, 1C, 2A, 2B, 2C and 3
@@ -507,7 +509,7 @@ def fooof_monopol_psd_spearman_betw_sessions(
                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
     
 
-    loaded_fooof_monopolar = loadResults.load_fooof_monoRef_all_contacts_weight_beta()
+    loaded_fooof_monopolar = loadResults.load_fooof_monoRef_all_contacts_weight_beta(similarity_calculation=similarity_calculation)
 
 
     # from the list of all existing sub_hem STNs, get only the STNs with existing sessions 1 + 2 
@@ -675,16 +677,16 @@ def fooof_monopol_psd_spearman_betw_sessions(
         file_add = "all_contacts"
 
     fig.tight_layout()
-    fig.savefig(figures_path + f"\\fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.png", bbox_inches="tight")
-    fig.savefig(figures_path + f"\\fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.svg", bbox_inches="tight", format="svg")
+    fig.savefig(os.path.join(figures_path, f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap.png"), bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap.svg"), bbox_inches="tight", format="svg")
 
     # save DF as pickle file
-    spearman_m_df_filepath = os.path.join(results_path, f"fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.pickle")
+    spearman_m_df_filepath = os.path.join(results_path, f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap.pickle")
     with open(spearman_m_df_filepath, "wb") as file:
         pickle.dump(spearman_m_df, file)
 
     print("file: ", 
-          f"fooof_monopol_beta_correlations_{mean_or_median}_{file_add}_heatmap.pickle",
+          f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap.pickle",
           "\nwritten in: ", results_path
           )
 
@@ -1125,12 +1127,12 @@ def mono_rank_difference_heatmap(
     fig.tight_layout()
 
     if only_segmental == "yes":
-        fig_name = f"\\monopol_only_segm_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png"
+        fig_name = f"monopol_only_segm_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png"
     
     else: 
-        fig_name = f"\\monopol_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png"
+        fig_name = f"monopol_heatmap_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}_{freq_band}_{normalization}_{filter_signal}.png"
 
-    fig.savefig(figures_path + fig_name, bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, fig_name), bbox_inches="tight")
 
 
     return {
@@ -1267,7 +1269,8 @@ def mono_rank_differences_only_segmental_rec_used(
 
 def fooof_mono_rank_differences(
         fooof_spectrum:str,
-        level_or_direction:str
+        level_or_direction:str,
+        similarity_calculation:str
 
 ):
 
@@ -1282,6 +1285,8 @@ def fooof_mono_rank_differences(
             "periodic_flat"             -> model._peak_fit
         
         - only_segmental: str e.g. "yes" or "no"
+
+        - similarity_calculation: str e.g. "inverse_distance" or "exp_neg_distance"
     
     1) for each session comparison:
         - check which stn have recordings at both sessions
@@ -1308,7 +1313,8 @@ def fooof_mono_rank_differences(
 
         loaded_fooof_monopolar = loadResults.load_fooof_monopolar_weighted_psd(
             fooof_spectrum=fooof_spectrum,
-            segmental=only_segmental
+            segmental=only_segmental,
+            similarity_calculation=similarity_calculation
             )
         
         fooof_monopolar_df = pd.concat([loaded_fooof_monopolar["postop_monopolar_Dataframe"],
@@ -1322,7 +1328,7 @@ def fooof_mono_rank_differences(
         
 
     elif level_or_direction == "level":
-        fooof_monopolar_df = loadResults.load_fooof_monoRef_all_contacts_weight_beta()
+        fooof_monopolar_df = loadResults.load_fooof_monoRef_all_contacts_weight_beta(similarity_calculation=similarity_calculation)
 
         fooof_monopolar_df_copy = fooof_monopolar_df.copy()
         fooof_monopolar_df_copy["rank_beta"] = fooof_monopolar_df["rank_8"].astype(int)
@@ -1435,6 +1441,7 @@ def fooof_mono_rank_difference_heatmap(
         ranks_included:list,
         difference_to_plot:str,
         level_or_direction:str,
+        similarity_calculation:str
 ):
     """
     Research question: how many levels do beta ranks change over time across electrodes?
@@ -1455,6 +1462,9 @@ def fooof_mono_rank_difference_heatmap(
             direction -> uses only segmental recordings!
             level -> uses segments and rings!
         
+        
+        - similarity_calculation: str e.g. "inverse_distance" or "exp_neg_distance"
+        
     1) load the dataframe written by the function mono_rank_level_differences()
         - containing columns: session_comparison, session_1, session_2, subject_hemisphere, rank, level_session_1, level_session_2, level_abs_difference
         - filter by ranks_included: only keep rows of dataframe containing rank isin rank_included
@@ -1474,7 +1484,8 @@ def fooof_mono_rank_difference_heatmap(
     # load the dataframe with differences of levels for each rank from 1 to 6 across electrodes
     difference_df = fooof_mono_rank_differences(
         fooof_spectrum=fooof_spectrum,
-        level_or_direction=level_or_direction
+        level_or_direction=level_or_direction,
+        similarity_calculation=similarity_calculation
     )
     
 
@@ -1656,15 +1667,15 @@ def fooof_mono_rank_difference_heatmap(
     fig.tight_layout()
 
     if level_or_direction == "direction":
-        fig_name_png = f"\\fooof_monopol_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
-        fig_name_svg = f"\\fooof_monopol_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.svg"
+        fig_name_png = f"fooof_monopol_{similarity_calculation}_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
+        fig_name_svg = f"fooof_monopol_{similarity_calculation}_only_segm_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.svg"
     
     elif level_or_direction == "level": 
-        fig_name_png = f"\\fooof_monopol_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
-        fig_name_svg = f"\\fooof_monopol_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.svg"
+        fig_name_png = f"fooof_monopol_{similarity_calculation}_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.png"
+        fig_name_svg = f"fooof_monopol_{similarity_calculation}_heatmap_beta_ranks_{ranks_included}_{level_or_direction}_difference_{difference_to_plot}.svg"
 
-    fig.savefig(figures_path + fig_name_png, bbox_inches="tight")
-    fig.savefig(figures_path + fig_name_svg, bbox_inches="tight", format="svg")
+    fig.savefig(os.path.join(figures_path, fig_name_png), bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, fig_name_svg), bbox_inches="tight", format="svg")
 
 
     return {

@@ -1016,7 +1016,8 @@ def load_power_spectra_session_comparison(
 
 def load_fooof_monopolar_weighted_psd(
         fooof_spectrum:str,
-        segmental:str
+        segmental:str,
+        similarity_calculation:str
 ):
 
     """
@@ -1027,6 +1028,8 @@ def load_fooof_monopolar_weighted_psd(
             "periodic_flat"             -> model._peak_fit
         
         - segmental: "yes"              -> only using segmental channels to weight monopolar psd
+
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
 
 
 
@@ -1045,7 +1048,7 @@ def load_fooof_monopolar_weighted_psd(
         bipolar_chans = "segments_and_rings_"
 
     # create filename
-    filename = f"fooof_monoRef_{bipolar_chans}weight_beta_psd_by_distance_{fooof_spectrum}.pickle"
+    filename = f"fooof_monoRef_{bipolar_chans}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}.pickle"
 
     filepath = os.path.join(results_path, filename)
 

@@ -2,6 +2,7 @@
 
 ######### PUBLIC PACKAGES #########
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 from cycler import cycler
 import pandas as pd
@@ -201,7 +202,7 @@ def PowerSpectra_perChannel(sub: str,
 
         plt.show()
         # Save figure to subject result path
-        fig.savefig(subject_figures_path + f"\\PowerSpectraPerChannel_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png", 
+        fig.savefig(os.path.join(subject_figures_path, f"PowerSpectraPerChannel_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png"), 
                     bbox_inches = "tight") # bbox_inches makes sure that the title won´t be cut off
 
 
@@ -409,7 +410,7 @@ def PowerSpectra_perChannelGroup(sub: str,
         plt.show()
 
         # Save figure to subject result path
-        fig.savefig(subject_figures_path + f"\\PowerSpectraPerChannelGroup_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png", 
+        fig.savefig(os.path.join(subject_figures_path, f"PowerSpectraPerChannelGroup_sub{sub}_{hemisphere}_{norm}_{signalFilter}.png"), 
                     bbox_inches = "tight") # bbox_inches makes sure that the title won´t be cut off
 
 
@@ -589,7 +590,7 @@ def power_spectra_grand_average_per_session(
 
     fig.tight_layout()
 
-    fig.savefig(figures_path + f"\\grand_average_power_spectra_{channel_group}_{normalization}_{signalFilter}.png",
+    fig.savefig(os.path.join(figures_path, f"grand_average_power_spectra_{channel_group}_{normalization}_{signalFilter}.png"),
                 bbox_inches = "tight")
 
     print("figure: ", 
@@ -745,7 +746,7 @@ def grand_average_FOOOF_spectra(
 
         fig.tight_layout()
 
-        fig.savefig(figures_path + f"\\grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png",
+        fig.savefig(os.path.join(figures_path, f"grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png"),
                 bbox_inches = "tight")
 
     print("figure: ", 
@@ -881,9 +882,9 @@ def FOOOF_spectra_per_channel(
         fig.subplots_adjust(wspace=40, hspace=60)
         # plt.tight_layout(pad=10, w_pad=10, h_pad=10)
 
-        fig.savefig(subject_figures_path + f"\\sub_{stn}_fooof_power_spectra_per_channel.png", 
+        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channel.png"), 
                         bbox_inches = "tight")
-        fig.savefig(subject_figures_path + f"\\sub_{stn}_fooof_power_spectra_per_channel.svg", 
+        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channel.svg"), 
                         bbox_inches = "tight", format="svg")
 
 

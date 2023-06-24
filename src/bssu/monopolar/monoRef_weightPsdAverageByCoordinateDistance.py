@@ -1237,7 +1237,7 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
         
 
     # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
-    session_data_filepath = os.path.join(results_paths, f"fooof_monoRef_{filename}weight_beta_psd_by_distance_{fooof_spectrum}.pickle")
+    session_data_filepath = os.path.join(results_paths, f"fooof_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}.pickle")
     with open(session_data_filepath, "wb") as file:
         pickle.dump(session_data, file)
 

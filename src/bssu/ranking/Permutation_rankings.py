@@ -227,7 +227,7 @@ def PermutationTest_BIPchannelGroups(
         fig.tight_layout()
         plt.show()
 
-        fig.savefig(figures_path + f"\\PermutationAnalysis_BIP_{comp}_{data2permute}_{freqBand}_{normalization}_{filterSignal}.png")
+        fig.savefig(os.path.join(figures_path, f"PermutationAnalysis_BIP_{comp}_{data2permute}_{freqBand}_{normalization}_{filterSignal}.png"))
 
 
     # Permutation_BIP transform from dictionary to Dataframe
@@ -342,7 +342,7 @@ def heatmap_distances_to_permutated_mean(
         plt.title(f"{group} channel group, p-values {freqBand} power ranks")
 
         fig.tight_layout()
-        fig.savefig(figures_path + f"\\heatmap_distances_to_permutated_mean_{group}_{freqBand}_{data2permute}_{normalization}_{filterSignal}", bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"heatmap_distances_to_permutated_mean_{group}_{freqBand}_{data2permute}_{normalization}_{filterSignal}"), bbox_inches="tight")
 
 
 
@@ -566,7 +566,7 @@ def permutation_fooof_beta_ranks(
             
 
             ############ PLOT ############
-            sns.histplot(all_shuffled_mean_differences, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
+            #sns.histplot(all_shuffled_mean_differences, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
 
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_comp_group, c="r", linewidth=3)
@@ -589,8 +589,8 @@ def permutation_fooof_beta_ranks(
         fig.subplots_adjust(wspace=0, hspace=0)
         fig.tight_layout()
 
-        fig.savefig(figures_path + f"\\permutation_beta_ranks_fooof_spectra_{comp}.png", bbox_inches="tight")
-        fig.savefig(figures_path + f"\\permutation_beta_ranks_fooof_spectra_{comp}.svg", bbox_inches="tight", format="svg")
+        fig.savefig(os.path.join(figures_path, f"permutation_beta_ranks_fooof_spectra_{comp}.png"), bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"permutation_beta_ranks_fooof_spectra_{comp}.svg"), bbox_inches="tight", format="svg")
 
         
     # Permutation_BIP transform from dictionary to Dataframe
@@ -683,8 +683,8 @@ def heatmap_distances_to_permutated_mean(
         plt.title(f"{group} channel group", fontdict={"size":20})
 
         fig.tight_layout()
-        fig.savefig(figures_path + f"\\heatmap_fooof_p_values_permutated_mean_{group}.png", bbox_inches="tight")
-        fig.savefig(figures_path + f"\\heatmap_fooof_p_values_permutated_mean_{group}.svg", bbox_inches="tight", format="svg")
+        fig.savefig(os.path.join(figures_path, f"heatmap_fooof_p_values_permutated_mean_{group}.png"), bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"heatmap_fooof_p_values_permutated_mean_{group}.svg"), bbox_inches="tight", format="svg")
     
     
 
@@ -900,7 +900,7 @@ def Permutation_monopolarRanks_compareMethods(
 
     fig.tight_layout()
 
-    fig.savefig(figures_path + f"\\Permutation_monopolarMethods_{freqBand}_rawPsd_band-pass.png", bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, f"Permutation_monopolarMethods_{freqBand}_rawPsd_band-pass.png"), bbox_inches="tight")
 
 
     ## save all Permutation Dataframes with pickle 
@@ -1206,8 +1206,8 @@ def fooof_bip_channel_groups_beta_spearman(
         plt.title(f"Spearman correlation of beta psd \nin {group} channel group")
 
         fig.tight_layout()
-        fig.savefig(figures_path + f"\\{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.png", bbox_inches="tight")
-        fig.savefig(figures_path + f"\\{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.svg", bbox_inches="tight", format="svg")
+        fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.png"), bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.svg"), bbox_inches="tight", format="svg")
 
         # save DF as pickle file
         spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle")
