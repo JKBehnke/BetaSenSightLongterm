@@ -1790,6 +1790,8 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
         - single_contacts_or_average: "single_contacts" or "electrode_average"
         - feature: "rank", "raw_beta_power", "rel_beta_power_to_rank_1", "rel_beta_power_range_0_to_1"
         - similarity_calculation: "inverse_distance", "exp_neg_distance"
+    
+    
 
 
     
@@ -2055,8 +2057,8 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     
 
     
-    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png", bbox_inches="tight")
-    fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg", bbox_inches="tight", format="svg")
+    fig.savefig(os.path.join(figures_path, f"fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png"), bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, f"fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg"), bbox_inches="tight", format="svg")
 
     
 
