@@ -1551,6 +1551,7 @@ def fooof_mono_beta_count_active_and_above_threshold(
                                                             above_from_total_inactive, below_from_total_inactive]
             
     # write dataframe from dictionary
+    # TODO: write one columns "count_activity_from_total_above" -> with all values active and inactive and a new column "activity_from_total_above" with binary options active or inactive
     activity_beta_threshold_df = pd.DataFrame(activity_beta_threshold_dict)
     activity_beta_threshold_df.rename(index={0: "subject_hemisphere", 
                                              1: "session", 
@@ -1593,14 +1594,18 @@ def fooof_mono_beta_threshold_plot(
         beta_threshold=beta_threshold
     )
 
+    # replace session strings by integers
+    data_to_analyze = data_to_analyze.replace(to_replace=["fu3m", "fu12m", "fu18m"], value=[3, 12, 18])
+
     ##################### PERFORM STATISTICAL TEST  #####################
 
     # ses_groups= ["fu3m_group1", "fu3m_group2", "fu12m_group1", "fu12m_group2", "fu18m_group1", "fu18m_group2"]
     # ses_clinical_activity_stats_test= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18m_active", "fu18m_inactive")]
-    sessions = ["fu3m", "fu12m", "fu18m"]
+    sessions = [3, 12, 18]
 
     all_results_statistics = []
-    describe_arrays = {}
+    describe_array_group1 = {}
+    describe_array_group2 = {}
 
     for ses in sessions:
 
@@ -1608,11 +1613,15 @@ def fooof_mono_beta_threshold_plot(
 
         if data_to_plot == "activity_from_total_above": # how many from all contacts above threshold were clinically active?
             first_array = np.array(ses_df.active_from_total_above.values.astype(float))
+            group_1 = "active"
             second_array = np.array(ses_df.inactive_from_total_above.values.astype(float))
+            group_2 = "inactive"
         
         elif data_to_plot == "threshold_from_total_active": # how many from all active contacts were above threshold?
             first_array = np.array(ses_df.above_from_total_active.values.astype(float))
+            group_1 = "above"
             second_array = np.array(ses_df.below_from_total_active.values.astype(float))
+            group_2 = "below"
         
         # get sample size of each pair
         sample_size = len(first_array)
@@ -1620,22 +1629,30 @@ def fooof_mono_beta_threshold_plot(
         description_group_1 = scipy.stats.describe(first_array)
         description_group_2 = scipy.stats.describe(second_array)
 
-        describe_arrays[f"{ses}_{data_to_plot}"] = [description_group_1, description_group_2]
-
+        describe_array_group1[f"{ses}_{data_to_plot}"] = description_group_1
+        describe_array_group2[f"{ses}_{data_to_plot}"] = description_group_2
         
         # Perform Wilcoxon Test, same sample size in both groups are the same
         results_stats = pg.wilcoxon(first_array, second_array) # pair is always a tuple, comparing first and second component of this tuple
      
-        results_stats[f'comparison_{data_to_plot}'] = '_'.join(ses) # new column "comparison" with the session
+        results_stats[f'comparison_{data_to_plot}'] = '_'.join(str(ses)) # new column "comparison" with the session
         results_stats["sample_size"] = sample_size
 
         all_results_statistics.append(results_stats)
 
     significance_results = pd.concat(all_results_statistics)
 
-    description_data = pd.DataFrame(describe_arrays)
-    description_data.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
-    description_data = description_data.transpose()
+    description_data_group1 = pd.DataFrame(describe_array_group1)
+    description_data_group1.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_data_group1 = description_data_group1.transpose()
+    description_data_group1_copy = description_data_group1.copy()
+    description_data_group1_copy["group"] = group_1
+
+    description_data_group2 = pd.DataFrame(describe_array_group2)
+    description_data_group2.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_data_group2 = description_data_group2.transpose()
+    description_data_group2_copy = description_data_group2.copy()
+    description_data_group2_copy["group"] = group_2
 
 
     ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
@@ -1664,14 +1681,15 @@ def fooof_mono_beta_threshold_plot(
         sns.violinplot(data=data_to_analyze, 
                     x="session", 
                     y="active_from_total_above", 
-                    #hue="session_clinical_activity", 
+                    # hue="session_clinical_activity", 
                     palette="coolwarm", 
                     inner="box", 
                     ax=axes,
                     scale="count",
-                    scale_hue=True,
+                    # scale_hue=True,
                     dodge=True
                     ) # scale="count" will scales the width of violins depending on their observations
+        
         
         # statistical test
         # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
@@ -1700,6 +1718,7 @@ def fooof_mono_beta_threshold_plot(
             alpha=0.5, # Transparency of dots
             dodge=True, # datapoints of groups active, inactive are plotted next to each other
         )
+
     
     elif data_to_plot == "threshold_from_total_active":
 
@@ -1768,7 +1787,8 @@ def fooof_mono_beta_threshold_plot(
     
     return {
         "significance_results":significance_results,
-        "description_data":description_data
+        "description_data_group1":description_data_group1_copy,
+        "description_data_group2":description_data_group2_copy
     }
 
 
