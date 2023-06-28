@@ -1939,7 +1939,7 @@ def fooof_mixedlm_highest_beta_channels(
         
         # session values have to be integers, add column group with integers for each STN electrode 
         group_df_copy = group_df.copy()
-        group_df_copy["group"] = le.fit_transform(group_df_copy["subject_hemisphere"])
+        group_df_copy["group"] = le.fit_transform(group_df_copy["subject_hemisphere"]) # adds a column "group" with integer values for each subject_hemisphere
         group_df_copy["session"] = group_df_copy.session.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0,3,12,18])
 
         # split beta peak column into three columns
