@@ -566,7 +566,7 @@ def permutation_fooof_beta_ranks(
             
 
             ############ PLOT ############
-            #sns.histplot(all_shuffled_mean_differences, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
+            sns.histplot(all_shuffled_mean_differences, color="tab:blue", ax=axes[g], stat="count", element="bars", label="1000 Permutation repetitions", kde=True, bins=30, fill=True)
 
             # mark with red line: real mean of the rank differences of comp_group_DF
             axes[g].axvline(mean_comp_group, c="r", linewidth=3)
