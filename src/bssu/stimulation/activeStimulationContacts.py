@@ -1508,6 +1508,7 @@ def fooof_mono_beta_count_active_and_above_threshold(
     sub_hem_list = list(beta_threshold_data.subject_hemisphere.unique())
 
     activity_beta_threshold_dict = {}
+    contingency_dict = {}
 
     for stn in sub_hem_list:
 
@@ -1524,7 +1525,9 @@ def fooof_mono_beta_count_active_and_above_threshold(
             
 
             contingency_table = pd.crosstab(ses_stn_data[f"beta_threshold_{beta_threshold}"], ses_stn_data["clinical_activity"]) # table counting all binary value combinations
-            
+            # store contingency table in dictionary
+            contingency_dict[f"{stn}_{ses}"] = contingency_table
+
             # get rel values of each combination
             total_above = np.sum(contingency_table.iloc[0]) # first row
             total_below = np.sum(contingency_table.iloc[1]) # second row
@@ -1570,7 +1573,9 @@ def fooof_mono_beta_count_active_and_above_threshold(
                                              }, inplace=True)
     activity_beta_threshold_df = activity_beta_threshold_df.transpose()
 
-    return activity_beta_threshold_df
+    return {
+        "activity_beta_threshold_df": activity_beta_threshold_df,
+        "contingency_dict": contingency_dict}
        
 
 
@@ -1593,6 +1598,8 @@ def fooof_mono_beta_threshold_plot(
         similarity_calculation=similarity_calculation,
         beta_threshold=beta_threshold
     )
+
+    data_to_analyze = data_to_analyze["activity_beta_threshold_df"]
 
     # replace session strings by integers
     data_to_analyze = data_to_analyze.replace(to_replace=["fu3m", "fu12m", "fu18m"], value=[3, 12, 18])
@@ -1657,15 +1664,16 @@ def fooof_mono_beta_threshold_plot(
 
     ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
 
-    # results_dictionary = {
-    #     "significance_results": significance_results,
-    #     "description_results": description_results
-    # }
+    results_dictionary = {
+        "significance_results": significance_results,
+        "description_results_group1": description_data_group1_copy,
+        "description_results_group2": description_data_group2_copy,
+    }
 
-    # # save as pickle
-    # results_filepath = os.path.join(results_path, f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}.pickle")
-    # with open(results_filepath, "wb") as file:
-    #     pickle.dump(results_dictionary, file)    
+    # save as pickle
+    results_filepath = os.path.join(results_path, f"fooof_beta_clinical_activity_statistics_beta_{data_to_plot}_{beta_threshold}_{similarity_calculation}.pickle")
+    with open(results_filepath, "wb") as file:
+        pickle.dump(results_dictionary, file)    
     
 
     ##################### PLOT VIOLINPLOT OF relative PSD to rank 1 OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
@@ -1713,7 +1721,7 @@ def fooof_mono_beta_threshold_plot(
             y="active_from_total_above",
             # hue="session_clinical_activity",
             ax=axes,
-            size=5,
+            size=7,
             color="grey", # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
             alpha=0.5, # Transparency of dots
             dodge=True, # datapoints of groups active, inactive are plotted next to each other
@@ -1727,7 +1735,7 @@ def fooof_mono_beta_threshold_plot(
         sns.violinplot(data=data_to_analyze, 
                     x="session", 
                     y="above_from_total_active", 
-                    #hue="session_clinical_activity", 
+                    # hue="session", 
                     palette="coolwarm", 
                     inner="box", 
                     ax=axes,
@@ -1766,24 +1774,24 @@ def fooof_mono_beta_threshold_plot(
     
     sns.despine(left=True, bottom=True) # get rid of figure frame
 
-    fig.suptitle(data_to_plot, fontsize= 15)
-    axes.set_ylabel(y_label, fontsize=10)
-    axes.set_xlabel("months post-surgery", fontsize=10)
-    axes.tick_params(axis="x", labelsize=10)
-    axes.tick_params(axis="y", labelsize=10)
+    fig.suptitle(data_to_plot, fontsize= 25)
+    axes.set_ylabel(y_label, fontsize=20)
+    axes.set_xlabel("months post-surgery", fontsize=20)
+    axes.tick_params(axis="x", labelsize=20)
+    axes.tick_params(axis="y", labelsize=20)
     #plt.ylim(y_lim)
     fig.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
     fig.tight_layout()
 
     
-    # fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png", bbox_inches="tight")
-    # fig.savefig(figures_path + f"\\fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg", bbox_inches="tight", format="svg")
+    fig.savefig(os.path.join(figures_path, f"fooof_beta_clinical_activity_beta_{data_to_plot}_{beta_threshold}_{similarity_calculation}.png"), bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, f"fooof_beta_clinical_activity_beta_{data_to_plot}_{beta_threshold}_{similarity_calculation}.svg"), bbox_inches="tight", format="svg")
     
-    # print("new files: ", f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}.pickle",
-    #       "\nwritten in in: ", results_path,
-    #       f"\nnew figures: fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.png",
-    #       f"\nand fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}.svg"
-    #       "\nwritten in: ", figures_path)
+    print("new files: ", f"fooof_beta_clinical_activity_statistics_beta_{data_to_plot}_{beta_threshold}_{similarity_calculation}.pickle",
+          "\nwritten in in: ", results_path,
+          f"\nnew figures: fooof_beta_clinical_activity_beta_{data_to_plot}_{beta_threshold}_{similarity_calculation}.png",
+          f"\nand fooof_beta_clinical_activity_beta_{data_to_plot}_{beta_threshold}_{similarity_calculation}.svg"
+          "\nwritten in: ", figures_path)
     
     return {
         "significance_results":significance_results,

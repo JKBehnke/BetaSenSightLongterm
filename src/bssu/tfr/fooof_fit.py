@@ -1352,6 +1352,7 @@ def fooof_rank1_baseline_beta_peak(
 
             # check if there was a peak
             if 1.0 not in baseline_dataframe.rank_beta_power.values:
+                print(f"no peak in: {stn}, {group}")
                 continue
 
             # select the channel with rank == 1.0
@@ -1389,15 +1390,15 @@ def fooof_rank1_baseline_beta_peak(
 
                 fu_dataframe = stn_group_dataframe.loc[stn_group_dataframe.session == fu_ses]
 
-                # select the rank 1 channel from postop
+                # select the rank 1 channel from baseline
                 channel_selection = fu_dataframe.loc[fu_dataframe.bipolar_channel == baseline_rank1_channel]
                 fu_peak_power = channel_selection.beta_peak_power.values[0]
                 fu_peak_cf = channel_selection.beta_center_frequency.values[0]
 
-                # normalize by peak power from postop
+                # normalize by peak power from baseline
                 normalized_peak_power = fu_peak_power - baseline_rank1_peak_power
 
-                # normalize by peak cf from postop
+                # normalize by peak cf from baseline
                 normalized_peak_cf = fu_peak_cf - baseline_rank1_peak_cf
 
                 # new column: normalized peak power -> NaN value, if no peak 
@@ -1554,6 +1555,8 @@ def fooof_count_rank1_or_2(
     """
     Input: 
         - session_baseline=str, "postop" or "fu3m"
+    
+    This function counts 
     """
 
     results_path = findfolders.get_local_path(folder="GroupResults")
@@ -1594,7 +1597,7 @@ def fooof_count_rank1_or_2(
                 total_count = 0
             
             else:
-                # get percentage how often the rank 1 postop channels stays rank 1 in 3, 12 and 18 MFU
+                # get percentage how often the rank 1 baseline channels stays rank 1 in 3, 12 and 18 MFU
                 total_count = group_dataframe["rank_beta_power"].count() # number of channels from one session and within a channel group 
 
             # number how often rank 1.0 or rank 2.0
@@ -1614,9 +1617,14 @@ def fooof_count_rank1_or_2(
             rank_1_percentage = rank_1_count / total_count
             rank_1_or_2_percentage = (rank_1_count + rank_2_count) / total_count # segm_inter und ring groups only have 3 ranks so not very much info...
 
+            rank_1_proportion = f"{rank_1_count} / {total_count}"
+            rank_1_or_2_proportion = f"{rank_1_count + rank_2_count} / {total_count}"
+
 
             # save in dict
-            count_dict[f"{ses}_{group}"] = [ses, group, total_count, rank_1_count, rank_2_count, rank_1_percentage, rank_1_or_2_percentage]
+            count_dict[f"{ses}_{group}"] = [ses, group, total_count, rank_1_count, rank_2_count, 
+                                            rank_1_percentage, rank_1_or_2_percentage,
+                                            rank_1_proportion, rank_1_or_2_proportion]
 
 
     count_dataframe = pd.DataFrame(count_dict)
@@ -1628,6 +1636,8 @@ def fooof_count_rank1_or_2(
         4:"count_rank_2",
         5:"percentage_rank_1",
         6:"percentage_rank_1_or_2",
+        7:"proportion_staying_rank_1",
+        8:"proportion_staying_rank_1_or_2",
     }, inplace=True)
     count_dataframe = count_dataframe.transpose()
 
