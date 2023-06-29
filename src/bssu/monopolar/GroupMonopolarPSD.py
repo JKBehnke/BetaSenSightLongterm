@@ -1409,7 +1409,7 @@ def fooof_mono_rank_differences(
                     label_contact_session2 = 1 # rank 2, so change of 1 rank
 
                 else:
-                    label_contact_session2 = 3 # rank changed to rank 3 or more
+                    label_contact_session2 = 2 # rank changed to rank 3 or more
                 
                 difference_dict[f"{comp}_{stn}"] = [comp, session_1, session_2, stn, contact_rank1_session1, rank_contact_session2, label_contact_session2]
 
@@ -1533,7 +1533,7 @@ def fooof_mono_rank_difference_heatmap(
     # load the dataframe with differences of levels for each rank from 1 to 6 across electrodes
     difference_df = fooof_mono_rank_differences(
         fooof_spectrum=fooof_spectrum,
-        level_or_direction=level_or_direction_or_rank,
+        level_or_direction_or_rank=level_or_direction_or_rank,
         similarity_calculation=similarity_calculation
     )
     
@@ -1543,6 +1543,8 @@ def fooof_mono_rank_difference_heatmap(
                     "12_0", "12_3", "12_12", "12_18",
                     "18_0", "18_3", "18_12", "18_18"]
     
+    labels = [0,1,2]
+    
     session_comparison_difference_dict = {}
 
     # filter the dataframe and only keep ranks of interest
@@ -1550,7 +1552,13 @@ def fooof_mono_rank_difference_heatmap(
         if 7 or 8 in ranks_included:
             print(f"ranks_included: ranks allowed = [1, 2, 3, 4, 5, 6].")
 
-    difference_df_ranks_included = difference_df[difference_df["rank"].isin(ranks_included)]
+        difference_df_ranks_included = difference_df[difference_df["rank"].isin(ranks_included)]
+
+    elif level_or_direction_or_rank == "rank":
+        difference_df_ranks_included = difference_df
+
+    elif level_or_direction_or_rank == "level":
+        difference_df_ranks_included = difference_df[difference_df["rank"].isin(ranks_included)]
 
     group_description = {}
 
@@ -1560,124 +1568,219 @@ def fooof_mono_rank_difference_heatmap(
         session_1 = comp_dataframe.session_1.values[0]
         session_2 = comp_dataframe.session_2.values[0]
 
-        # quantify percentage of how often differences occur
-        total_rank_comparisons = comp_dataframe[f"{level_or_direction_or_rank}_difference"].count()
+        if level_or_direction_or_rank == "rank":
 
-        # check if numbers exist for each difference value
-        if 0 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
-            count_0 = 0
+            # total number of contact rank 1 from session 1, that are compared
+            total_number_rank1 = comp_dataframe["contact_rank1_session_1"].count()
+
+            # check if all labels exist and how often each label occurs
+            # label 0 = rank1 contact stays rank1
+            if 0 not in comp_dataframe["label_contact_session_2"].values:
+                count_label_0 = 0
+            else:
+                count_label_0 = comp_dataframe["label_contact_session_2"].value_counts()[0]
+            
+            # label 1 = rank1 contact changes to rank2
+            if 1 not in comp_dataframe["label_contact_session_2"].values:
+                count_label_1 = 0
+            else:
+                count_label_1 = comp_dataframe["label_contact_session_2"].value_counts()[1]
+            
+            # label 2 = rank1 contact changes to rank3 or above
+            if 2 not in comp_dataframe["label_contact_session_2"].values:
+                count_label_2 = 0
+            else:
+                count_label_2 = comp_dataframe["label_contact_session_2"].value_counts()[2]
+            
+            # quantify percentage of how often rank 1 stays rank 1
+            rel_label_0 = count_label_0 / total_number_rank1
+            rel_label_0_string = f"{count_label_0} / {total_number_rank1}"
+
+            # quantify percentage of how often rank 1 stays rank 1 or rank 2
+            rel_label_0_or_1 = (count_label_0 + count_label_1) / total_number_rank1
+            rel_label_0_or_1_string = f"{count_label_0 + count_label_1} / {total_number_rank1}"
+
+            # quantify percentage of how often rank 1 contact changes to rank 3 or higher
+            rel_label_2 = count_label_2 / total_number_rank1
+            rel_label_2_string = f"{count_label_2} / {total_number_rank1}"
+
+            # save in a dict
+            session_comparison_difference_dict[f"{comp}"] = [comp, session_1, session_2, total_number_rank1, 
+                                                                rel_label_0, rel_label_0_or_1, rel_label_2,
+                                                                rel_label_0_string, rel_label_0_or_1_string, rel_label_2_string]
+            
+            # describe group
+            stn_count = len(list(comp_dataframe.subject_hemisphere.unique()))
+            group_mean = np.mean(comp_dataframe["label_contact_session_2"].values)
+            group_std = np.std(comp_dataframe["label_contact_session_2"].values)
+            
+
+            group_description[f"{comp}"] = [comp, total_number_rank1, stn_count, group_mean, group_std]
+
+
         else: 
-            count_0 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[0]
+            # quantify percentage of how often differences occur
+            total_rank_comparisons = comp_dataframe[f"{level_or_direction_or_rank}_difference"].count()
 
-        
-        if 1 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
-            count_1 = 0
-        else: 
-            count_1 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[1]
+            # check if numbers exist for each difference value
+            if 0 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
+                count_0 = 0
+            else: 
+                count_0 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[0]
 
-        # differences of 2 and 3 only occur in level_difference
-        if 2 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
-            count_2 = 0
-        else: 
-            count_2 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[2]
+            
+            if 1 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
+                count_1 = 0
+            else: 
+                count_1 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[1]
 
-        
-        if 3 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
-            count_3 = 0
-        else: 
-            count_3 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[3]
+            # differences of 2 and 3 only occur in level_difference
+            if 2 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
+                count_2 = 0
+            else: 
+                count_2 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[2]
 
-        count_1_or_less = count_0 + count_1
-        count_more_than_1 = count_2 + count_3
-        coun_more_than_0 = count_1 + count_2 + count_3
+            
+            if 3 not in comp_dataframe[f"{level_or_direction_or_rank}_difference"].values:
+                count_3 = 0
+            else: 
+                count_3 = comp_dataframe[f"{level_or_direction_or_rank}_difference"].value_counts()[3]
 
-        # relative values to total rank comparisons
-        rel_0 = count_0 / total_rank_comparisons
-        rel_1 = count_1 / total_rank_comparisons
-        rel_2 = count_2 / total_rank_comparisons
-        rel_3 = count_3 / total_rank_comparisons
+            count_1_or_less = count_0 + count_1
+            count_more_than_1 = count_2 + count_3
+            coun_more_than_0 = count_1 + count_2 + count_3
 
-        rel_1_or_less = count_1_or_less / total_rank_comparisons
-        rel_more_than_1 = count_more_than_1 / total_rank_comparisons
-        rel_more_than_0 = coun_more_than_0 / total_rank_comparisons
+            # relative values to total rank comparisons
+            rel_0 = count_0 / total_rank_comparisons
+            rel_1 = count_1 / total_rank_comparisons
+            rel_2 = count_2 / total_rank_comparisons
+            rel_3 = count_3 / total_rank_comparisons
 
-        # relative values as strings in order to see the real numbers: 5 / 10
-        rel_0_str = f"{count_0} / {total_rank_comparisons}"
-        rel_1_str = f"{count_1} / {total_rank_comparisons}"
-        rel_2_str = f"{count_2} / {total_rank_comparisons}"
-        rel_3_str = f"{count_3} / {total_rank_comparisons}"
+            rel_1_or_less = count_1_or_less / total_rank_comparisons
+            rel_more_than_1 = count_more_than_1 / total_rank_comparisons
+            rel_more_than_0 = coun_more_than_0 / total_rank_comparisons
 
-        rel_1_or_less_str = f"{count_1_or_less} / {total_rank_comparisons}"
-        rel_more_than_1_str = f"{count_more_than_1} / {total_rank_comparisons}"
-        rel_more_than_0_str = f"{coun_more_than_0} / {total_rank_comparisons}"
+            # relative values as strings in order to see the real numbers: 5 / 10
+            rel_0_str = f"{count_0} / {total_rank_comparisons}"
+            rel_1_str = f"{count_1} / {total_rank_comparisons}"
+            rel_2_str = f"{count_2} / {total_rank_comparisons}"
+            rel_3_str = f"{count_3} / {total_rank_comparisons}"
 
-        # save in a dict
-        session_comparison_difference_dict[f"{comp}"] = [comp, session_1, session_2, total_rank_comparisons, 
-                                                            rel_0, rel_1, rel_2, rel_3, rel_1_or_less, rel_more_than_1, rel_more_than_0,
-                                                            rel_0_str, rel_1_str, rel_2_str, rel_3_str, rel_1_or_less_str, rel_more_than_1_str, rel_more_than_0_str]
-        
-        # describe group
-        stn_count = len(list(comp_dataframe.subject_hemisphere.unique()))
-        group_mean = np.mean(comp_dataframe[f"{level_or_direction_or_rank}_difference"].values)
-        group_std = np.std(comp_dataframe[f"{level_or_direction_or_rank}_difference"].values)
-        
+            rel_1_or_less_str = f"{count_1_or_less} / {total_rank_comparisons}"
+            rel_more_than_1_str = f"{count_more_than_1} / {total_rank_comparisons}"
+            rel_more_than_0_str = f"{coun_more_than_0} / {total_rank_comparisons}"
 
-        group_description[f"{comp}"] = [comp, total_rank_comparisons, stn_count, group_mean, group_std]
-        
+            # save in a dict
+            session_comparison_difference_dict[f"{comp}"] = [comp, session_1, session_2, total_rank_comparisons, 
+                                                                rel_0, rel_1, rel_2, rel_3, rel_1_or_less, rel_more_than_1, rel_more_than_0,
+                                                                rel_0_str, rel_1_str, rel_2_str, rel_3_str, rel_1_or_less_str, rel_more_than_1_str, rel_more_than_0_str]
+            
+            # describe group
+            stn_count = len(list(comp_dataframe.subject_hemisphere.unique()))
+            group_mean = np.mean(comp_dataframe[f"{level_or_direction_or_rank}_difference"].values)
+            group_std = np.std(comp_dataframe[f"{level_or_direction_or_rank}_difference"].values)
+            
 
-    # transform to dataframe
-    session_comparison_difference_df = pd.DataFrame(session_comparison_difference_dict)
-    session_comparison_difference_df.rename(index={
-        0: "session_comparison",
-        1: "session_1",
-        2: "session_2", 
-        3: "total_rank_comparisons",
-        4: "rel_amount_difference_0",
-        5: "rel_amount_difference_1",
-        6: "rel_amount_difference_2",
-        7: "rel_amount_difference_3",
-        8: "rel_amount_difference_1_or_less",
-        9: "rel_amount_difference_more_than_1",
-        10: "rel_amount_difference_more_than_0",
-        11: "rel_string_difference_0",
-        12: "rel_string_difference_1",
-        13: "rel_string_difference_2",
-        14: "rel_string_difference_3",
-        15: "rel_string_difference_1_or_less",
-        16: "rel_string_difference_more_than_1",
-        17: "rel_string_difference_more_than_0",
-    }, inplace=True)
-    session_comparison_difference_df = session_comparison_difference_df.transpose()
+            group_description[f"{comp}"] = [comp, total_rank_comparisons, stn_count, group_mean, group_std]
+            
 
-    description_results = pd.DataFrame(group_description)
-    description_results.rename(index={0: "session_comparison", 1: "number_of_observations", 2: "number_of_stn", 3: "mean", 4: "standard_deviation"}, inplace=True)
-    description_results = description_results.transpose()
-   
+    if level_or_direction_or_rank == "rank":
+
+        # transform to dataframe
+        session_comparison_difference_df = pd.DataFrame(session_comparison_difference_dict)
+        session_comparison_difference_df.rename(index={
+            0: "session_comparison",
+            1: "session_1",
+            2: "session_2", 
+            3: "total_rank_comparisons",
+            4: "rel_amount_staying_rank1",
+            5: "rel_amount_staying_rank1_or_2",
+            6: "rel_amount_changing_at_least_2_ranks",
+            7: "proportion_staying_rank1",
+            8: "proportion_staying_rank1_or_2",
+            9: "proportion_changing_at_least_2_ranks"
+        }, inplace=True)
+        session_comparison_difference_df = session_comparison_difference_df.transpose()
+
+        description_results = pd.DataFrame(group_description)
+        description_results.rename(index={0: "session_comparison", 1: "number_of_observations", 2: "number_of_stn", 3: "mean", 4: "standard_deviation"}, inplace=True)
+        description_results = description_results.transpose()
+    
+    else:
+        # transform to dataframe
+        session_comparison_difference_df = pd.DataFrame(session_comparison_difference_dict)
+        session_comparison_difference_df.rename(index={
+            0: "session_comparison",
+            1: "session_1",
+            2: "session_2", 
+            3: "total_rank_comparisons",
+            4: "rel_amount_difference_0",
+            5: "rel_amount_difference_1",
+            6: "rel_amount_difference_2",
+            7: "rel_amount_difference_3",
+            8: "rel_amount_difference_1_or_less",
+            9: "rel_amount_difference_more_than_1",
+            10: "rel_amount_difference_more_than_0",
+            11: "rel_string_difference_0",
+            12: "rel_string_difference_1",
+            13: "rel_string_difference_2",
+            14: "rel_string_difference_3",
+            15: "rel_string_difference_1_or_less",
+            16: "rel_string_difference_more_than_1",
+            17: "rel_string_difference_more_than_0",
+        }, inplace=True)
+        session_comparison_difference_df = session_comparison_difference_df.transpose()
+
+        description_results = pd.DataFrame(group_description)
+        description_results.rename(index={0: "session_comparison", 1: "number_of_observations", 2: "number_of_stn", 3: "mean", 4: "standard_deviation"}, inplace=True)
+        description_results = description_results.transpose()
+    
 
     ########################## PLOT HEATMAP OF REL AMOUNT OF DIFFERENCES IN LEVELS FOR RANKS ##########################
 
     if level_or_direction_or_rank == "direction":
         if difference_to_plot not in ["0", "1"]:
             print(f"difference_to_plot: {difference_to_plot} must be in ['0', '1'].")
+    
+    if level_or_direction_or_rank == "rank":
+        if difference_to_plot not in ["0", "1_or_less", "more_than_1"]:
+            print(f"difference_to_plot: {difference_to_plot} must be in ['0', '1_or_less', 'more_than_1']")
 
     # transform difference values to floats and 4x4 matrices
     if difference_to_plot == "1_or_less":
-        difference = session_comparison_difference_df.rel_amount_difference_1_or_less.values.astype(float)
-        # reshape the difference values into 4x4 matrix
-        difference = difference.reshape(4,4)
-        difference_parameter = "rel_amount_difference_1_or_less"
+        if level_or_direction_or_rank == "rank":
+            difference = session_comparison_difference_df.rel_amount_staying_rank1_or_2.values.astype(float)
+            # reshape the difference values into 4x4 matrix
+            difference = difference.reshape(4,4)
+            label_with_n = session_comparison_difference_df.proportion_staying_rank1_or_2.values
+            label_with_n = label_with_n.reshape(4,4)
+        
+        else:
+            difference = session_comparison_difference_df.rel_amount_difference_1_or_less.values.astype(float)
+            # reshape the difference values into 4x4 matrix
+            difference = difference.reshape(4,4)
+            difference_parameter = "rel_amount_difference_1_or_less"
 
-        label_with_n = session_comparison_difference_df.rel_string_difference_1_or_less.values
-        label_with_n = label_with_n.reshape(4,4)
+            label_with_n = session_comparison_difference_df.rel_string_difference_1_or_less.values
+            label_with_n = label_with_n.reshape(4,4)
 
     elif difference_to_plot == "more_than_1":
-        difference = session_comparison_difference_df.rel_amount_difference_more_than_1.values.astype(float)
-        # reshape the difference values into 4x4 matrix
-        difference = difference.reshape(4,4)
-        difference_parameter = "rel_amount_difference_more_than_1"
+        if level_or_direction_or_rank == "rank":
+            difference = session_comparison_difference_df.rel_amount_changing_at_least_2_ranks.values.astype(float)
+            # reshape the difference values into 4x4 matrix
+            difference = difference.reshape(4,4)
+            label_with_n = session_comparison_difference_df.proportion_changing_at_least_2_ranks.values
+            label_with_n = label_with_n.reshape(4,4)
 
-        label_with_n = session_comparison_difference_df.rel_string_difference_more_than_1.values
-        label_with_n = label_with_n.reshape(4,4)
+        
+        else:
+            difference = session_comparison_difference_df.rel_amount_difference_more_than_1.values.astype(float)
+            # reshape the difference values into 4x4 matrix
+            difference = difference.reshape(4,4)
+            difference_parameter = "rel_amount_difference_more_than_1"
+
+            label_with_n = session_comparison_difference_df.rel_string_difference_more_than_1.values
+            label_with_n = label_with_n.reshape(4,4)
     
     elif difference_to_plot == "more_than_0":
         difference = session_comparison_difference_df.rel_amount_difference_more_than_0.values.astype(float)
@@ -1689,13 +1792,21 @@ def fooof_mono_rank_difference_heatmap(
         label_with_n = label_with_n.reshape(4,4)
     
     elif difference_to_plot == "0":
-        difference = session_comparison_difference_df.rel_amount_difference_0.values.astype(float)
-        # reshape the difference values into 4x4 matrix
-        difference = difference.reshape(4,4)
-        difference_parameter = "rel_amount_difference_0"
+        if level_or_direction_or_rank == "rank":
+            difference = session_comparison_difference_df.rel_amount_staying_rank1.values.astype(float)
+            # reshape the difference values into 4x4 matrix
+            difference = difference.reshape(4,4)
+            label_with_n = session_comparison_difference_df.proportion_staying_rank1.values
+            label_with_n = label_with_n.reshape(4,4)
+        
+        else:
+            difference = session_comparison_difference_df.rel_amount_difference_0.values.astype(float)
+            # reshape the difference values into 4x4 matrix
+            difference = difference.reshape(4,4)
+            difference_parameter = "rel_amount_difference_0"
 
-        label_with_n = session_comparison_difference_df.rel_string_difference_0.values
-        label_with_n = label_with_n.reshape(4,4)
+            label_with_n = session_comparison_difference_df.rel_string_difference_0.values
+            label_with_n = label_with_n.reshape(4,4)
     
     elif difference_to_plot == "1":
         difference = session_comparison_difference_df.rel_amount_difference_1.values.astype(float)
@@ -1766,6 +1877,11 @@ def fooof_mono_rank_difference_heatmap(
     elif level_or_direction_or_rank == "level": 
         fig_name_png = f"fooof_monopol_{similarity_calculation}_heatmap_beta_ranks_{ranks_included}_{level_or_direction_or_rank}_difference_{difference_to_plot}_{label_percentage_or_division}.png"
         fig_name_svg = f"fooof_monopol_{similarity_calculation}_heatmap_beta_ranks_{ranks_included}_{level_or_direction_or_rank}_difference_{difference_to_plot}_{label_percentage_or_division}.svg"
+
+    elif level_or_direction_or_rank == "rank":
+        fig_name_png = f"fooof_monopol_{similarity_calculation}_heatmap_beta_rank1_difference_{difference_to_plot}_{label_percentage_or_division}.png"
+        fig_name_svg = f"fooof_monopol_{similarity_calculation}_heatmap_beta_rank1_difference_{difference_to_plot}_{label_percentage_or_division}.svg"
+
 
     fig.savefig(os.path.join(figures_path, fig_name_png), bbox_inches="tight")
     fig.savefig(os.path.join(figures_path, fig_name_svg), bbox_inches="tight", format="svg")
