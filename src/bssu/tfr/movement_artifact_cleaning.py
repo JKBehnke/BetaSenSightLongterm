@@ -4,8 +4,6 @@
 import os
 
 import matplotlib.pyplot as plt
-import mplcursors
-import mpld3
 import mne
 import numpy as np
 import pandas as pd
@@ -20,7 +18,21 @@ from PerceiveImport.classes import main_class
 from .. utils import find_folders as findfolders
 
 
-def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: list, hemisphere: str, filter: str):
+def get_input_y_n(message: str) -> str:
+    """Get `y` or `n` user input."""
+    while True:
+        user_input = input(f"{message} (y/n)? ")
+        if user_input.lower() in ["y", "n"]:
+            break
+        print(
+            f"Input must be `y` or `n`. Got: {user_input}."
+            " Please provide a valid input."
+        )
+    return user_input
+
+
+
+def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: list, filter: str):
     """
 
     Input: 
@@ -53,65 +65,66 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
     # sns.set()
     plt.style.use('seaborn-whitegrid')  
 
-    # depending on hemisphere: define incl_contact
-    incl_contact = {}
-    if hemisphere == "Right":
-        incl_contact["Right"] = ["RingR", "SegmIntraR", "SegmInterR"]
-    
-    elif hemisphere == "Left":
-        incl_contact["Left"] = ["RingL", "SegmIntraL", "SegmInterL"]
-    
-    channel_groups = ["ring", "segm_inter", "segm_intra"]
+    #channel_groups = ["ring", "segm_inter", "segm_intra"]
+    hemispheres = ["Right", "Left"]
 
 
     for sub in incl_sub:
-        mainclass_sub = main_class.PerceiveData(
-            sub = sub, 
-            incl_modalities= ["survey"],
-            incl_session = incl_session,
-            incl_condition = incl_condition,
-            incl_task = ["rest"],
-            incl_contact=incl_contact[f"{hemisphere}"]
-            )
 
-        
-        figures_path = findfolders.get_local_path(folder="figures", sub=incl_sub)
-        results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
+        for hem in hemispheres:
 
-        # add error correction for sub and task??
-        
-        f_rawPsd_dict = {} # dictionary with tuples of frequency and psd for each channel and timepoint of a subject
-    
+            if hem == "Right":
+                channel_groups = ["RingR", "SegmIntraR", "SegmInterR"]
 
-        # Create a list of 15 colors and add it to the cycle of matplotlib 
-        cycler_colors = cycler("color", ["blue", "navy", "deepskyblue", "purple", "green", "darkolivegreen", "magenta", "orange", "red", "darkred", "chocolate", "gold", "cyan",  "yellow", "lime"])
-        plt.rc('axes', prop_cycle=cycler_colors)
+            elif hem == "Left":
+                channel_groups = ["RingL", "SegmIntraL", "SegmInterL"]
 
-        # one figure for each session per STN
-        for t, tp in enumerate(incl_session):
+            mainclass_sub = main_class.PerceiveData(
+                sub = sub, 
+                incl_modalities= ["survey"],
+                incl_session = incl_session,
+                incl_condition = incl_condition,
+                incl_task = ["rest"],
+                incl_contact=channel_groups
+                )
 
-            for group in channel_groups:
-
-                if group == "ring":
-                    channels = ['03', '13', '02', '12', '01', '23']
-                
-                elif group == "segm_intra":
-                    channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
-                
-                elif group == "segm_inter":
-                    channels = ['1A2A', '1B2B', '1C2C']
-
-                # set layout for figures: using the object-oriented interface
-                fig, axes = plt.subplots(len(channels), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
             
-                for c, cond in enumerate(incl_condition):
+            figures_path = findfolders.get_local_path(folder="figures", sub=incl_sub)
+            results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
 
-                    for cont, contact in enumerate(incl_contact[f"{hemisphere}"]): 
+            # add error correction for sub and task??
+            
+            move_artifact_dict = {} # dictionary with tuples of frequency and psd for each channel and timepoint of a subject
+        
+
+            # Create a list of 15 colors and add it to the cycle of matplotlib 
+            #cycler_colors = cycler("color", ["blue", "navy", "deepskyblue", "purple", "green", "darkolivegreen", "magenta", "orange", "red", "darkred", "chocolate", "gold", "cyan",  "yellow", "lime"])
+            #plt.rc('axes', prop_cycle=cycler_colors)
+
+            # one figure for each session per STN
+            for t, tp in enumerate(incl_session):
+
+                for g, group in enumerate(channel_groups):
+
+                    if g == 0:
+                        channels = ['03', '13', '02', '12', '01', '23']
+                    
+                    elif g == 1:
+                        channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+                    
+                    elif g == 2:
+                        channels = ['1A2A', '1B2B', '1C2C']
+
+                    
+                    for c, cond in enumerate(incl_condition):
+
+                        # set layout for figures: using the object-oriented interface
+                        fig, axes = plt.subplots(len(channels), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
 
                         # avoid Attribute Error, continue if session attribute doesn´t exist
                         if getattr(mainclass_sub.survey, tp) is None:
                             continue
-
+        
                     
                         # apply loop over channels
                         temp_data = getattr(mainclass_sub.survey, tp) # gets attribute e.g. of tp "postop" from modality_class with modality set to survey
@@ -128,7 +141,7 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
                         #     continue
 
                         temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
-                        temp_data = getattr(temp_data.rest, contact)
+                        temp_data = getattr(temp_data.rest, group)
                         temp_data = temp_data.run1.data # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
             
 
@@ -181,41 +194,105 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
                                 continue
 
                             #################### FILTER ####################
-                            signal = {}
+                            
                             if filter == "band-pass":
                                 # filter the signal by using the above defined butterworth filter
-                                signal["band-pass"] = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
+                                signal = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
                             
                             elif filter == "unfiltered": 
-                                signal["unfiltered"] = temp_data.get_data()[i, :]
+                                signal = temp_data.get_data()[i, :]
                             
 
                             #################### PLOT THE CHOSEN PSD DEPENDING ON NORMALIZATION INPUT ####################
-                            x = signal[f"{filter}"]
-                            y = np.arange(1, len(signal[f"{filter}"])+1)
+                            # x = signal[f"{filter}"]
+                            # y = np.arange(1, len(signal[f"{filter}"])+1)
 
-                            # the title of each plot is set to the timepoint e.g. "postop"
                             axes[i].set_title(f"{tp}, {group}, {channels[i]}", fontsize=15) 
+                            axes[i].plot(signal, label=f"{channels[i]}_{cond}", color="k")  
 
-                            # get y-axis label and limits
-                            # axes[t].get_ylabel()
-                            # axes[t].get_ylim()
 
-                            # .plot() method for creating the plot, axes[0] refers to the first plot, the plot is set on the appropriate object axes[t]
-                            lines = axes[i].plot(signal[f"{filter}"], label=f"{channels[i]}_{cond}", color="k")  # or np.log10(px) 
-                            # colors of each line in different color, defined at the beginning
-                            # axes[t].plot(f, chosenPsd, label=f"{ch}_{cond}", color=colors[i])
+                    # interaction: when a movement artifact is found first click = x1, second click = x2
+                    pos = [] # collecting the clicked x and y values for one channel group of stn at one session
+                    def onclick(event):
+                        pos.append([event.xdata,event.ydata])
+                                
+                    fig.canvas.mpl_connect('button_press_event', onclick)
+                    fig.tight_layout()
+                    fig.show()
 
-                            # Add cursor hover functionality
-                            #mplcursors.cursor(axes[i]).connect("add", lambda sel: sel.annotation.set_text(f'({sel.target[0]:.2f}, {sel.target[1]:.2f})'))
-                            #mplcursors.cursor(hover=True)
-                            # Enable interactive tooltips
-                            mpld3.plugins.connect(fig, mpld3.plugins.PointHTMLTooltip(lines[0], labels=['({:.2f}, {:.2f})'.format(xi, yi) for xi, yi in zip(x,y)]))
+                    # input_y_or_n = get_input_y_n("Finished viewing plots?") # interrups run and asks for input
 
-                            # Display the plot
-                            mpld3.display(fig)
+                    # if input_y_or_n == "y":
+
+                    #     # store results
+                    #     number_of_artifacts = len(pos) / 2
+
+                    #     artifact_x = [x_list[0] for x_list in pos]
+                    #     artifact_y = [y_list[1] for y_list in pos]
+
+                    #     move_artifact_dict[f"{sub}_{hem}_{tp}_{group}_{cond}"] = [sub, hem, tp, group, cond,
+                    #                                                             number_of_artifacts]
+                        
+                    #     # fig.savefig()
+
+                    #     for a, art in enumerate(artifact_x):
+
+                    #         # all even numbers reflect one new artifact
+                    #         if a % 2 == 0:
+
+                    #             # get index of where artifact starts and ends
+                    #             artifact_x_start = round(artifact_x[a]) # index of x value in artifact x list
+                    #             artifact_x_end = round(artifact_x[a+1])
+
+                    #             # clean each channel by removing the array with the detected artifact
+                    #             for i, ch in enumerate(ch_names):
+                            
+                    #                 # only get picked channels
+                    #                 if i not in ch_names_indices:
+                    #                     continue
+
+                    #                 #################### FILTER ####################
+                                    
+                    #                 if filter == "band-pass":
+                    #                     # filter the signal by using the above defined butterworth filter
+                    #                     signal = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
+                                    
+                    #                 elif filter == "unfiltered": 
+                    #                     signal = temp_data.get_data()[i, :]
+                                    
+                    #                 # cut out the artifact, keep everything before and after
+                    #                 cleaned_signal = np.concatenate([signal[:artifact_x_start-1], signal[artifact_x_end:]])
+                                    
+
+                    #                 #################### PLOT THE CHOSEN PSD DEPENDING ON NORMALIZATION INPUT ####################
+                    #                 # x = signal[f"{filter}"]
+                    #                 # y = np.arange(1, len(signal[f"{filter}"])+1)
+
+                    #                 axes[i].set_title(f"{tp}, {group}, {channels[i]}", fontsize=15) 
+                    #                 axes[i].plot(cleaned_signal, label=f"{channels[i]}_{cond}", color="k")  
+
+                    #         else:
+                    #             continue
+
+
+
+
+
+                        # cut artifacts out
+                        # cleaned_signal = 
+
+
+
+
+
+                    #plt.close(fig)
+
+
+
 
 
     return {
-        "time_series": signal[f"{filter}"],
+        "time_series": signal,
+        "pos": pos,
+        "move_artifact_dict":move_artifact_dict
     }
