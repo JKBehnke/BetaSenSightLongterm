@@ -113,27 +113,32 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
                     for c, cond in enumerate(incl_condition):
 
                         # set layout for figures: using the object-oriented interface
-                        fig, axes = plt.subplots(len(channels), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
+                        # fig, axes = plt.subplots(len(channels), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
 
 
                         # avoid Attribute Error, continue if session attribute doesn´t exist
-                        if getattr(mainclass_sub.survey, tp) is None:
+                        try:
+                            getattr(mainclass_sub.survey, tp)
+                        
+                        except AttributeError:
                             continue
+
+                        # if getattr(mainclass_sub.survey, tp) is None:
+                        #     continue
         
-                    
                         # apply loop over channels
                         temp_data = getattr(mainclass_sub.survey, tp) # gets attribute e.g. of tp "postop" from modality_class with modality set to survey
                         
                         # avoid Attribute Error, continue if attribute doesn´t exist
-                        if getattr(temp_data, cond) is None:
-                            continue
-                    
-                        # try:
-                        #     temp_data = getattr(temp_data, cond)
-                        #     temp_data = temp_data.rest.data[tasks[tk]]
-                        
-                        # except AttributeError:
+                        # if getattr(temp_data, cond) is None:
                         #     continue
+                    
+                        try:
+                            getattr(temp_data, cond)
+                            #temp_data = temp_data.rest.data[tasks[tk]]
+                        
+                        except AttributeError:
+                            continue
 
                         temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
                         temp_data = getattr(temp_data.rest, group)
@@ -181,7 +186,8 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
                         # pick channels of interest: mne.pick_channels() will output the indices of included channels in an array
                         ch_names_indices = mne.pick_channels(ch_names, include=include_channelList)
 
-                        
+                        fig, axes = plt.subplots(len(channels), 1, figsize=(10, 15)) # subplot(rows, columns, panel number), figsize(width,height)
+
                         for i, ch in enumerate(ch_names):
                             
                             # only get picked channels
@@ -205,58 +211,58 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
                             axes[i].set_title(f"{tp}, {group}, {channels[i]}", fontsize=15) 
                             axes[i].plot(signal, label=f"{channels[i]}_{cond}", color="k")  
 
-                    for ax in axes:
-                        ax.set_xlabel("time", fontsize=12)
-                        ax.set_ylabel("amplitude", fontsize=12)
-                    
-                    for ax in axes.flat[:-1]:
-                        ax.set(xlabel='')
-
-                    # interaction: when a movement artifact is found first click = x1, second click = x2
-                    pos = [] # collecting the clicked x and y values for one channel group of stn at one session
-                    def onclick(event):
-                        pos.append([event.xdata,event.ydata])
-                                
-                    fig.canvas.mpl_connect('button_press_event', onclick)
-
-                    fig.suptitle(f"raw time series ({filter}) sub-{sub}, {hem} hemisphere", ha="center", fontsize=20)
-                    fig.tight_layout()
-                    plt.subplots_adjust(wspace=0, hspace=0)
-
-                    plt.show(block=False)
-                    plt.gcf().canvas.draw()
-                    
-
-                    input_y_or_n = get_input_y_n("Artifacts found?") # interrups run and asks for input
-
-                    if input_y_or_n == "y":
-
-                        # save figure
-                        fig.savefig(os.path.join(figures_path, f"raw_time_series_{filter}_sub-{sub}_{hem}_{tp}_{cond}_{group_name}_with_artifact.png"), bbox_inches="tight")
-
-                        # store results
-                        number_of_artifacts = len(pos) / 2
-
-                        artifact_x = [x_list[0] for x_list in pos] # list of all clicked x values
-                        artifact_y = [y_list[1] for y_list in pos] # list of all clicked y values
-
-                        move_artifact_dict[f"{sub}_{hem}_{tp}_{group_name}_{cond}"] = [sub, hem, tp, group_name, cond,
-                                                                                number_of_artifacts, artifact_x, artifact_y]
+                        for ax in axes:
+                            ax.set_xlabel("time", fontsize=12)
+                            ax.set_ylabel("amplitude", fontsize=12)
                         
-                    
-                    elif input_y_or_n == "n":
+                        for ax in axes.flat[:-1]:
+                            ax.set(xlabel='')
 
-                        # save figure
-                        fig.savefig(os.path.join(figures_path, f"raw_time_series_{filter}_sub-{sub}_{hem}_{tp}_{cond}_{group_name}_no_artifact.png"), bbox_inches="tight")
+                        # interaction: when a movement artifact is found first click = x1, second click = x2
+                        pos = [] # collecting the clicked x and y values for one channel group of stn at one session
+                        def onclick(event):
+                            pos.append([event.xdata,event.ydata])
+                                    
+                        fig.canvas.mpl_connect('button_press_event', onclick)
 
-                        print("no artifacts")
+                        fig.suptitle(f"raw time series ({filter}) sub-{sub}, {hem} hemisphere", ha="center", fontsize=20)
+                        fig.tight_layout()
+                        plt.subplots_adjust(wspace=0, hspace=0)
 
-                        number_of_artifacts = len(pos)
+                        plt.show(block=False)
+                        plt.gcf().canvas.draw()
+                        
 
-                        move_artifact_dict[f"{sub}_{hem}_{tp}_{group_name}_{cond}"] = [sub, hem, tp, group_name, cond,
-                                                                                number_of_artifacts, 0, 0]
+                        input_y_or_n = get_input_y_n("Artifacts found?") # interrups run and asks for input
 
-                    plt.close()
+                        if input_y_or_n == "y":
+
+                            # save figure
+                            fig.savefig(os.path.join(figures_path, f"raw_time_series_{filter}_sub-{sub}_{hem}_{tp}_{cond}_{group_name}_with_artifact.png"), bbox_inches="tight")
+
+                            # store results
+                            number_of_artifacts = len(pos) / 2
+
+                            artifact_x = [x_list[0] for x_list in pos] # list of all clicked x values
+                            artifact_y = [y_list[1] for y_list in pos] # list of all clicked y values
+
+                            move_artifact_dict[f"{sub}_{hem}_{tp}_{group_name}_{cond}"] = [sub, hem, tp, group_name, cond,
+                                                                                    number_of_artifacts, artifact_x, artifact_y]
+                            
+                        
+                        elif input_y_or_n == "n":
+
+                            # save figure
+                            fig.savefig(os.path.join(figures_path, f"raw_time_series_{filter}_sub-{sub}_{hem}_{tp}_{cond}_{group_name}_no_artifact.png"), bbox_inches="tight")
+
+                            print("no artifacts")
+
+                            number_of_artifacts = len(pos)
+
+                            move_artifact_dict[f"{sub}_{hem}_{tp}_{group_name}_{cond}"] = [sub, hem, tp, group_name, cond,
+                                                                                    number_of_artifacts, 0, 0]
+
+                        plt.close()
 
 
     move_artifact_result_df = pd.DataFrame(move_artifact_dict)
