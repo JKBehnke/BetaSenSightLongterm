@@ -1158,6 +1158,41 @@ def load_fooof_monoRef_all_contacts_weight_beta(
     
     return data
 
+def load_preprocessing_files(table:str):
+
+    """
+    Input:
+        - table: "movement_artifact_coord", "cleaned_power_spectra"
+        
+    Load the file: movement_artifacts_from_raw_time_series_band-pass.pickle  # always band-pass because filtered signal is easier to find movement artifacts
+    from the group result folder
+
+    """
+
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    if table == "movement_artifact_coord":
+        filename =  f"movement_artifacts_from_raw_time_series_band-pass.pickle"
+    
+    elif table == "cleaned_power_spectra":
+        filename =  f"clean_power_spectra.json"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the file
+    if table == "movement_artifact_coord":
+        with open(filepath, "rb") as file:
+            data = pickle.load(file)
+
+    elif table == "cleaned_power_spectra":
+        with open(filepath) as file:
+            data = json.load(file)
+            data = pd.DataFrame(data)
+
+    
+    return data
 
 
 # def load_MonoRef_GroupCSV(normalization: str, hemisphere: str):
