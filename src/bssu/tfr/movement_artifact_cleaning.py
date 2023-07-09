@@ -568,12 +568,12 @@ def plot_clean_power_spectra(signal_filter:str):
                 f = chan_data.frequencies.values[0]
 
                 if signal_filter == "band-pass":
-                    cleaned_psd = chan_data.clean_psd_band_pass.values[0]
-                    cleaned_sem_psd = chan_data.sem_psd_band_pass.values[0]
+                    cleaned_psd = np.array(chan_data.clean_psd_band_pass.values[0])
+                    cleaned_sem_psd = np.array(chan_data.sem_psd_band_pass.values[0])
                 
                 elif signal_filter == "unfiltered":
-                    cleaned_psd = chan_data.clean_psd_unfiltered.values[0]
-                    cleaned_sem_psd = chan_data.sem_psd_unfiltered.values[0]
+                    cleaned_psd = np.array(chan_data.clean_psd_unfiltered.values[0])
+                    cleaned_sem_psd = np.array(chan_data.sem_psd_unfiltered.values[0])
 
                 axes[s].set_title(ses, fontsize=15) 
                 axes[s].plot(f, cleaned_psd, label=f"{chan}")
@@ -620,7 +620,7 @@ def plot_clean_power_spectra(signal_filter:str):
         fig.tight_layout()
 
         plt.show()
-        fig.savefig(os.path.join(figures_path, f"clean_power_spectra_{stn}_{signal_filter}.png"))
+        fig.savefig(os.path.join(figures_path, f"clean_power_spectra_{stn}_{signal_filter}.png"), bbox_inches="tight")
           
 
 
