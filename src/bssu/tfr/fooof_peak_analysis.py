@@ -260,7 +260,7 @@ def highest_beta_channels_fooof(
 
 
 
-def calculate_auc_beta_power_around_cf(
+def calculate_auc_beta_power(
         fooof_spectrum:str,
         highest_beta_session:str,
 ):
@@ -274,6 +274,8 @@ def calculate_auc_beta_power_around_cf(
             "periodic_flat"             -> model._peak_fit
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+        - around_cf: "peak_at_fu3m", "peak_at_postop", "peak_at_all_sessions"
 
 
     
@@ -299,43 +301,82 @@ def calculate_auc_beta_power_around_cf(
         session_selection = 3
 
 
-    ############################## select the center frequency of 3MFU and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
-    for group in channel_group:
+    ############################## select the center frequency of the highest peak of each session and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
+    if highest_beta_session == "highest_each_session":
+        for group in channel_group:
 
-        group_df = highest_beta_channels[group]
+            group_df = highest_beta_channels[group]
 
-        stn_unique = list(group_df.subject_hemisphere.unique())
+            stn_unique = list(group_df.subject_hemisphere.unique())
 
-        group_df_with_power_in_frange = pd.DataFrame()
+            group_df_with_power_in_frange = pd.DataFrame()
 
-        # select the beta center frequency at 3MFU for every stn
-        for stn in stn_unique:
+            # select the beta center frequency of each session seperately for each stn
+            for stn in stn_unique:
 
-            stn_data = group_df.loc[group_df.subject_hemisphere == stn]
-            fu_data = stn_data.loc[stn_data.session == session_selection] 
+                stn_data = group_df.loc[group_df.subject_hemisphere == stn]
 
-            fum_peak_center_frequency = round(fu_data.beta_center_frequency.values[0])
-            # now get +- 3 Hz frequency range around peak center frequency
-            fu3m_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+                # check which sessions exist for this stn
+                stn_ses_unique = list(stn_data.session.unique())
 
-            for ses in sessions: # for each session collect the area under the curve for the selected frequency range of one stn
+                for ses in stn_ses_unique:
 
-                if ses not in stn_data.session.values:
-                    continue
-
-                else:
                     ses_data = stn_data.loc[stn_data.session == ses]
-                    power = ses_data.fooof_power_spectrum.values[0]
-                    power_in_freq_range = power[fu3m_cf_range[0] : (fu3m_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
-                    power_area_under_curve = simps(power_in_freq_range, fu3m_cf_range)
+                    # get center frequency, frequency range and power spectrum of the highest beta peak of that session
+                    ses_beta_cf = round(ses_data.beta_center_frequency.values[0])
+                    cf_range = np.arange(ses_beta_cf - 3, ses_beta_cf + 4, 1)
+                    power = ses_data.fooof_power_spectrum.values[0] 
+
+                    # calculate area under the curve of power
+                    power_in_freq_range = power[cf_range[0] : (cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                    power_area_under_curve = simps(power_in_freq_range, cf_range)
 
                     ses_data_copy = ses_data.copy()
-                    ses_data_copy["round_cf_at_fu3m"] = fum_peak_center_frequency
-                    ses_data_copy["beta_power_auc_fu3m_cf"] = power_area_under_curve
+                    ses_data_copy["round_cf"] = ses_beta_cf
+                    ses_data_copy["beta_power_auc_around_cf"] = power_area_under_curve
 
                     group_df_with_power_in_frange = pd.concat([group_df_with_power_in_frange, ses_data_copy])
-                    
-            group_dict[group] = group_df_with_power_in_frange
+
+                group_dict[group] = group_df_with_power_in_frange
+
+    ############################## select the center frequency of Postop OR 3MFU and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
+    else:
+        for group in channel_group:
+
+            group_df = highest_beta_channels[group]
+
+            stn_unique = list(group_df.subject_hemisphere.unique())
+
+            group_df_with_power_in_frange = pd.DataFrame()
+
+            # select the beta center frequency at Postop or 3MFU for every stn
+            for stn in stn_unique:
+
+                stn_data = group_df.loc[group_df.subject_hemisphere == stn]
+                fu_data = stn_data.loc[stn_data.session == session_selection] 
+
+                fum_peak_center_frequency = round(fu_data.beta_center_frequency.values[0])
+                # now get +- 3 Hz frequency range around peak center frequency
+                fum_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+
+                for ses in sessions: # for each session collect the area under the curve for the selected frequency range of one stn
+
+                    if ses not in stn_data.session.values:
+                        continue
+
+                    else:
+                        ses_data = stn_data.loc[stn_data.session == ses]
+                        power = ses_data.fooof_power_spectrum.values[0]
+                        power_in_freq_range = power[fum_cf_range[0] : (fum_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                        power_area_under_curve = simps(power_in_freq_range, fum_cf_range)
+
+                        ses_data_copy = ses_data.copy()
+                        ses_data_copy[f"round_cf"] = fum_peak_center_frequency
+                        ses_data_copy[f"beta_power_auc_around_cf"] = power_area_under_curve
+
+                        group_df_with_power_in_frange = pd.concat([group_df_with_power_in_frange, ses_data_copy])
+                        
+                group_dict[group] = group_df_with_power_in_frange
 
     return group_dict
 
@@ -359,7 +400,9 @@ def fooof_mixedlm_highest_beta_channels(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc_fu3m_cf"
+        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", 
+                                "beta_power_auc_around_cf"  -> if "highest_each_session": area under the curve around frequency of each session
+                                                            -> if "highest_fu3m": auc around frequency of beta peak at 3MFU
 
         - incl_sessions: [0,3] or [3,12,18] o [0,3,12,18]
 
@@ -426,7 +469,7 @@ def fooof_mixedlm_highest_beta_channels(
 
     ############################## select the center frequency of 3MFU and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
 
-    beta_peak_auc_data = calculate_auc_beta_power_around_cf(
+    beta_peak_auc_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
         highest_beta_session=highest_beta_session
     )
@@ -648,7 +691,7 @@ def change_beta_peak_power_or_cf_violinplot(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc_fu3m_cf"
+        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc_around_cf"
 
     """
 
@@ -657,7 +700,7 @@ def change_beta_peak_power_or_cf_violinplot(
     fontdict = {"size": 25}
 
     # Load the dataframe with only highest beta channels and calculated area under the curve of highest beta peaks
-    beta_data = calculate_auc_beta_power_around_cf(
+    beta_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
         highest_beta_session=highest_beta_session
     )
@@ -667,7 +710,8 @@ def change_beta_peak_power_or_cf_violinplot(
     channel_group = ["ring", "segm_inter", "segm_intra"]
     session_comparisons = ["0_3", "0_12", "0_18", "3_12", "3_18", "12_18"]
 
-    sample_size_dict = {} # 
+    statistics_dict = {} # 
+    description_dict = {}
     difference_session_comparison_dict = {} 
 
 
@@ -718,10 +762,10 @@ def change_beta_peak_power_or_cf_violinplot(
                     session_1_data_of_interest = session_1_data.beta_center_frequency.values[0]
                     session_2_data_of_interest = session_2_data.beta_center_frequency.values[0]
                 
-                elif data_to_analyze == "beta_power_auc_fu3m_cf":
+                elif data_to_analyze == "beta_power_auc_around_cf":
                     
-                    session_1_data_of_interest = session_1_data.beta_power_auc_fu3m_cf.values[0]
-                    session_2_data_of_interest = session_2_data.beta_power_auc_fu3m_cf.values[0]
+                    session_1_data_of_interest = session_1_data.beta_power_auc_around_cf.values[0]
+                    session_2_data_of_interest = session_2_data.beta_power_auc_around_cf.values[0]
 
                 # calculate difference between two sessions: session 1 - session 2
                 difference_ses1_ses2 = session_1_data_of_interest - session_2_data_of_interest
@@ -751,8 +795,6 @@ def change_beta_peak_power_or_cf_violinplot(
 
     ######################### VIOLINPLOT OF CHANGE, seperately for each channel group #########################
 
-    colors = []
-
     for group in channel_group:
 
         group_data_to_plot = difference_dataframe.loc[difference_dataframe.channel_group == group]
@@ -762,13 +804,13 @@ def change_beta_peak_power_or_cf_violinplot(
 
         sns.violinplot(data=group_data_to_plot, x="session_comp_group", y="difference_ses1-ses2", palette="coolwarm", inner="box", ax=ax)
 
-        # statistical test: doesn't work if groups have different sample size
+        # statistical test: 
         group_comparisons = [1, 2, 3, 4, 5, 6]
         pairs = list(combinations(group_comparisons, 2))
 
         annotator = Annotator(ax, pairs, data=group_data_to_plot, x='session_comp_group', y="difference_ses1-ses2")
         annotator.configure(test='Mann-Whitney', text_format='star') # or t-test_ind ??
-        annotator.apply_and_annotate()
+        # annotator.apply_and_annotate()
 
         sns.stripplot(
             data=group_data_to_plot,
@@ -805,12 +847,55 @@ def change_beta_peak_power_or_cf_violinplot(
             f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}.png",
             "\nwritten in: ", figures_path
             )
+        
+        ######################### STATISTICS AND DESCRIPTION OF DATA #########################
 
+        for pair in pairs:
+
+            # pair e.g. (1, 2) for comparing group 1 (postop-3mfu) and group 2 (postop-12mfu)
+
+            group_1 = pair[0] # e.g. postop-3mfu
+            group_2 = pair[1] # e.g. postop-12mfu
+            
+            group_1_data = group_data_to_plot.loc[group_data_to_plot.session_comp_group == group_1]
+            group_1_data = group_1_data["difference_ses1-ses2"].values
+            group_2_data = group_data_to_plot.loc[group_data_to_plot.session_comp_group == group_2]
+            group_2_data = group_2_data["difference_ses1-ses2"].values
+        
+            # mann-whitney U test
+            statistic, p_value = stats.mannwhitneyu(group_1_data, group_2_data) # by default two-sided test, so testing for significant difference between two distributions regardless of the direction of the difference
+
+            statistics_dict[f"{group}_{pair}"] = [group, pair, statistic, p_value]
+
+        # describe each group        
+        for descr_group in group_comparisons:
+
+            data_to_describe = group_data_to_plot.loc[group_data_to_plot.session_comp_group == descr_group]
+            data_to_describe = data_to_describe["difference_ses1-ses2"].values
+            
+            description_1 = scipy.stats.describe(data_to_describe)
+            description_dict[f"{group}_{descr_group}"] = description_1
+
+
+    # save as dataframe
+    description_results = pd.DataFrame(description_dict)
+    description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
+    description_results = description_results.transpose()
+
+    statistics_dataframe = pd.DataFrame(statistics_dict)
+    statistics_dataframe.rename(index={0: "channel_group",
+                                       1: "statistics_pair",
+                                       2: "stats",
+                                       3: "p_val",
+                                       }, inplace=True)
+    statistics_dataframe = statistics_dataframe.transpose()
 
 
     return {
         "difference_dataframe":difference_dataframe,
-        "group_data_to_plot":group_data_to_plot}
+        "group_data_to_plot":group_data_to_plot,
+        "statistics_dataframe": statistics_dataframe,
+        "description_results": description_results}
 
 
 
