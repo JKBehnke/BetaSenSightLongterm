@@ -1084,6 +1084,7 @@ def fooof_highest_beta_peak_analysis(
                 beta_peak_parameters[f"{group}_{ses}_{i}"] = [group, numeric_session, beta_cf, beta_power, beta_band_width]
 
 
+
     # save the results in a dataframe
     beta_peak_parameters_df = pd.DataFrame(beta_peak_parameters)
     beta_peak_parameters_df.rename(index={
