@@ -50,9 +50,31 @@ os.getcwd()
 
 import src.bssu.tfr.fooof_peak_analysis as fooof_peaks
 
-violin_plots_of_change = fooof_peaks.change_beta_peak_power_or_cf_violinplot(
-    fooof_spectrum="periodic_spectrum",
-    highest_beta_session="highest_fu3m",
-    data_to_analyze="beta_power_auc",
-    around_cf="around_cf_at_each_session"
-)
+
+# run all violin plots of the change of beta peak power or cf between sessions
+data_to_analyze = ["beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"]
+
+for analysis in data_to_analyze:
+
+    if analysis == "beta_power_auc":
+
+        around_cf = ["around_cf_at_each_session", "around_cf_at_fixed_session"]
+
+        for cf in around_cf:
+
+            violin_plots_of_change = fooof_peaks.change_beta_peak_power_or_cf_violinplot(
+                fooof_spectrum="periodic_spectrum",
+                highest_beta_session="highest_fu3m",
+                data_to_analyze=analysis,
+                around_cf=cf
+            )
+    else:
+
+        violin_plots_of_change = fooof_peaks.change_beta_peak_power_or_cf_violinplot(
+            fooof_spectrum="periodic_spectrum",
+            highest_beta_session="highest_fu3m",
+            data_to_analyze=analysis,
+            around_cf="around_cf_at_each_session"
+        )
+
+

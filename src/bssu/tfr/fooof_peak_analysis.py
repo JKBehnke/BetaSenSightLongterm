@@ -387,7 +387,7 @@ def calculate_auc_beta_power(
 
                         ses_data_copy = ses_data.copy()
                         ses_data_copy[f"round_cf"] = fum_peak_center_frequency
-                        ses_data_copy[f"beta_power_auc_around_cf"] = power_area_under_curve
+                        ses_data_copy[f"beta_power_auc"] = power_area_under_curve
 
                         group_df_with_power_in_frange = pd.concat([group_df_with_power_in_frange, ses_data_copy])
                         
@@ -416,9 +416,7 @@ def fooof_mixedlm_highest_beta_channels(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", 
-                                "beta_power_auc_around_cf"  -> if "highest_each_session": area under the curve around frequency of each session
-                                                            -> if "highest_fu3m": auc around frequency of beta peak at 3MFU
+        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"    
                                
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
@@ -647,11 +645,31 @@ def fooof_mixedlm_highest_beta_channels(
     fig_1.subplots_adjust(wspace=0, hspace=0)
 
     fig_1.tight_layout()
-    fig_1.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
-    fig_1.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
+
+    if data_to_fit == "beta_power_auc":
+            fig1_filename_png = f"lme_{shape_of_model}_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"
+            fig1_filename_svg = f"lme_{shape_of_model}_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"
+
+            fig2_filename_png = f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"
+            fig2_filename_svg = f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"
+
+            mdf_result_filename = f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}.pickle"
+        
+        
+    else:
+        fig1_filename_png = f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"
+        fig1_filename_svg = f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"
+
+        fig2_filename_png = f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"
+        fig2_filename_svg = f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"
+
+        mdf_result_filename = f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle"
+
+    fig_1.savefig(os.path.join(figures_path, fig1_filename_png), bbox_inches="tight")
+    fig_1.savefig(os.path.join(figures_path, fig1_filename_svg), bbox_inches="tight", format="svg")
 
     print("figure: ", 
-        f"lme_{data_to_fit}_{highest_beta_session}_beta_channels.png",
+        f"{fig1_filename_png}",
         "\nwritten in: ", figures_path
         )
     
@@ -667,18 +685,18 @@ def fooof_mixedlm_highest_beta_channels(
     fig_2.suptitle(f"Linear mixed effects model residuals: {highest_beta_session} beta channels", fontsize=30)
     fig_2.subplots_adjust(wspace=0, hspace=0)
     fig_2.tight_layout()
-    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
-    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
 
-    
+    fig_2.savefig(os.path.join(figures_path, fig2_filename_png), bbox_inches="tight")
+    fig_2.savefig(os.path.join(figures_path, fig2_filename_svg), bbox_inches="tight", format="svg")
+
 
     # save results
-    mdf_result_filepath = os.path.join(results_path, f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}.pickle")
+    mdf_result_filepath = os.path.join(results_path, mdf_result_filename)
     with open(mdf_result_filepath, "wb") as file:
         pickle.dump(model_output, file)
     
     print("file: ", 
-          f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}.pickle",
+          f"{mdf_result_filename}",
           "\nwritten in: ", results_path
           )
 
@@ -865,10 +883,19 @@ def change_beta_peak_power_or_cf_violinplot(
         plt.xticks(range(len(session_comparisons)), session_comparisons)
 
         fig.tight_layout()
-        fig.savefig(os.path.join(figures_path, f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.png"), bbox_inches="tight")
+        if data_to_analyze == "beta_power_auc":
+            fig_filename_png = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.png"
+            fig_filename_svg = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.svg"
+        
+        else:
+            fig_filename_png = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}.png"
+            fig_filename_svg = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}.svg"
+
+        fig.savefig(os.path.join(figures_path, fig_filename_png), bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, fig_filename_svg), bbox_inches="tight", format="svg")
 
         print("figure: ", 
-            f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.png",
+            f"{fig_filename_png}",
             "\nwritten in: ", figures_path
             )
         
