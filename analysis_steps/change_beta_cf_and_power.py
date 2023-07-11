@@ -3,8 +3,7 @@
 import os
 import sys
 import numpy as np
-import importlib
-from importlib import reload 
+
 
 
 # create a path to the BetaSenSightLongterm folder 
@@ -49,4 +48,11 @@ sys.path.append(code_path)
 os.chdir(code_path)
 os.getcwd()
 
-import src.bssu.tfr.movement_artifact_cleaning as move_artifacts
+import src.bssu.tfr.fooof_peak_analysis as fooof_peaks
+
+violin_plots_of_change = fooof_peaks.change_beta_peak_power_or_cf_violinplot(
+    fooof_spectrum="periodic_spectrum",
+    highest_beta_session="highest_fu3m",
+    data_to_analyze="beta_power_auc",
+    around_cf="around_cf_at_each_session"
+)

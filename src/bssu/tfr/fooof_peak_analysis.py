@@ -263,6 +263,7 @@ def highest_beta_channels_fooof(
 def calculate_auc_beta_power(
         fooof_spectrum:str,
         highest_beta_session:str,
+        around_cf:str
 ):
     """
     calculating the area under the curve of ± 3 Hz around the center frequency of the highest beta peak in the selected FU
@@ -275,7 +276,7 @@ def calculate_auc_beta_power(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - around_cf: "peak_at_fu3m", "peak_at_postop", "peak_at_all_sessions"
+        - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
 
     
@@ -302,6 +303,7 @@ def calculate_auc_beta_power(
 
 
     ############################## select the center frequency of the highest peak of each session and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
+    # from each channel with highest beta per session get CF and area under the curve around that CF
     if highest_beta_session == "highest_each_session":
         for group in channel_group:
 
@@ -353,20 +355,33 @@ def calculate_auc_beta_power(
             for stn in stn_unique:
 
                 stn_data = group_df.loc[group_df.subject_hemisphere == stn]
-                fu_data = stn_data.loc[stn_data.session == session_selection] 
-
-                fum_peak_center_frequency = round(fu_data.beta_center_frequency.values[0])
-                # now get +- 3 Hz frequency range around peak center frequency
-                fum_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+                
+                if around_cf == "around_cf_at_fixed_session":
+                    # select the center frequency of the desired session selection (postop or fu3m)
+                    fu_data = stn_data.loc[stn_data.session == session_selection] 
+                    fum_peak_center_frequency = round(fu_data.beta_center_frequency.values[0])
+                    # now get +- 3 Hz frequency range around peak center frequency
+                    fum_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+                    print(f"The center frequency of session {session_selection} was taken for every session to calculate AUC")
+                
+                else: 
+                    print("The center frequency of the beta peak was taken from each session independently to calculate AUC.")
 
                 for ses in sessions: # for each session collect the area under the curve for the selected frequency range of one stn
 
                     if ses not in stn_data.session.values:
                         continue
 
-                    else:
+                    else:# now loop over each session to extract the area under the curve around the selected center frequency
                         ses_data = stn_data.loc[stn_data.session == ses]
                         power = ses_data.fooof_power_spectrum.values[0]
+
+                        if around_cf == "around_cf_at_each_session":
+                            # select the cf of each session
+                            fum_peak_center_frequency = round(ses_data.beta_center_frequency.values[0])
+                            # now get +- 3 Hz frequency range around peak center frequency
+                            fum_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+
                         power_in_freq_range = power[fum_cf_range[0] : (fum_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
                         power_area_under_curve = simps(power_in_freq_range, fum_cf_range)
 
@@ -387,6 +402,7 @@ def fooof_mixedlm_highest_beta_channels(
         fooof_spectrum:str,
         highest_beta_session:str,
         data_to_fit:str,
+        around_cf:str,
         incl_sessions:list,
         shape_of_model:str
 ):
@@ -403,6 +419,8 @@ def fooof_mixedlm_highest_beta_channels(
         - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", 
                                 "beta_power_auc_around_cf"  -> if "highest_each_session": area under the curve around frequency of each session
                                                             -> if "highest_fu3m": auc around frequency of beta peak at 3MFU
+                               
+        - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
         - incl_sessions: [0,3] or [3,12,18] o [0,3,12,18]
 
@@ -471,7 +489,8 @@ def fooof_mixedlm_highest_beta_channels(
 
     beta_peak_auc_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
-        highest_beta_session=highest_beta_session
+        highest_beta_session=highest_beta_session,
+        around_cf=around_cf
     )
 
     ############################## perform linear mixed effects model ##############################
@@ -648,18 +667,18 @@ def fooof_mixedlm_highest_beta_channels(
     fig_2.suptitle(f"Linear mixed effects model residuals: {highest_beta_session} beta channels", fontsize=30)
     fig_2.subplots_adjust(wspace=0, hspace=0)
     fig_2.tight_layout()
-    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
-    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
+    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.png"), bbox_inches="tight")
+    fig_2.savefig(os.path.join(figures_path, f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}.svg"), bbox_inches="tight", format="svg")
 
     
 
     # save results
-    mdf_result_filepath = os.path.join(results_path, f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle")
+    mdf_result_filepath = os.path.join(results_path, f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}.pickle")
     with open(mdf_result_filepath, "wb") as file:
         pickle.dump(model_output, file)
     
     print("file: ", 
-          f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}.pickle",
+          f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}.pickle",
           "\nwritten in: ", results_path
           )
 
@@ -679,6 +698,7 @@ def change_beta_peak_power_or_cf_violinplot(
         fooof_spectrum:str,
         highest_beta_session:str,
         data_to_analyze:str,
+        around_cf:str
 ):
     """
     Load the fooof data of the selected highest beta channels 
@@ -691,7 +711,9 @@ def change_beta_peak_power_or_cf_violinplot(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc_around_cf"
+        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"
+
+        - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
     """
 
@@ -702,7 +724,8 @@ def change_beta_peak_power_or_cf_violinplot(
     # Load the dataframe with only highest beta channels and calculated area under the curve of highest beta peaks
     beta_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
-        highest_beta_session=highest_beta_session
+        highest_beta_session=highest_beta_session,
+        around_cf=around_cf
     )
     # output is a dictionary with keys "ring", "segm_inter", "segm_intra"
     
@@ -762,7 +785,7 @@ def change_beta_peak_power_or_cf_violinplot(
                     session_1_data_of_interest = session_1_data.beta_center_frequency.values[0]
                     session_2_data_of_interest = session_2_data.beta_center_frequency.values[0]
                 
-                elif data_to_analyze == "beta_power_auc_around_cf":
+                elif data_to_analyze == "beta_power_auc":
                     
                     session_1_data_of_interest = session_1_data.beta_power_auc_around_cf.values[0]
                     session_2_data_of_interest = session_2_data.beta_power_auc_around_cf.values[0]
@@ -839,12 +862,13 @@ def change_beta_peak_power_or_cf_violinplot(
         plt.title(title_name)
         plt.ylabel(f"difference of {data_to_analyze} \nin beta band (13-35 Hz)")
         plt.xlabel("session comparison")
+        plt.xticks(range(len(session_comparisons)), session_comparisons)
 
         fig.tight_layout()
-        fig.savefig(os.path.join(figures_path, f"change_of_{data_to_analyze}_fooof_highest_beta_peak_{highest_beta_session}_{group}.png"), bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.png"), bbox_inches="tight")
 
         print("figure: ", 
-            f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}.png",
+            f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.png",
             "\nwritten in: ", figures_path
             )
         
