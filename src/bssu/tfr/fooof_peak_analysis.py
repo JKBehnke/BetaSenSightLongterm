@@ -716,7 +716,9 @@ def change_beta_peak_power_or_cf_violinplot(
         fooof_spectrum:str,
         highest_beta_session:str,
         data_to_analyze:str,
-        around_cf:str
+        around_cf:str,
+        absolute_change:str,
+        session_comparisons:list
 ):
     """
     Load the fooof data of the selected highest beta channels 
@@ -732,6 +734,10 @@ def change_beta_peak_power_or_cf_violinplot(
         - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"
 
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
+
+        - absolute_change: "yes" or "no" -> if absolute: the change is quantified independent of what direction this change was
+
+        - session_comparisons: list ["0_3", "0_12", "0_18", "3_12", "3_18", "12_18"] or ["0_3", "3_12", "12_18"]
 
     """
 
@@ -749,7 +755,6 @@ def change_beta_peak_power_or_cf_violinplot(
     
 
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    session_comparisons = ["0_3", "0_12", "0_18", "3_12", "3_18", "12_18"]
 
     statistics_dict = {} # 
     description_dict = {}
@@ -809,7 +814,11 @@ def change_beta_peak_power_or_cf_violinplot(
                     session_2_data_of_interest = session_2_data.beta_power_auc_around_cf.values[0]
 
                 # calculate difference between two sessions: session 1 - session 2
-                difference_ses1_ses2 = session_1_data_of_interest - session_2_data_of_interest
+                if absolute_change == "yes":
+                    difference_ses1_ses2 = abs(session_1_data_of_interest - session_2_data_of_interest)
+                
+                else:
+                    difference_ses1_ses2 = session_1_data_of_interest - session_2_data_of_interest
 
 
                 # store data in dataframe 
@@ -828,8 +837,18 @@ def change_beta_peak_power_or_cf_violinplot(
                                        }, inplace=True)
     difference_dataframe = difference_dataframe.transpose()
 
-    difference_dataframe["session_comp_group"] = difference_dataframe.session_comparison.replace(to_replace=["0_3", "0_12", "0_18", "3_12", "3_18", "12_18"], 
+    if len(session_comparisons) == 6:
+        difference_dataframe["session_comp_group"] = difference_dataframe.session_comparison.replace(to_replace=session_comparisons, 
                                                                                                  value=[1, 2, 3, 4, 5, 6])
+        group_comparisons = [1, 2, 3, 4, 5, 6]
+    
+    elif len(session_comparisons) == 3:
+        difference_dataframe["session_comp_group"] = difference_dataframe.session_comparison.replace(to_replace=session_comparisons, 
+                                                                                                 value=[1, 2, 3])
+        group_comparisons = [1, 2, 3]
+    
+    else:
+        print("length of session_comparisons should be 3 or 6.")
     
     difference_dataframe["difference_ses1-ses2"] = difference_dataframe["difference_ses1-ses2"].astype(float)
 
@@ -846,12 +865,11 @@ def change_beta_peak_power_or_cf_violinplot(
         sns.violinplot(data=group_data_to_plot, x="session_comp_group", y="difference_ses1-ses2", palette="coolwarm", inner="box", ax=ax)
 
         # statistical test: 
-        group_comparisons = [1, 2, 3, 4, 5, 6]
         pairs = list(combinations(group_comparisons, 2))
 
         annotator = Annotator(ax, pairs, data=group_data_to_plot, x='session_comp_group', y="difference_ses1-ses2")
         annotator.configure(test='Mann-Whitney', text_format='star') # or t-test_ind ??
-        # annotator.apply_and_annotate()
+        annotator.apply_and_annotate()
 
         sns.stripplot(
             data=group_data_to_plot,
@@ -883,13 +901,20 @@ def change_beta_peak_power_or_cf_violinplot(
         plt.xticks(range(len(session_comparisons)), session_comparisons)
 
         fig.tight_layout()
-        if data_to_analyze == "beta_power_auc":
-            fig_filename_png = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.png"
-            fig_filename_svg = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}.svg"
+        if absolute_change == "yes":
+            absolute = "absolute"
         
         else:
-            fig_filename_png = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}.png"
-            fig_filename_svg = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}.svg"
+            absolute = ""
+
+        if data_to_analyze == "beta_power_auc":
+            fig_filename_png = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.png"
+            fig_filename_svg = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.svg"
+        
+        else:
+            fig_filename_png = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.png"
+            fig_filename_svg = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.svg"
+    
 
         fig.savefig(os.path.join(figures_path, fig_filename_png), bbox_inches="tight")
         fig.savefig(os.path.join(figures_path, fig_filename_svg), bbox_inches="tight", format="svg")
@@ -936,7 +961,7 @@ def change_beta_peak_power_or_cf_violinplot(
     statistics_dataframe = pd.DataFrame(statistics_dict)
     statistics_dataframe.rename(index={0: "channel_group",
                                        1: "statistics_pair",
-                                       2: "stats",
+                                       2: "mann_whitney_u_stats",
                                        3: "p_val",
                                        }, inplace=True)
     statistics_dataframe = statistics_dataframe.transpose()

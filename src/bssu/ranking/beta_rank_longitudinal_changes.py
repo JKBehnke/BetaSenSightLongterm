@@ -48,6 +48,7 @@ def write_df_xy_changes_of_beta_ranks(
                     "18_0", "18_3", "18_12", "18_18"]
     
     coord_difference_data = {}
+    sample_size = {}
 
     results_path = find_folders.get_local_path(folder="GroupResults")
 
@@ -149,10 +150,28 @@ def write_df_xy_changes_of_beta_ranks(
     # considering x_difference: replace all values 2 by value -1, because there can only be a difference of direction of -1, 0 or 1
     coord_difference_dataframe["x_difference"] = coord_difference_dataframe["x_difference"].replace(to_replace=[2, -2], value=[-1, +1])
 
+    for comp in comparisons:
+
+        comp_data = coord_difference_dataframe.loc[coord_difference_dataframe.session_comparison == comp]
+
+        comp_data_rank_1 = comp_data.loc[comp_data.beta_rank == 1]
+
+        size = comp_data_rank_1.count()
+
+        sample_size[f"{comp}_beta_rank_1"] = [comp, size["subject_hemisphere"]]
+
+    # save as dataframe
+    sample_size_dataframe = pd.DataFrame(sample_size)
+    sample_size_dataframe.rename(
+        index={0: "session_comparison",
+               1: "sample_size"},
+               inplace=True)
+    sample_size_dataframe = sample_size_dataframe.transpose()
 
     return {
         "fooof_monopolar_df_copy": fooof_monopolar_df_copy,
-        "coord_difference_dataframe": coord_difference_dataframe
+        "coord_difference_dataframe": coord_difference_dataframe,
+        "sample_size_dataframe":sample_size_dataframe
     }
 
 
@@ -171,7 +190,7 @@ def fooof_beta_rank_coord_difference_scatterplot(
                    "3_12", "3_18", 
                    "12_18"]
     
-    jitter = 0.1
+    jitter = 0.16
 
     colors = ["turquoise", "tab:grey", "sandybrown", "plum", "cornflowerblue", "yellowgreen"]
 
@@ -189,7 +208,7 @@ def fooof_beta_rank_coord_difference_scatterplot(
 
     for comp in comparisons:
 
-        fig = plt.figure(figsize=[9,7], layout="tight")
+        fig = plt.figure(figsize=[9,7], layout="tight") # 9,7
 
         comp_df = df_xy_changes_of_beta_ranks.loc[df_xy_changes_of_beta_ranks.session_comparison == comp]
 
@@ -213,11 +232,11 @@ def fooof_beta_rank_coord_difference_scatterplot(
         plt.ylim(-1.2, 1.2)
 
 
-        plt.legend(loc= 'upper right', edgecolor="black", fontsize=20, frameon=True, shadow=True, bbox_to_anchor=(1.5, 1))
+        plt.legend(loc= 'upper right', edgecolor="black", fontsize=20, frameon=True, shadow=True, bbox_to_anchor=(1.6, 1)) # 1.5, 1
         plt.grid(True)
 
-        fig.suptitle(f"change of segmental contacts of beta ranks: \ncomparison between sessions {comp}", fontsize=25, y=1.02)
-        fig.subplots_adjust(wspace=40, hspace=60)
+        fig.suptitle(f"change of segmental contacts of beta ranks: \ncomparison between sessions {comp}", fontsize=25, y=1.02) # 1.02
+        fig.subplots_adjust(wspace=60, hspace=60)
 
         fig.savefig(os.path.join(figures_path, f"fooof_beta_ranks_{ranks_included}_change_sessions_{comp}_{similarity_calculation}.png"),
                     bbox_inches="tight")
