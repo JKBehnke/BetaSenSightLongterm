@@ -810,8 +810,8 @@ def change_beta_peak_power_or_cf_violinplot(
                 
                 elif data_to_analyze == "beta_power_auc":
                     
-                    session_1_data_of_interest = session_1_data.beta_power_auc_around_cf.values[0]
-                    session_2_data_of_interest = session_2_data.beta_power_auc_around_cf.values[0]
+                    session_1_data_of_interest = session_1_data.beta_power_auc.values[0]
+                    session_2_data_of_interest = session_2_data.beta_power_auc.values[0]
 
                 # calculate difference between two sessions: session 1 - session 2
                 if absolute_change == "yes":
@@ -902,18 +902,18 @@ def change_beta_peak_power_or_cf_violinplot(
 
         fig.tight_layout()
         if absolute_change == "yes":
-            absolute = "absolute"
+            absolute = "absolute_"
         
         else:
             absolute = ""
 
         if data_to_analyze == "beta_power_auc":
-            fig_filename_png = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.png"
-            fig_filename_svg = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.svg"
+            fig_filename_png = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}.png"
+            fig_filename_svg = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}.svg"
         
         else:
-            fig_filename_png = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.png"
-            fig_filename_svg = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}_{session_comparisons}.svg"
+            fig_filename_png = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}.png"
+            fig_filename_svg = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}.svg"
     
 
         fig.savefig(os.path.join(figures_path, fig_filename_png), bbox_inches="tight")
