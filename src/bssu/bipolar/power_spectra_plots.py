@@ -888,6 +888,129 @@ def FOOOF_spectra_per_channel(
                         bbox_inches = "tight", format="svg")
 
 
+def fooof_spectra_per_channel_group(
+        fooof_spectrum:str,
+        specific_sub_hem:list,
+        
+):
+    """
+    Plotting all power spectra of the same channel group and same session in one subplot.
+
+    Input: 
+        - fooof_spectrum = "periodic_spectrum"
+        - incl_sub = ["041_Left", "041_Right"] if specific or ["all"] if all in data table should be plotted
+
+    
+    """
+
+    fooof_group_result = loadResults.load_fooof_beta_ranks(
+        fooof_spectrum=fooof_spectrum,
+        all_or_one_chan="beta_ranks_all"
+        )
+    
+    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    group_channels = ["ring", "segm_intra", "segm_inter"]
+
+    ring = ['01', '12', '23']
+    segm_inter = ["1A2A", "1B2B", "1C2C"]
+    segm_intra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+    if "all" not in specific_sub_hem:
+
+        stn_list = specific_sub_hem
+    
+    elif "all" in specific_sub_hem:
+
+        stn_list = list(fooof_group_result.subject_hemisphere.unique())
+    
+
+
+    # one figure for each subject
+    for stn in stn_list:
+
+        sub_hem = stn.split("_")
+        sub = sub_hem[0]
+
+        subject_figures_path = find_folders.get_local_path(folder="figures", sub=sub)
+
+        stn_df = fooof_group_result.loc[fooof_group_result.subject_hemisphere == stn]
+
+        # 5 colors used for the cycle of matplotlib 
+        cycler_colors = cycler("color", ["turquoise", "sandybrown", "plum", "cornflowerblue", "tab:grey", "yellowgreen"])
+        plt.rc('axes', prop_cycle=cycler_colors)
+
+
+        fig = plt.figure(figsize= (30, 30), layout="tight")
+
+        for g, group in enumerate(group_channels): # 0,1,2
+            
+            for s, ses in enumerate(sessions): # 0,1,2,3
+            
+                # check if session exists
+                if ses not in stn_df.session.values:
+                    continue
+
+                elif ses == "postop":
+                    plt.subplot(4,3,s+g+1, label=f"{group}_{ses}") # e.g. 0+0+1, 0+1+1, 0+2+1 = row1
+                
+                elif ses == "fu3m":
+                    plt.subplot(4,3,s+g+3, label=f"{group}_{ses}") # e.g. 1+0+3, 1+1+3, 1+2+3 = row1
+                
+                elif ses == "fu12m":
+                    plt.subplot(4,3,s+g+5, label=f"{group}_{ses}") # e.g. 2+0+5, 2+1+5, 2+2+5 = row1
+                
+                elif ses == "fu18m":
+                    plt.subplot(4,3,s+g+7, label=f"{group}_{ses}") # e.g. 3+0+7, 3+1+7, 3+2+7 = row1
+
+                session_df = stn_df.loc[stn_df.session == ses]
+
+                # for each group, get all channels
+                for c, chan in enumerate(eval(group)):
+                    # get f, psd and sem from data
+                    chan_ses_df = session_df.loc[session_df.bipolar_channel == chan]
+
+                    beta_rank = chan_ses_df.beta_rank.values[0].astype(int)
+                    power_spectrum = chan_ses_df.fooof_power_spectrum.values[0]
+                    frequencies = np.arange(1, 96) # 1-95 Hz, 1 Hz resolution
+
+                    # plot each Power spectrum for each channel in the same group_ses subplot
+                    plt.title(f"{group}_{ses}", fontdict={"size": 40})
+                    plt.plot(frequencies, power_spectrum, label = f"{chan}: beta rank {beta_rank}", linewidth=4)
+
+                    # add lines for freq Bands
+                    #plt.axvline(x=8, color='grey', linestyle='--')
+                    # plt.axvline(x=13, color='grey', linestyle='--')
+                    # #plt.axvline(x=20, color='grey', linestyle='--')
+                    # plt.axvline(x=35, color='grey', linestyle='--')
+                    x1 = 13
+                    x2 = 35
+                    plt.axvspan(x1, x2, color="whitesmoke")
+
+                    plt.xlabel("frequency [Hz]", fontdict={"size": 30})
+                    plt.xlim(2, 50)
+                    plt.ylim(-0.05, 3.5)
+                    plt.ylabel("power [uV^2/Hz+-SEM]", fontdict={"size": 30})
+                    plt.xticks(fontsize= 20), plt.yticks(fontsize= 20)
+                    plt.legend(loc= 'upper right', edgecolor="black", fontsize=20)
+                    plt.grid(False)
+
+
+        # Title of each plot per normalization variant
+        fig.suptitle(f"FOOOF periodic power spectra of sub-{stn}", fontsize=55, y=1.02)
+
+        # adjust Layout
+        fig.subplots_adjust(wspace=40, hspace=60)
+        # plt.tight_layout(pad=10, w_pad=10, h_pad=10)
+
+        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup.svg"), 
+                        bbox_inches = "tight", format="svg")
+        
+        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup.png"), 
+                        bbox_inches = "tight")
+
+
+
+
 
             
 
