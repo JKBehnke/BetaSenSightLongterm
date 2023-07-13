@@ -1046,7 +1046,8 @@ def fooof_beta_write_session_comparison_df(
 
 def fooof_bip_channel_groups_beta_spearman(
         fooof_spectrum:str,
-        spearman_mean_or_median:str
+        spearman_mean_or_median:str,
+        all_groups_together:str
         ):
     
     """
@@ -1054,7 +1055,9 @@ def fooof_bip_channel_groups_beta_spearman(
     Input:
 
         - fooof_spectrum: "periodic_spectrum"
-        - spearman_mean_or_median: "mean", "median"
+        - spearman_mean_or_median: "mean", "median",
+        - all_groups_together: "yes" or "no"    -> "yes" will calculate the beta correlation of all LFPs of each subject 
+                                                -> "no" will calculate the beta correlation of each LFP group seperately of each subject
 
     From the above function load the comparison_storage dictionary
     fooof_beta_write_session_comparison_df()
@@ -1092,15 +1095,23 @@ def fooof_bip_channel_groups_beta_spearman(
     for comp in compare_sessions:
         
         # Figure Layout per comparison: 3 rows (Ring, SegmIntra, SegmInter), 1 column
-        # fig, axes = plt.subplots(3,1,figsize=(10,15)) 
+        # fig, axes = plt.subplots(3,1,figsize=(10,15))
 
-        for g, group in enumerate(channel_groups):
 
-            # Dataframe of one comparison and one channel group
-            comp_group_DF = session_comp_df[f"{group}_{comp}"]
+        if all_groups_together == "yes":
+            
+            comp_all_groups_DF = pd.DataFrame()
 
+            group_name = "all_LFPs"
+
+            # concatenate all groups together:
+            for group in channel_groups:
+
+                c_g_DF = session_comp_df[f"{group}_{comp}"]
+                comp_all_groups_DF = pd.concat([comp_all_groups_DF, c_g_DF])
+            
             # list of available STNs
-            stn_list = list(comp_group_DF["subject_hemisphere_x"].unique())
+            stn_list = list(comp_all_groups_DF["subject_hemisphere_x"].unique())
 
             # list with all spearman r values per comparison and channel group
             spearman_r_list = []
@@ -1109,7 +1120,7 @@ def fooof_bip_channel_groups_beta_spearman(
             for stn in stn_list:
 
                 # Dataframe of one stn
-                stn_data = comp_group_DF.loc[comp_group_DF.subject_hemisphere_x == stn]
+                stn_data = comp_all_groups_DF.loc[comp_all_groups_DF.subject_hemisphere_x == stn]
 
                 # correlate each stn channel group session comparison seperately
                 spearman_beta = stats.spearmanr(stn_data.beta_average_x, stn_data.beta_average_y)
@@ -1121,8 +1132,7 @@ def fooof_bip_channel_groups_beta_spearman(
                 spearman_pval_list.append(spearman_beta_pval)
 
                 
-            
-            # for each channel group and session comparison - get description of data list
+            # for each session comparison - get description of data list
             # spearman r
             mean_spearman_comp_group = np.mean(spearman_r_list)
             median_spearman_comp_group = np.median(spearman_r_list)
@@ -1137,10 +1147,59 @@ def fooof_bip_channel_groups_beta_spearman(
             
 
             # store all values in dictionary
-            fooof_beta_spearman[f"{comp}_{group}"] = [comp, group, sample_size_spearman, 
+            fooof_beta_spearman[f"{comp}_{group_name}"] = [comp, group_name, sample_size_spearman, 
                                                     std_spearman_comp_group, mean_spearman_comp_group, median_spearman_comp_group,
                                                     std_pval_comp_group, mean_pval_comp_group, median_pval_comp_group]
             
+        elif all_groups_together == "no":
+
+            for g, group in enumerate(channel_groups):
+
+                # Dataframe of one comparison and one channel group
+                comp_group_DF = session_comp_df[f"{group}_{comp}"]
+
+                # list of available STNs
+                stn_list = list(comp_group_DF["subject_hemisphere_x"].unique())
+
+                # list with all spearman r values per comparison and channel group
+                spearman_r_list = []
+                spearman_pval_list = []
+
+                for stn in stn_list:
+
+                    # Dataframe of one stn
+                    stn_data = comp_group_DF.loc[comp_group_DF.subject_hemisphere_x == stn]
+
+                    # correlate each stn channel group session comparison seperately
+                    spearman_beta = stats.spearmanr(stn_data.beta_average_x, stn_data.beta_average_y)
+                    spearman_beta_r = spearman_beta.statistic
+                    spearman_beta_pval = spearman_beta.pvalue
+
+                    # store all spearman values of all stns in a group 
+                    spearman_r_list.append(spearman_beta_r)
+                    spearman_pval_list.append(spearman_beta_pval)
+
+                    
+                
+                # for each channel group and session comparison - get description of data list
+                # spearman r
+                mean_spearman_comp_group = np.mean(spearman_r_list)
+                median_spearman_comp_group = np.median(spearman_r_list)
+                std_spearman_comp_group = np.std(spearman_r_list)
+
+                # spearman pval
+                mean_pval_comp_group = np.mean(spearman_pval_list)
+                median_pval_comp_group = np.median(spearman_pval_list)
+                std_pval_comp_group = np.std(spearman_pval_list)
+                    
+                sample_size_spearman = len(spearman_r_list) # number of STNs in one session comparison 
+                
+
+                # store all values in dictionary
+                fooof_beta_spearman[f"{comp}_{group}"] = [comp, group, sample_size_spearman, 
+                                                        std_spearman_comp_group, mean_spearman_comp_group, median_spearman_comp_group,
+                                                        std_pval_comp_group, mean_pval_comp_group, median_pval_comp_group]
+                
         
     # Permutation_BIP transform from dictionary to Dataframe
     spearman_result_df = pd.DataFrame(fooof_beta_spearman)
@@ -1162,18 +1221,16 @@ def fooof_bip_channel_groups_beta_spearman(
 
     ################## PLOT A HEAT MAP OF SPEARMAN CORRELATION MEAN OR MEDIAN VALUES PER SESSION COMBINATION ##################
 
-    for group in channel_groups:
-
-        group_df = spearman_result_df.loc[spearman_result_df.channel_group == group]
+    if all_groups_together == "yes":
 
         # transform spearman mean or median values to floats and 4x4 matrices
         if spearman_mean_or_median == "mean":
-            spearmanr_to_plot = group_df.mean_spearman_values.values.astype(float)
+            spearmanr_to_plot = spearman_result_df.mean_spearman_values.values.astype(float)
             # reshape the mean of spearman r values into 4x4 matrix
             spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
 
         elif spearman_mean_or_median == "median":
-            spearmanr_to_plot = group_df.median_spearman_values.values.astype(float)
+            spearmanr_to_plot = spearman_result_df.median_spearman_values.values.astype(float)
             # reshape the medians of spearman r values into 4x4 matrix
             spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
 
@@ -1203,24 +1260,80 @@ def fooof_bip_channel_groups_beta_spearman(
                 plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(spearmanr_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
 
         # Add a title
-        plt.title(f"Spearman correlation of beta psd \nin {group} channel group")
+        plt.title(f"Spearman correlation of beta psd \nall LFPs")
 
         fig.tight_layout()
-        fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.png"), bbox_inches="tight")
-        fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.svg"), bbox_inches="tight", format="svg")
+        fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_LFPs_beta_correlations_heatmap_{spearman_mean_or_median}.png"), bbox_inches="tight")
+        fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_LFPs_beta_correlations_heatmap_{spearman_mean_or_median}.svg"), bbox_inches="tight", format="svg")
 
         # save DF as pickle file
-        spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle")
+        spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_bipolar_LFPs_beta_correlations_heatmap_{spearman_mean_or_median}.pickle")
         with open(spearman_m_df_filepath, "wb") as file:
             pickle.dump(spearman_result_df, file)
 
         print("file: ", 
-                f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle",
+                f"{fooof_spectrum}_bipolar_LFPs_beta_correlations_heatmap_{spearman_mean_or_median}.pickle",
                 "\nwritten in: ", results_path
                 )
 
+    elif all_groups_together == "no":
+
+        for group in channel_groups:
+
+            group_df = spearman_result_df.loc[spearman_result_df.channel_group == group]
+
+            # transform spearman mean or median values to floats and 4x4 matrices
+            if spearman_mean_or_median == "mean":
+                spearmanr_to_plot = group_df.mean_spearman_values.values.astype(float)
+                # reshape the mean of spearman r values into 4x4 matrix
+                spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
+
+            elif spearman_mean_or_median == "median":
+                spearmanr_to_plot = group_df.median_spearman_values.values.astype(float)
+                # reshape the medians of spearman r values into 4x4 matrix
+                spearmanr_to_plot = spearmanr_to_plot.reshape(4,4)
 
 
+            # plot a heatmap
+            fig, ax = plt.subplots()
+
+            heatmap = ax.pcolor(spearmanr_to_plot, cmap=plt.cm.YlOrRd)
+            # other color options: GnBu, YlOrRd, YlGn, Greys, Blues, PuBuGn, YlGnBu
+
+            # Set the x and y ticks to show the indices of the matrix
+            ax.set_xticks(np.arange(spearmanr_to_plot.shape[1])+0.5, minor=False)
+            ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
+
+            # Set the tick labels to show the values of the matrix
+            ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+            ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+
+
+            # Add a colorbar to the right of the heatmap
+            cbar = plt.colorbar(heatmap)
+            cbar.set_label(f"{spearman_mean_or_median} spearman r")
+
+            # Add the cell values to the heatmap
+            for i in range(spearmanr_to_plot.shape[0]):
+                for j in range(spearmanr_to_plot.shape[1]):
+                    plt.text(j + 0.5, i + 0.5, str("{: .2f}".format(spearmanr_to_plot[i, j])), ha='center', va='center') # only show 2 numbers after the comma of a float
+
+            # Add a title
+            plt.title(f"Spearman correlation of beta psd \nin {group} channel group")
+
+            fig.tight_layout()
+            fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.png"), bbox_inches="tight")
+            fig.savefig(os.path.join(figures_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.svg"), bbox_inches="tight", format="svg")
+
+            # save DF as pickle file
+            spearman_m_df_filepath = os.path.join(results_path, f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle")
+            with open(spearman_m_df_filepath, "wb") as file:
+                pickle.dump(spearman_result_df, file)
+
+            print("file: ", 
+                    f"{fooof_spectrum}_bipolar_{group}_beta_correlations_heatmap_{spearman_mean_or_median}.pickle",
+                    "\nwritten in: ", results_path
+                    )
 
 
     return spearman_result_df
