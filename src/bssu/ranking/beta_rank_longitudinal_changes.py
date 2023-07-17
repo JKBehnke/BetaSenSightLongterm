@@ -157,14 +157,20 @@ def write_df_xy_changes_of_beta_ranks(
         comp_data_rank_1 = comp_data.loc[comp_data.beta_rank == 1]
 
         size = comp_data_rank_1.count()
+        size = size["subject_hemisphere"]
 
-        sample_size[f"{comp}_beta_rank_1"] = [comp, size["subject_hemisphere"]]
+        percentage_stable_level = (comp_data_rank_1.y_difference.value_counts()[0])/size
+        percentage_stable_direction = (comp_data_rank_1.x_difference.value_counts()[0])/size
+
+        sample_size[f"{comp}_beta_rank_1"] = [comp, size, percentage_stable_level, percentage_stable_direction]
 
     # save as dataframe
     sample_size_dataframe = pd.DataFrame(sample_size)
     sample_size_dataframe.rename(
         index={0: "session_comparison",
-               1: "sample_size"},
+               1: "sample_size",
+               2: "percentage_stable_level",
+               3: "percentage_stable_direction"},
                inplace=True)
     sample_size_dataframe = sample_size_dataframe.transpose()
 
