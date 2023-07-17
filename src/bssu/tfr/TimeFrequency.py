@@ -92,11 +92,9 @@ mapping = {
 }
 
 
-def time_frequency(incl_sub: str, 
+def time_frequency(incl_sub: list, 
                    incl_session: list, 
                    incl_condition: list, 
-                   channel_group: str, 
-                   hemisphere: str,
                    filter_signal:str):
     """
 
@@ -124,195 +122,212 @@ def time_frequency(incl_sub: str,
     # sns.set()
     # plt.style.use('seaborn-whitegrid')  
 
-    if hemisphere == "Right":
-        incl_contact = ["RingR", "SegmIntraR", "SegmInterR"]
-    
-    elif hemisphere == "Left":
-        incl_contact = ["RingL", "SegmIntraL", "SegmInterL"]
+    hemisphere = ["Right", "Left"]
 
-    if channel_group == "ring":
-        pickChannels = ['03', '13', '02', '12', '01', '23']
-    
-    elif channel_group == "segm_inter":
-        pickChannels = ['1A2A', '1B2B', '1C2C']
-
-    elif channel_group == "segm_intra":
-        pickChannels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
-    
-
-    mainclass_sub = main_class.PerceiveData(
-        sub = incl_sub, 
-        incl_modalities= ["survey"],
-        incl_session = incl_session,
-        incl_condition = incl_condition,
-        incl_task = ["rest"],
-        incl_contact=incl_contact
-        )
+    ring_group = ["RingR", "RingL"]
+    segm_inter_group = ["SegmInterR", "SegmInterL"]
+    segm_intra_group = ["SegmIntraR", "SegmIntraL"]
 
     
-    figures_path = findfolders.get_local_path(folder="figures", sub=incl_sub)
-    results_path = findfolders.get_local_path(folder="results", sub=incl_sub)
 
-    # add error correction for sub and task??
-    
+    for sub in incl_sub:
 
-    # set layout for figures: using the object-oriented interface
-    cols = ['Session {}'.format(col) for col in incl_session]
-    rows = ['Channel {}'.format(row) for row in pickChannels]
+        figures_path = findfolders.get_local_path(folder="figures", sub=sub)
+        results_path = findfolders.get_local_path(folder="results", sub=sub)
 
-    fig, axes = plt.subplots(len(pickChannels), len(incl_session), figsize=(15, 15)) # subplot(rows, columns, panel number)
-    
-    plt.setp(axes.flat, xlabel='Time [sec]', ylabel='Frequency [Hz]')
+        for hem in hemisphere:
 
-
-    pad = 5 # in points
-
-    for ax, col in zip(axes[0], cols):
-        ax.annotate(col, xy=(0.5, 1), xytext=(0, pad),
-                    xycoords='axes fraction', textcoords='offset points',
-                    size='large', ha='center', va='baseline')
-
-    for ax, row in zip(axes[:,0], rows):
-        ax.annotate(row, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
-                    xycoords=ax.yaxis.label, textcoords='offset points',
-                    size='large', ha='right', va='center')
-
-    fig.tight_layout()
-    # tight_layout doesn't take these labels into account. We'll need 
-    # to make some room. These numbers are are manually tweaked. 
-    # You could automatically calculate them, but it's a pain.
-    fig.subplots_adjust(left=0.15, top=0.95)
-    fig.suptitle(f"sub{incl_sub}, {hemisphere} hemisphere, {channel_group} group, {filter_signal}")
-    
- 
-
-    for t, tp in enumerate(incl_session):
-        # t is indexing time_points, tp are the time_points
-
-        for c, cond in enumerate(incl_condition):
-
-            for cont, contact in enumerate(incl_contact): 
-                # tk is indexing task, task is the input task
-
-                # avoid Attribute Error, continue if attribute doesn´t exist
-                if getattr(mainclass_sub.survey, tp) is None:
-                    continue
-
+            if hem == "Right":
+                incl_contact = ["RingR", "SegmIntraR", "SegmInterR"]
             
-                # apply loop over channels
-                temp_data = getattr(mainclass_sub.survey, tp) # gets attribute e.g. of tp "postop" from modality_class with modality set to survey
-                
-                # avoid Attribute Error, continue if attribute doesn´t exist
-                if getattr(temp_data, cond) is None:
-                    continue
+            elif hem == "Left":
+                incl_contact = ["RingL", "SegmIntraL", "SegmInterL"]
             
-                # try:
-                #     temp_data = getattr(temp_data, cond)
-                #     temp_data = temp_data.rest.data[tasks[tk]]
+            for group in incl_contact:
+
+                if group in ring_group:
+                    pickChannels = ['03', '13', '02', '12', '01', '23']
                 
-                # except AttributeError:
-                #     continue
+                elif group in segm_inter_group:
+                    pickChannels = ['1A2A', '1B2B', '1C2C']
 
-                temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
-                temp_data = getattr(temp_data.rest, contact)
-                temp_data = temp_data.run1.data #[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
-    
-                print("DATA", temp_data)
+                elif group in segm_intra_group:
+                    pickChannels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
 
-                #################### CREATE A BUTTERWORTH FILTER ####################
+                mainclass_sub = main_class.PerceiveData(
+                    sub = sub, 
+                    incl_modalities= ["survey"],
+                    incl_session = incl_session,
+                    incl_condition = incl_condition,
+                    incl_task = ["rest"],
+                    incl_contact=incl_contact
+                    )
 
-                # sample frequency: 250 Hz
-                fs = temp_data.info['sfreq'] 
-
-                # set filter parameters for band-pass filter
-                filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
-                frequency_cutoff_low = 5 # 5Hz high-pass filter
-                frequency_cutoff_high = 95 # 95 Hz low-pass filter
-                fs = temp_data.info['sfreq'] # sample frequency: 250 Hz
-
-                # create the filter
-                b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
- 
-
-                #################### RENAME CHANNELS ####################
-                # all channel names of one loaded file (one session, one task)
-                ch_names_original = temp_data.info.ch_names
-
-                # # select only relevant keys and values from the mapping dictionary to rename channels
-                # mappingSelected = dict((key, mapping[key]) for key in ch_names_original if key in mapping)
-
-                # # rename channels using mne and the new selected mapping dictionary
-                # mne.rename_channels(info=temp_data.info, mapping=mappingSelected, allow_duplicates=False)
-
-                # # get new channel names
-                # ch_names_renamed = temp_data.info.ch_names
-
-
-                #################### PICK CHANNELS ####################
-                include_channelList = [] # this will be a list with all channel names selected
-                exclude_channelList = []
-
-                #for n, names in enumerate(ch_names_renamed):
-                for n, names in enumerate(ch_names_original):
+                # check what sessions exist
+                existing_sessions = []
+                for ses in incl_session:
+                    try: 
+                        getattr(mainclass_sub.survey, ses)
                     
-                    # add all channel names that contain the picked channels: e.g. 02, 13, etc given in the input pickChannels
-                    for picked in pickChannels:
-                        if picked in names:
-                            include_channelList.append(names)
-
-
-                    # exclude all bipolar 0-3 channels, because they do not give much information
-                    # if "03" in names:
-                    #     exclude_channelList.append(names)
-                    
-                # Error Checking: 
-                if len(include_channelList) == 0:
-                    continue
-
-                # pick channels of interest: mne.pick_channels() will output the indices of included channels in an array
-                ch_names_indices = mne.pick_channels(ch_names_original, include=include_channelList)
-
-                # ch_names = [ch_names_renamed[idx] for idx in ch_names_indices] # new list of picked channel names based on the indeces 
-
-
-                # create a time frequency plot per channel
-                for i, ch in enumerate(ch_names_original):
-                    
-                    # only get picked channels
-                    if i not in ch_names_indices:
+                    except AttributeError:
                         continue
 
-                    #################### FILTER ####################
-
-                    # filter the signal by using the above defined butterworth filter
-                    filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
-
-                    # unfiltered data
-                    unfiltered = temp_data.get_data()[i, :]
-
-                    # settings for window
-                    noverlap = 0 # 0.5
-                    win_samp = 250 # window for fft in samples e.g. 250 for 1 sec
-                    # window = hann(win_samp, sym=False)
-
-                    # calculate Time Frequency using scipy
-                    # freq,time,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap)
-
-                    # plot in subplot row=channel, column=timepoint
-                    # axes[i, t].pcolormesh(time, freq, Sxx, cmap='viridis', shading="gouraud", vmin=0, vmax=5)
-                    
-                    ### calculate and plot a spectogram using matplotlib
-                    if filter_signal == "band-pass":
-                        axes[i, t].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
-                    
-                    if filter_signal == "unfiltered":
-                        axes[i, t].specgram(x = unfiltered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
-                    
-                    axes[i, t].grid(False)
-
-
+                    existing_sessions.append(ses)
                 
-    #plt.show()
-    
-    fig.savefig(figures_path + f"\\time_frequency_sub{incl_sub}_{hemisphere}_{channel_group}_{filter_signal}.png")
+
+                # set layout for figures: using the object-oriented interface
+                cols = ['Session {}'.format(col) for col in existing_sessions]
+                rows = ['Channel {}'.format(row) for row in pickChannels]
+
+                fig, axes = plt.subplots(len(pickChannels), len(existing_sessions), figsize=(15, 15)) # subplot(rows, columns, panel number)
+                
+                plt.setp(axes.flat, xlabel='Time [sec]', ylabel='Frequency [Hz]')
+
+
+                pad = 5 # in points
+
+                for ax, col in zip(axes[0], cols):
+                    ax.annotate(col, xy=(0.5, 1), xytext=(0, pad),
+                                xycoords='axes fraction', textcoords='offset points',
+                                size='large', ha='center', va='baseline')
+
+                for ax, row in zip(axes[:,0], rows):
+                    ax.annotate(row, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
+                                xycoords=ax.yaxis.label, textcoords='offset points',
+                                size='large', ha='right', va='center')
+
+                fig.tight_layout()
+                # tight_layout doesn't take these labels into account. We'll need 
+                # to make some room. These numbers are are manually tweaked. 
+                # You could automatically calculate them, but it's a pain.
+                fig.subplots_adjust(left=0.15, top=0.95)
+                fig.suptitle(f"sub{sub}, {hem} hemisphere, {group} group, {filter_signal}")
+                
+            
+
+                for t, tp in enumerate(existing_sessions):
+                    # t is indexing time_points, tp are the time_points
+
+                    for c, cond in enumerate(incl_condition):
+
+                        for cont, contact in enumerate(incl_contact): 
+                            # tk is indexing task, task is the input task
+
+                            # avoid Attribute Error, continue if attribute doesn´t exist
+                            
+                            try:
+                                getattr(mainclass_sub.survey, tp)
+                            
+                            except AttributeError:
+                                continue
+
+                            # apply loop over channels
+                            temp_data = getattr(mainclass_sub.survey, tp) # gets attribute e.g. of tp "postop" from modality_class with modality set to survey
+                            
+                            # avoid Attribute Error, continue if attribute doesn´t exist
+                            try:
+                                getattr(temp_data, cond)
+                            
+                            except AttributeError:
+                                continue
+
+                            temp_data = getattr(temp_data, cond) # gets attribute e.g. "m0s0"
+                            temp_data = getattr(temp_data.rest, contact)
+                            temp_data = temp_data.run1.data #[incl_contact[cont]] # gets the mne loaded data from the perceive .mat BSSu, m0s0 file with task "RestBSSuRingR"
+                
+                            print("DATA", temp_data)
+
+                            #################### CREATE A BUTTERWORTH FILTER ####################
+
+                            # sample frequency: 250 Hz
+                            fs = temp_data.info['sfreq'] 
+
+                            # set filter parameters for band-pass filter
+                            filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
+                            frequency_cutoff_low = 5 # 5Hz high-pass filter
+                            frequency_cutoff_high = 95 # 95 Hz low-pass filter
+                            fs = temp_data.info['sfreq'] # sample frequency: 250 Hz
+
+                            # create the filter
+                            b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
+            
+
+                            #################### RENAME CHANNELS ####################
+                            # all channel names of one loaded file (one session, one task)
+                            ch_names_original = temp_data.info.ch_names
+
+                            # # select only relevant keys and values from the mapping dictionary to rename channels
+                            # mappingSelected = dict((key, mapping[key]) for key in ch_names_original if key in mapping)
+
+                            # # rename channels using mne and the new selected mapping dictionary
+                            # mne.rename_channels(info=temp_data.info, mapping=mappingSelected, allow_duplicates=False)
+
+                            # # get new channel names
+                            # ch_names_renamed = temp_data.info.ch_names
+
+
+                            #################### PICK CHANNELS ####################
+                            include_channelList = [] # this will be a list with all channel names selected
+                            exclude_channelList = []
+
+                            #for n, names in enumerate(ch_names_renamed):
+                            for n, names in enumerate(ch_names_original):
+                                
+                                # add all channel names that contain the picked channels: e.g. 02, 13, etc given in the input pickChannels
+                                for picked in pickChannels:
+                                    if picked in names:
+                                        include_channelList.append(names)
+
+
+                                # exclude all bipolar 0-3 channels, because they do not give much information
+                                # if "03" in names:
+                                #     exclude_channelList.append(names)
+                                
+                            # Error Checking: 
+                            if len(include_channelList) == 0:
+                                continue
+
+                            # pick channels of interest: mne.pick_channels() will output the indices of included channels in an array
+                            ch_names_indices = mne.pick_channels(ch_names_original, include=include_channelList)
+
+                            # ch_names = [ch_names_renamed[idx] for idx in ch_names_indices] # new list of picked channel names based on the indeces 
+
+
+                            # create a time frequency plot per channel
+                            for i, ch in enumerate(ch_names_original):
+                                
+                                # only get picked channels
+                                if i not in ch_names_indices:
+                                    continue
+
+                                #################### FILTER ####################
+
+                                # filter the signal by using the above defined butterworth filter
+                                filtered = scipy.signal.filtfilt(b, a, temp_data.get_data()[i, :]) 
+
+                                # unfiltered data
+                                unfiltered = temp_data.get_data()[i, :]
+
+                                # settings for window
+                                noverlap = 0 # 0.5
+                                win_samp = 250 # window for fft in samples e.g. 250 for 1 sec
+                                # window = hann(win_samp, sym=False)
+
+                                # calculate Time Frequency using scipy
+                                # freq,time,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap)
+
+                                # plot in subplot row=channel, column=timepoint
+                                # axes[i, t].pcolormesh(time, freq, Sxx, cmap='viridis', shading="gouraud", vmin=0, vmax=5)
+                                
+                                ### calculate and plot a spectogram using matplotlib
+                                if filter_signal == "band-pass":
+                                    axes[i, t].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                                
+                                if filter_signal == "unfiltered":
+                                    axes[i, t].specgram(x = unfiltered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                                
+                                axes[i, t].grid(False)
+
+
+                fig.savefig(os.path.join(figures_path, f"time_frequency_sub{sub}_{hem}_{group}_{filter_signal}.png"))
     
