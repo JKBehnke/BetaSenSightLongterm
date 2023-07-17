@@ -957,6 +957,11 @@ def change_beta_peak_power_or_cf_violinplot(
     description_results = pd.DataFrame(description_dict)
     description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
     description_results = description_results.transpose()
+    # calculate the standard deviation as the square root from the variance
+    description_results["variance"] = description_results["variance"].astype(float)
+    description_results["standard_deviation"] = np.sqrt(description_results["variance"])
+
+    
 
     statistics_dataframe = pd.DataFrame(statistics_dict)
     statistics_dataframe.rename(index={0: "channel_group",
