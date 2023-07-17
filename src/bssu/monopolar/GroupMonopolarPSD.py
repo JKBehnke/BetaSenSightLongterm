@@ -621,12 +621,14 @@ def fooof_monopol_psd_spearman_betw_sessions(
         elif mean_or_median == "median":
             m_spearmanr = pairs_df.spearman_r.median() 
             m_pval = pairs_df.pval.median()
+        
+        spearman_std = np.std(pairs_df.spearman_r)
 
-        spearman_m[f"{comp}_spearman_m"] = [session_1, session_2, m_spearmanr, m_pval]
+        spearman_m[f"{comp}_spearman_m"] = [session_1, session_2, m_spearmanr, m_pval, spearman_std]
 
     # write a Dataframe with the mean or median spearman values per session combination
     spearman_m_df = pd.DataFrame(spearman_m)
-    spearman_m_df.rename(index={0: "session_1", 1: "session_2", 2: f"{mean_or_median}_spearmanr", 3: f"{mean_or_median}_pval"}, inplace=True)
+    spearman_m_df.rename(index={0: "session_1", 1: "session_2", 2: f"{mean_or_median}_spearmanr", 3: f"{mean_or_median}_pval", 4:"spearman_std"}, inplace=True)
     spearman_m_df = spearman_m_df.transpose()
 
     ################## PLOT A HEAT MAP OF SPEARMAN CORRELATION MEAN OR MEDIAN VALUES PER SESSION COMBINATION ##################
