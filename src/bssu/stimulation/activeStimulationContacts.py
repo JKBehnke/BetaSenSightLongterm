@@ -2036,8 +2036,9 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
                    x="session", 
                    y=y_values, 
                    hue="session_clinical_activity", 
-                   palette="coolwarm", 
-                   inner="box", 
+                   color="white", # palette="coolwarm"
+                   #split=True, # delete
+                   inner="box", # alternative: quart
                    ax=axes,
                    scale="count",
                    scale_hue=True,
@@ -2065,6 +2066,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
         y=y_values,
         hue="session_clinical_activity",
         ax=axes,
+        jitter=True, # delete
         size=5,
         color="grey", # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
         alpha=0.5, # Transparency of dots
@@ -2079,6 +2081,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     axes.tick_params(axis="x", labelsize=10)
     axes.tick_params(axis="y", labelsize=10)
     #plt.ylim(y_lim)
+    axes.grid(axis="y")
     fig.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
     fig.tight_layout()
 

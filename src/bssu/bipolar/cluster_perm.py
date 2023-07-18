@@ -489,7 +489,7 @@ def highest_beta_channels_fooof(
     return highest_beta_df
         
             
-            
+
             
 def cluster_permutation_fooof_power_spectra_highest_beta(
         fooof_spectrum:str,
