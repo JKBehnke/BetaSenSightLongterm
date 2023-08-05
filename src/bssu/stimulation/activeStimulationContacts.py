@@ -1895,6 +1895,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     pairs = list(combinations(ses_clinical_activity, 2))
     all_results_statistics = []
     describe_arrays = {}
+    mean_and_std = {}
 
     # pair = tuple e.g. fu3m_active, fu3m_inactive
     # for pair in pairs:
@@ -2001,6 +2002,9 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
                 group = np.array(group.electrode_mean_beta_psd_rel_range_0_to_1.values)
 
 
+        standard_deviation = np.std(group)
+
+        mean_and_std[f"{s_c}_{single_contacts_or_average}_{feature}"] = [standard_deviation]
 
         description = scipy.stats.describe(group)
 
@@ -2009,6 +2013,13 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     description_results = pd.DataFrame(describe_arrays)
     description_results.rename(index={0: "number_observations", 1: "min_and_max", 2: "mean", 3: "variance", 4: "skewness", 5: "kurtosis"}, inplace=True)
     description_results = description_results.transpose()
+
+    mean_std = pd.DataFrame(mean_and_std)
+    mean_std.rename(index={0: "standard_deviation", 1: "mean"}, inplace=True)
+    mean_std = mean_std.transpose()
+
+    description_all = pd.concat([description_results, mean_std])
+
 
 
     ##################### STORE RESULTS IN DICTIONARY AND SAVE #####################
@@ -2104,7 +2115,8 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
 
     return {
         "data_to_analyze": data_to_analyze,
-        "results_dictionary": results_dictionary
+        "results_dictionary": results_dictionary,
+        "description_all":description_all
     }
 
 
