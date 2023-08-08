@@ -196,9 +196,9 @@ def fooof_beta_rank_coord_difference_scatterplot(
                    "3_12", "3_18", 
                    "12_18"]
     
-    jitter = 0.16
+    jitter = 0.16 # 0.16
 
-    colors = ["turquoise", "tab:grey", "sandybrown", "plum", "cornflowerblue", "yellowgreen"]
+    colors = ["sandybrown", "tab:grey", "turquoise", "plum", "cornflowerblue", "yellowgreen"]
 
     figures_path = find_folders.get_local_path(folder="GroupFigures")
 
@@ -228,7 +228,7 @@ def fooof_beta_rank_coord_difference_scatterplot(
             x_jittered = np.array(x_differences) + np.random.uniform(-jitter, jitter, len(x_differences))
             y_jittered = np.array(y_differences) + np.random.uniform(-jitter, jitter, len(y_differences))
 
-            plt.scatter(x_jittered, y_jittered, label=f"beta rank {rank}", c=colors[r], s=50)
+            plt.scatter(x_jittered, y_jittered, label=f"beta rank {rank}", c=colors[r], s=280, alpha=0.5, edgecolors="black") # 50
             
         
         plt.xlabel("change in direction", fontdict={"size": 25})

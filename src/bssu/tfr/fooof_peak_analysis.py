@@ -247,11 +247,15 @@ def highest_beta_channels_fooof(
         group_df_copy["group"] = le.fit_transform(group_df_copy["subject_hemisphere"]) # adds a column "group" with integer values for each subject_hemisphere
         group_df_copy["session"] = group_df_copy.session.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0,3,12,18])
 
-        # split beta peak column into three columns
+        # split beta, low beta and high beta peak columns into three columns each
         group_df_copy[["beta_center_frequency", "beta_peak_power", "beta_band_width"]] = group_df_copy["beta_peak_CF_power_bandWidth"].apply(split_array)
+        group_df_copy[["low_beta_center_frequency", "low_beta_peak_power", "low_beta_band_width"]] = group_df_copy["low_beta_peak_CF_power_bandWidth"].apply(split_array)
+        group_df_copy[["high_beta_center_frequency", "high_beta_peak_power", "high_beta_band_width"]] = group_df_copy["high_beta_peak_CF_power_bandWidth"].apply(split_array)
+      
         group_df_copy = group_df_copy.drop(columns=["alpha_peak_CF_power_bandWidth", "gamma_peak_CF_power_bandWidth"])
         
         group_df_copy = group_df_copy.dropna()
+        # TODO: DON`T DROP NAN!!!! instead check, if low or high beta peak exist, otherwise you loose the whole row and maybe there is no low peak but a high beta peak that you want to include into the analysis!!!!!
 
         group_dict[group] = group_df_copy
     
@@ -324,18 +328,52 @@ def calculate_auc_beta_power(
                 for ses in stn_ses_unique:
 
                     ses_data = stn_data.loc[stn_data.session == ses]
-                    # get center frequency, frequency range and power spectrum of the highest beta peak of that session
-                    ses_beta_cf = round(ses_data.beta_center_frequency.values[0])
-                    cf_range = np.arange(ses_beta_cf - 3, ses_beta_cf + 4, 1)
+
+                    # power spectrum
                     power = ses_data.fooof_power_spectrum.values[0] 
 
+                    ####### HIGHEST BETA PEAK #######
+                    # get center frequency, frequency range and power spectrum of the highest beta peak of that session
+                    ses_beta_cf = round(ses_data.beta_center_frequency.values[0])
+                    beta_cf_range = np.arange(ses_beta_cf - 3, ses_beta_cf + 4, 1)
+
                     # calculate area under the curve of power
-                    power_in_freq_range = power[cf_range[0] : (cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
-                    power_area_under_curve = simps(power_in_freq_range, cf_range)
+                    beta_power_in_freq_range = power[beta_cf_range[0] : (beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                    beta_power_area_under_curve = simps(beta_power_in_freq_range, beta_cf_range)
+
+                    ####### LOW BETA PEAK #######
+                    # get center frequency, frequency range of the low beta peak of that session
+                    # check if a low beta peak exists!!
+
+                    ses_low_beta_cf = round(ses_data.low_beta_center_frequency.values[0])
+                    low_beta_cf_range = np.arange(ses_low_beta_cf - 3, ses_low_beta_cf + 4, 1)
+
+                    # calculate area under the curve of power
+                    low_beta_power_in_freq_range = power[low_beta_cf_range[0] : (low_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                    low_beta_power_area_under_curve = simps(low_beta_power_in_freq_range, low_beta_cf_range)
+
+                    ####### HIGH BETA PEAK #######
+                    # get center frequency, frequency range of the high beta peak of that session
+                    # check if a high beta peak exists!!
+                    ses_high_beta_cf = round(ses_data.high_beta_center_frequency.values[0])
+                    high_beta_cf_range = np.arange(ses_high_beta_cf - 3, ses_high_beta_cf + 4, 1)
+
+                    # calculate area under the curve of power
+                    high_beta_power_in_freq_range = power[high_beta_cf_range[0] : (high_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                    high_beta_power_area_under_curve = simps(high_beta_power_in_freq_range, high_beta_cf_range)
+
 
                     ses_data_copy = ses_data.copy()
-                    ses_data_copy["round_cf"] = ses_beta_cf
-                    ses_data_copy["beta_power_auc_around_cf"] = power_area_under_curve
+                    ses_data_copy["round_beta_cf"] = ses_beta_cf
+                    ses_data_copy["beta_power_auc_around_cf"] = beta_power_area_under_curve
+
+                    ses_data_copy["round_low_beta_cf"] = ses_low_beta_cf
+                    ses_data_copy["low_beta_power_auc_around_cf"] = low_beta_power_area_under_curve
+
+                    ses_data_copy["round_high_beta_cf"] = ses_high_beta_cf
+                    ses_data_copy["high_beta_power_auc_around_cf"] = high_beta_power_area_under_curve
+
+
 
                     group_df_with_power_in_frange = pd.concat([group_df_with_power_in_frange, ses_data_copy])
 
@@ -355,13 +393,32 @@ def calculate_auc_beta_power(
             for stn in stn_unique:
 
                 stn_data = group_df.loc[group_df.subject_hemisphere == stn]
+
+                # check if session_selection exists for this stn
+                if session_selection not in stn_data.session.values:
+                    continue
                 
                 if around_cf == "around_cf_at_fixed_session":
                     # select the center frequency of the desired session selection (postop or fu3m)
+
                     fu_data = stn_data.loc[stn_data.session == session_selection] 
-                    fum_peak_center_frequency = round(fu_data.beta_center_frequency.values[0])
+
+                    ######### HIGHEST BETA PEAK #########
+                    fum_beta_peak_center_frequency = round(fu_data.beta_center_frequency.values[0])
                     # now get +- 3 Hz frequency range around peak center frequency
-                    fum_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+                    fum_beta_cf_range = np.arange(fum_beta_peak_center_frequency - 3, fum_beta_peak_center_frequency + 4, 1)
+
+                    ######### LOW BETA PEAK #########
+                    fum_low_beta_peak_center_frequency = round(fu_data.low_beta_center_frequency.values[0])
+                    # now get +- 3 Hz frequency range around peak center frequency
+                    fum_low_beta_cf_range = np.arange(fum_low_beta_peak_center_frequency - 3, fum_low_beta_peak_center_frequency + 4, 1)
+
+                    ######### HIGH BETA PEAK #########
+                    fum_high_beta_peak_center_frequency = round(fu_data.high_beta_center_frequency.values[0])
+                    # now get +- 3 Hz frequency range around peak center frequency
+                    fum_high_beta_cf_range = np.arange(fum_high_beta_peak_center_frequency - 3, fum_high_beta_peak_center_frequency + 4, 1)
+
+
                     print(f"The center frequency of session {session_selection} was taken for every session to calculate AUC")
                 
                 else: 
@@ -378,16 +435,33 @@ def calculate_auc_beta_power(
 
                         if around_cf == "around_cf_at_each_session":
                             # select the cf of each session
-                            fum_peak_center_frequency = round(ses_data.beta_center_frequency.values[0])
-                            # now get +- 3 Hz frequency range around peak center frequency
-                            fum_cf_range = np.arange(fum_peak_center_frequency - 3, fum_peak_center_frequency + 4, 1)
+                            fum_beta_peak_center_frequency = round(ses_data.beta_center_frequency.values[0])
+                            fum_low_beta_peak_center_frequency = round(ses_data.low_beta_center_frequency.values[0])
+                            fum_high_beta_peak_center_frequency = round(ses_data.high_beta_center_frequency.values[0])
 
-                        power_in_freq_range = power[fum_cf_range[0] : (fum_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
-                        power_area_under_curve = simps(power_in_freq_range, fum_cf_range)
+                            # now get +- 3 Hz frequency range around peak center frequency
+                            fum_beta_cf_range = np.arange(fum_beta_peak_center_frequency - 3, fum_beta_peak_center_frequency + 4, 1)
+                            fum_low_beta_cf_range = np.arange(fum_low_beta_peak_center_frequency - 3, fum_low_beta_peak_center_frequency + 4, 1)
+                            fum_high_beta_cf_range = np.arange(fum_high_beta_peak_center_frequency - 3, fum_high_beta_peak_center_frequency + 4, 1)
+
+                        beta_power_in_freq_range = power[fum_beta_cf_range[0] : (fum_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                        beta_power_area_under_curve = simps(beta_power_in_freq_range, fum_beta_cf_range)
+
+                        low_beta_power_in_freq_range = power[fum_low_beta_cf_range[0] : (fum_low_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                        low_beta_power_area_under_curve = simps(low_beta_power_in_freq_range, fum_low_beta_cf_range)
+
+                        high_beta_power_in_freq_range = power[fum_high_beta_cf_range[0] : (fum_high_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
+                        high_beta_power_area_under_curve = simps(high_beta_power_in_freq_range, fum_high_beta_cf_range)
 
                         ses_data_copy = ses_data.copy()
-                        ses_data_copy[f"round_cf"] = fum_peak_center_frequency
-                        ses_data_copy[f"beta_power_auc"] = power_area_under_curve
+                        ses_data_copy[f"round_beta_cf"] = fum_beta_peak_center_frequency
+                        ses_data_copy[f"beta_power_auc"] = beta_power_area_under_curve
+
+                        ses_data_copy[f"round_low_beta_cf"] = fum_low_beta_peak_center_frequency
+                        ses_data_copy[f"low_beta_power_auc"] = low_beta_power_area_under_curve
+
+                        ses_data_copy[f"round_high_beta_cf"] = fum_high_beta_peak_center_frequency
+                        ses_data_copy[f"high_beta_power_auc"] = high_beta_power_area_under_curve
 
                         group_df_with_power_in_frange = pd.concat([group_df_with_power_in_frange, ses_data_copy])
                         
@@ -416,7 +490,8 @@ def fooof_mixedlm_highest_beta_channels(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"    
+        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"
+                                "low_beta_center_frequency", "low_beta_power_auc", "high_beta_center_frequency", "high_beta_power_auc"
                                
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
@@ -731,7 +806,9 @@ def change_beta_peak_power_or_cf_violinplot(
 
         - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
 
-        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"
+        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc",
+                                    "low_beta_center_frequency", "low_beta_power_auc", "high_beta_center_frequency", "high_beta_power_auc"
+                               
 
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
@@ -808,10 +885,32 @@ def change_beta_peak_power_or_cf_violinplot(
                     session_1_data_of_interest = session_1_data.beta_center_frequency.values[0]
                     session_2_data_of_interest = session_2_data.beta_center_frequency.values[0]
                 
+                elif data_to_analyze == "low_beta_center_frequency":
+                    
+                    session_1_data_of_interest = session_1_data.low_beta_center_frequency.values[0]
+                    session_2_data_of_interest = session_2_data.low_beta_center_frequency.values[0]
+                
+                elif data_to_analyze == "high_beta_center_frequency":
+                    
+                    session_1_data_of_interest = session_1_data.high_beta_center_frequency.values[0]
+                    session_2_data_of_interest = session_2_data.high_beta_center_frequency.values[0]
+                
                 elif data_to_analyze == "beta_power_auc":
                     
                     session_1_data_of_interest = session_1_data.beta_power_auc.values[0]
                     session_2_data_of_interest = session_2_data.beta_power_auc.values[0]
+
+                elif data_to_analyze == "low_beta_power_auc":
+                    
+                    session_1_data_of_interest = session_1_data.low_beta_power_auc.values[0]
+                    session_2_data_of_interest = session_2_data.low_beta_power_auc.values[0]
+                
+                elif data_to_analyze == "high_beta_power_auc":
+                    
+                    session_1_data_of_interest = session_1_data.high_beta_power_auc.values[0]
+                    session_2_data_of_interest = session_2_data.high_beta_power_auc.values[0]
+                
+
 
                 # calculate difference between two sessions: session 1 - session 2
                 if absolute_change == "yes":
