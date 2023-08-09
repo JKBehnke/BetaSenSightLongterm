@@ -481,7 +481,8 @@ def calculate_auc_beta_power(
                         ses_data_copy = ses_data.copy()
 
                         if around_cf == "around_cf_at_fixed_session":
-
+                            
+                            ########## HIGHEST BETA ##########
                             # get power area under the curve
                             # first check if variable fum_beta_cf_range exist (only if there wasn´t a NaN)
                             if pd.isna((fu_data.iloc[0]["beta_center_frequency"])):
@@ -669,6 +670,8 @@ def fooof_mixedlm_highest_beta_channels(
     sample_size_dict = {} # 
     model_output = {} # md.fit()
 
+    cropped_data = {} # cropped, because depending on data_to_fit low, high beta or beta was dropped and then NaNs were dropped
+
     ############################## select the center frequency of 3MFU and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
 
     beta_peak_auc_data = calculate_auc_beta_power(
@@ -681,22 +684,51 @@ def fooof_mixedlm_highest_beta_channels(
     for g, group in enumerate(channel_group):
 
         data_analysis = beta_peak_auc_data[group]
+        data_analysis_copy = data_analysis.copy()
+
+        # depending on data_to_fit, drop unnecessary columns and subsequently drop NaN
+        if data_to_fit == "beta_center_frequency" or data_to_fit == "beta_power_auc":
+            data_analysis_copy = data_analysis_copy.drop(columns=["low_beta_peak_CF_power_bandWidth", "high_beta_peak_CF_power_bandWidth", 
+                                                        "low_beta_center_frequency", "high_beta_center_frequency",
+                                                        "low_beta_peak_power", "high_beta_peak_power",
+                                                        "low_beta_band_width", "high_beta_band_width",
+                                                        "round_low_beta_cf", "round_high_beta_cf",
+                                                        "low_beta_power_auc", "high_beta_power_auc"])
+            data_analysis_copy = data_analysis_copy.dropna()
+        
+        elif data_to_fit == "low_beta_center_frequency" or data_to_fit == "low_beta_power_auc":
+            data_analysis_copy = data_analysis_copy.drop(columns=["beta_peak_CF_power_bandWidth", "high_beta_peak_CF_power_bandWidth", 
+                                                        "beta_center_frequency", "high_beta_center_frequency",
+                                                        "beta_peak_power", "high_beta_peak_power",
+                                                        "beta_band_width", "high_beta_band_width",
+                                                        "round_beta_cf", "round_high_beta_cf",
+                                                        "beta_power_auc", "high_beta_power_auc"])
+            data_analysis_copy = data_analysis_copy.dropna()
+        
+        elif data_to_fit == "high_beta_center_frequency" or data_to_fit == "high_beta_power_auc":
+            data_analysis_copy = data_analysis_copy.drop(columns=["low_beta_peak_CF_power_bandWidth", "beta_peak_CF_power_bandWidth", 
+                                                        "low_beta_center_frequency", "beta_center_frequency",
+                                                        "low_beta_peak_power", "beta_peak_power",
+                                                        "low_beta_band_width", "beta_band_width",
+                                                        "round_low_beta_cf", "round_beta_cf",
+                                                        "low_beta_power_auc", "beta_power_auc"])
+            data_analysis_copy = data_analysis_copy.dropna()
         
         #predictor_x = data_analysis.session.values
-        data_analysis = data_analysis.copy()
-        data_analysis["session_sq"] = data_analysis.session**2 
-        data_analysis["session_asymptotic"] = data_analysis.session / (1 + data_analysis.session)
         
+        data_analysis_copy["session_sq"] = data_analysis_copy.session**2 
+        data_analysis_copy["session_asymptotic"] = data_analysis_copy.session / (1 + data_analysis_copy.session)
+
         if shape_of_model == "asymptotic":
-            md = smf.mixedlm(f"{data_to_fit} ~ session + session_asymptotic", data=data_analysis, groups=data_analysis["group"], 
+            md = smf.mixedlm(f"{data_to_fit} ~ session + session_asymptotic", data=data_analysis_copy, groups=data_analysis_copy["group"], 
                                 re_formula="1") 
 
         elif shape_of_model == "curved":
-            md = smf.mixedlm(f"{data_to_fit} ~ session + session_sq", data=data_analysis, groups=data_analysis["group"], 
+            md = smf.mixedlm(f"{data_to_fit} ~ session + session_sq", data=data_analysis_copy, groups=data_analysis_copy["group"], 
                                 re_formula="1") 
         
         elif shape_of_model == "straight":
-            md = smf.mixedlm(f"{data_to_fit} ~ session", data=data_analysis, groups=data_analysis["group"], 
+            md = smf.mixedlm(f"{data_to_fit} ~ session", data=data_analysis_copy, groups=data_analysis_copy["group"], 
                                 re_formula="1")
         
         # re_formula defining the random effect 
@@ -711,10 +743,12 @@ def fooof_mixedlm_highest_beta_channels(
 
         # add predictions column to dataframe
         yp = mdf.fittedvalues
-        beta_peak_auc_data[group]["predictions"] = yp
+        #beta_peak_auc_data[group]["predictions"] = yp # TODO
+        data_analysis_copy["predictions"] = yp
+        cropped_data[group] = data_analysis_copy
 
         for ses in incl_sessions:
-            ses_data = data_analysis.loc[data_analysis.session==ses]
+            ses_data = data_analysis_copy.loc[data_analysis_copy.session==ses]
             count = ses_data.subject_hemisphere.count()
 
             # save sample size
@@ -734,7 +768,8 @@ def fooof_mixedlm_highest_beta_channels(
 
     for g, group in enumerate(channel_group):
 
-        data_analysis = beta_peak_auc_data[group] # this is the dataframe with data
+        #data_analysis = beta_peak_auc_data[group] # this is the dataframe with data
+        data_analysis = cropped_data[group]
         mdf_group = model_output[group] # this is md.fit()
 
         # get the results
@@ -954,11 +989,43 @@ def change_beta_peak_power_or_cf_violinplot(
 
         group_data = beta_data[group] # all data only from one channel group
 
-        stn_unique = list(group_data.subject_hemisphere.unique())
+        group_data_copy = group_data.copy()
+
+        # depending on data_to_fit, drop unnecessary columns and subsequently drop NaN
+        if data_to_analyze == "beta_center_frequency" or data_to_analyze == "beta_power_auc":
+            group_data_copy = group_data_copy.drop(columns=["low_beta_peak_CF_power_bandWidth", "high_beta_peak_CF_power_bandWidth", 
+                                                        "low_beta_center_frequency", "high_beta_center_frequency",
+                                                        "low_beta_peak_power", "high_beta_peak_power",
+                                                        "low_beta_band_width", "high_beta_band_width",
+                                                        "round_low_beta_cf", "round_high_beta_cf",
+                                                        "low_beta_power_auc", "high_beta_power_auc"])
+            group_data_copy = group_data_copy.dropna()
+        
+        elif data_to_analyze == "low_beta_center_frequency" or data_to_analyze == "low_beta_power_auc":
+            group_data_copy = group_data_copy.drop(columns=["beta_peak_CF_power_bandWidth", "high_beta_peak_CF_power_bandWidth", 
+                                                        "beta_center_frequency", "high_beta_center_frequency",
+                                                        "beta_peak_power", "high_beta_peak_power",
+                                                        "beta_band_width", "high_beta_band_width",
+                                                        "round_beta_cf", "round_high_beta_cf",
+                                                        "beta_power_auc", "high_beta_power_auc"])
+            group_data_copy = group_data_copy.dropna()
+        
+        elif data_to_analyze == "high_beta_center_frequency" or data_to_analyze == "high_beta_power_auc":
+            group_data_copy = group_data_copy.drop(columns=["low_beta_peak_CF_power_bandWidth", "beta_peak_CF_power_bandWidth", 
+                                                        "low_beta_center_frequency", "beta_center_frequency",
+                                                        "low_beta_peak_power", "beta_peak_power",
+                                                        "low_beta_band_width", "beta_band_width",
+                                                        "round_low_beta_cf", "round_beta_cf",
+                                                        "low_beta_power_auc", "beta_power_auc"])
+            group_data_copy = group_data_copy.dropna()
+
+
+
+        stn_unique = list(group_data_copy.subject_hemisphere.unique())
 
         for stn in stn_unique:
 
-            stn_data = group_data.loc[group_data.subject_hemisphere == stn] # data only from one stn
+            stn_data = group_data_copy.loc[group_data_copy.subject_hemisphere == stn] # data only from one stn
 
             ses_unique = list(stn_data.session.unique()) # sessions existing from this stn
 
