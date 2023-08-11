@@ -1,7 +1,6 @@
 """ load rotated coordinates"""
 
 
-
 import numpy as np
 import pandas as pd
 import os
@@ -32,7 +31,7 @@ def load_mni_coordinates(incl_sub:list):
 
     Write an Excel file: SenSightElectrode_coordinates.xlsx into imagingData folder
 
-    watchout !! sub017 and sub034 only have native coordinates !! scrf and native coordinates are missing
+    watchout !! sub019 and sub034 only have native coordinates !! scrf and native coordinates are missing
     
     """
 
@@ -40,7 +39,7 @@ def load_mni_coordinates(incl_sub:list):
     hemispheres = ["Right", "Left"]
 
     current_path = os.getcwd()
-    while current_path[-8:] != 'Research':
+    while current_path[-4:] != 'work':
         current_path = os.path.dirname(current_path)
 
 
@@ -51,7 +50,7 @@ def load_mni_coordinates(incl_sub:list):
     for sub in incl_sub:
         
         # directory to data folder with mni coordinates
-        data_path = os.path.join(current_path, 'Longterm_beta_project','data', 'imagingData', f"sub-{sub}")
+        data_path = os.path.join(current_path, 'ResearchProjects', 'BetaSenSightLongterm','data', 'imagingData', f"sub-{sub}")
         filename = os.path.join(data_path, "ea_reconstruction.mat")
 
         # load .mat file
@@ -84,7 +83,7 @@ def load_mni_coordinates(incl_sub:list):
     
 
     # store each Dataframe in seperate sheets of an Excel file
-    Excel_path = os.path.join(current_path, 'Longterm_beta_project','data', 'imagingData', 'SenSightElectrode_coordinates.xlsx')
+    Excel_path = os.path.join(current_path, 'ResearchProjects', 'BetaSenSightLongterm','data', 'imagingData', 'SenSightElectrode_coordinates.xlsx')
 
     # create an Excel writer, so that different sheets are written within the same excel file
     with pd.ExcelWriter(Excel_path) as writer:
@@ -345,6 +344,251 @@ def calculate_mean_coordinates_bipolarRecordings(incl_sub:list, coordinates:str)
     }
 
 
+
+
+
+def mean_coordinates_beta_bipolar(coordinates:str):
+    """
+    Input:
+        - incl_sub: list of subjects to include
+        - coordinates: str, "native", "scrf", "mni"
+
+    Find data folder and load per subject each ea_reconstruction.mat file and extract x,y,z coordinates
+        - reco_native 
+        - reco_scrf
+        - reco_mni 
+
+    Write an Excel file: SenSightElectrode_MEANcoordinates_{coordinates}.xlsx into imagingData folder
+
+    watchout !! sub019 and sub034 only have native coordinates !! scrf and mni coordinates are missing
+    
+    """
+
+    hemispheres = ["Right", "Left"]
+
+
+    ##################### Load the psdAverage_Dataframe #####################
+    #psdAverage_dataframe = pd.DataFrame()
+
+    # load the FOOOF data 
+    fooof_group_result = loadResults.load_fooof_beta_ranks(
+        fooof_spectrum="periodic_spectrum",
+        all_or_one_chan="beta_ranks_all"
+        )
+    
+    # only keep columns: "subject_hemisphere", "session", "bipolar_channel", "beta_average"
+    # TODO: bipolar channel currently 12, 1A2A, change into 1_2, 1A_2A etc, so we can extract contacts ....
+    fooof_group_copy = fooof_group_result.copy()
+    fooof_group_copy = fooof_group_copy.drop(columns=["fooof_error", "fooof_r_sq", "fooof_exponent", "fooof_offset", 
+                                                      "periodic_plus_aperiodic_power_log", "fooof_periodic_flat", "fooof_number_peaks",
+                                                      "alpha_peak_CF_power_bandWidth", "low_beta_peak_CF_power_bandWidth", "high_beta_peak_CF_power_bandWidth", "beta_peak_CF_power_bandWidth", "gamma_peak_CF_power_bandWidth",
+                                                      "beta_rank"])
+    
+    fooof_group_copy["subject_hemisphere_recording"] = fooof_group_copy[["subject_hemisphere", "bipolar_channel"]].agg('_'.join, axis=1)
+    
+    # list of available subjects 
+    incl_sub_hem = list(fooof_group_copy.subject_hemisphere.unique())
+    incl_sub = [] # append only string of subject number e.g. "017"
+    for s_hem in incl_sub_hem:
+
+        splitted = s_hem.split("_") # e.g. ["017", "Right"]
+        incl_sub.append(splitted[0])
+
+    incl_sub = set(incl_sub) # incl_sub includes subjects multiple times
+    incl_sub = list(incl_sub)
+
+    ##################### Load the coordinates #####################
+
+    if coordinates == "native":
+        index_coord = 1
+    
+    elif coordinates == "scrf":
+        index_coord = 2
+    
+    elif coordinates == "mni":
+        index_coord = 3
+
+
+    reco_concat = pd.DataFrame()
+
+
+    current_path = os.getcwd()
+    while current_path[-4:] != 'work':
+        current_path = os.path.dirname(current_path)
+
+    for sub in incl_sub:
+
+        # first check if subject folder exists
+        if os.path.exists(os.path.join(current_path, 'ResearchProjects', 'BetaSenSightLongterm', 'data', 'imagingData', f"sub-{sub}")):
+
+            # directory to data folder with mni coordinates
+            data_path = os.path.join(current_path, 'ResearchProjects', 'BetaSenSightLongterm', 'data', 'imagingData', f"sub-{sub}")
+            filename = os.path.join(data_path, "ea_reconstruction.mat")
+
+            # load .mat file
+            mni_file = sio.loadmat(filename)
+
+            reco_coord = mni_file["reco"][0][0][index_coord]
+
+            for h, hem in enumerate(hemispheres):
+                
+                reco_hem = reco_coord[0][0][0][0][h] # 0 = Right, 1 = Left
+                reco_DF = pd.DataFrame(reco_hem, columns=[f"reco_{coordinates}_x", f"reco_{coordinates}_y", f"reco_{coordinates}_z"])
+                reco_DF.insert(0, "subject_hemisphere", f"{sub}_{hem}") # insert column with subject_hemisphere on first position
+                reco_concat = pd.concat([reco_concat, reco_DF], ignore_index=True)
+        
+        else:
+            print(f"sub-{sub} has no mni coordinate file")
+    
+
+    # add electrode_contacts to the dataframe
+    sub_hem_unique = list(reco_concat.subject_hemisphere.unique())
+    repeat = len(sub_hem_unique) # add contacts 0, 1A, 1B etc to dataframe repeatedly depending on how many sub_hem in dataframe
+
+    contact_list = ["0", "1A", "1B", "1C", "2A", "2B", "2C", "3"]
+    reco_concat["electrode_contact"] = contact_list * repeat # now there is a column with contact information
+
+
+    recording_montage_list = ["1_2", "0_1", "2_3", "1A_2A", "1B_2B", "1C_2C", "1A_1B", "1B_1C", "1A_1C", "2A_2B", "2B_2C", "2A_2C"]
+
+    # calculate the mean coordinate between contacts per recording montage
+    x_val = {}
+    y_val = {}
+    z_val = {}
+    x_mean_coordinate = {}
+    y_mean_coordinate = {}
+    z_mean_coordinate = {}
+
+    for sub_hem in sub_hem_unique:
+
+        # only take DF of one electrode
+        single_electrode = reco_concat[reco_concat.subject_hemisphere == sub_hem]
+
+        for c in contact_list:
+            
+            # for every contact extract the x, y, z coordinates
+            single_contact = single_electrode[single_electrode.electrode_contact == c]
+
+            if coordinates == "native":
+                x_val[f"{sub_hem}_{c}"] = float(single_contact.reco_native_x.values)
+                y_val[f"{sub_hem}_{c}"] = float(single_contact.reco_native_y.values)
+                z_val[f"{sub_hem}_{c}"] = float(single_contact.reco_native_z.values)
+
+            elif coordinates == "scrf":
+                x_val[f"{sub_hem}_{c}"] = float(single_contact.reco_scrf_x.values)
+                y_val[f"{sub_hem}_{c}"] = float(single_contact.reco_scrf_y.values)
+                z_val[f"{sub_hem}_{c}"] = float(single_contact.reco_scrf_z.values)    
+            
+            elif coordinates == "mni":
+                x_val[f"{sub_hem}_{c}"] = float(single_contact.reco_mni_x.values)
+                y_val[f"{sub_hem}_{c}"] = float(single_contact.reco_mni_y.values)
+                z_val[f"{sub_hem}_{c}"] = float(single_contact.reco_mni_z.values)
+            
+
+
+        # calculate mean x, y, z coordinates for 1 and 2
+        x_val[f"{sub_hem}_1"] = np.mean([x_val[f"{sub_hem}_1A"], x_val[f"{sub_hem}_1B"], x_val[f"{sub_hem}_1C"]])
+        y_val[f"{sub_hem}_1"] = np.mean([y_val[f"{sub_hem}_1A"], y_val[f"{sub_hem}_1B"], y_val[f"{sub_hem}_1C"]])
+        z_val[f"{sub_hem}_1"] = np.mean([z_val[f"{sub_hem}_1A"], z_val[f"{sub_hem}_1B"], z_val[f"{sub_hem}_1C"]])
+
+        x_val[f"{sub_hem}_2"] = np.mean([x_val[f"{sub_hem}_2A"], x_val[f"{sub_hem}_2B"], x_val[f"{sub_hem}_2C"]])
+        y_val[f"{sub_hem}_2"] = np.mean([y_val[f"{sub_hem}_2A"], y_val[f"{sub_hem}_2B"], y_val[f"{sub_hem}_2C"]])
+        z_val[f"{sub_hem}_2"] = np.mean([z_val[f"{sub_hem}_2A"], z_val[f"{sub_hem}_2B"], z_val[f"{sub_hem}_2C"]])
+
+
+    for sub_hem in sub_hem_unique:
+        for recording in recording_montage_list:
+
+            rec = recording.split("_") # rec[0] is first contact, rec[1] is second contact
+            
+            x_mean_coordinate[f"{sub_hem}_{recording}"] = np.mean([x_val[f"{sub_hem}_{rec[0]}"], x_val[f"{sub_hem}_{rec[1]}"]])
+            y_mean_coordinate[f"{sub_hem}_{recording}"] = np.mean([y_val[f"{sub_hem}_{rec[0]}"], y_val[f"{sub_hem}_{rec[1]}"]])
+            z_mean_coordinate[f"{sub_hem}_{recording}"] = np.mean([z_val[f"{sub_hem}_{rec[0]}"], z_val[f"{sub_hem}_{rec[1]}"]])
+
+            
+    x_mean_df = pd.DataFrame.from_dict(x_mean_coordinate, orient="index", columns=[f"{coordinates}_mean_coord_x"])
+    y_mean_df = pd.DataFrame.from_dict(y_mean_coordinate, orient="index", columns=[f"{coordinates}_mean_coord_y"])
+    z_mean_df = pd.DataFrame.from_dict(z_mean_coordinate, orient="index", columns=[f"{coordinates}_mean_coord_z"])
+
+    mean_xyz_coord = pd.concat([x_mean_df, y_mean_df, z_mean_df], axis=1) # dataframe with 3 columns
+
+    # now extract from the index (017_Right_0_3) sub_hem and recording montage and store in a seperate 
+    sub_hem_rec = mean_xyz_coord.index.tolist() # list of indeces with sub,hem,recording info
+    sub_hem_rec_tocolumn = []
+    sub_hem_tocolumn = []
+
+    for i, string in enumerate(sub_hem_rec):
+
+        sub_hem_rec_split = string.split("_") # 017_Right_0_3, split into 4 parts
+
+        sub_hem_str = '_'.join([sub_hem_rec_split[0], sub_hem_rec_split[1]]) # 017_Right
+        rec_str = ''.join([sub_hem_rec_split[2], sub_hem_rec_split[3]]) # 03
+        sub_hem_rec_string = '_'.join([sub_hem_str, rec_str]) # 017_Right_03
+        sub_hem_rec_tocolumn.append(sub_hem_rec_string)
+        sub_hem_tocolumn.append(sub_hem_str)
+
+
+    # add columns subject_hemisphere and recording montage to dataframe
+    mean_xyz_coord["subject_hemisphere_recording"] = sub_hem_rec_tocolumn  
+    mean_xyz_coord["subject_hemisphere"] = sub_hem_tocolumn
+
+
+    # add 2 columns specifying the montageType: montageType_regular, montageType_specific 
+    montageType_regular = ["circular", "circular", "circular",
+                           "segm_interlevel", "segm_interlevel", "segm_interlevel",
+                           "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel",
+                           ]
+    
+    montageType_specific = ["circular_segm_segm", "circular_ring_segm_short", "circular_ring_segm_short",
+                            "segm_interlevel", "segm_interlevel", "segm_interlevel",
+                            "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel", "segm_intralevel",
+                            ] 
+    
+    mean_xyz_coord["montageType_regular"] = montageType_regular * repeat
+    mean_xyz_coord["montageType_specific"] = montageType_specific * repeat
+
+
+
+
+    # merge 2 dataframes: mean coordinates and psd together
+    # there are subjects with multiple sessions, therefore, loop through each subject_hemisphere, check how many sessions exist
+    # for each session: merge the matching mean xyz coord table
+
+    
+    merged_Dataframe = pd.DataFrame()
+
+    for sub_hem in sub_hem_unique: # looping through all existing sub hem that have mni coordinates
+
+        sub_hem_beta_table = fooof_group_copy[fooof_group_copy.subject_hemisphere == sub_hem]
+        sub_hem_mni_table = mean_xyz_coord[mean_xyz_coord.subject_hemisphere == sub_hem]
+
+        # check how many sessions in the beta table
+        ses_unique = list(sub_hem_beta_table.session.unique())
+
+        for ses in ses_unique:
+
+            ses_table = sub_hem_beta_table[sub_hem_beta_table.session == ses] # only one subject_hemisphere and unique session
+            merged_sub_hem_ses = sub_hem_mni_table.merge(ses_table, left_on="subject_hemisphere_recording", right_on="subject_hemisphere_recording")
+
+            merged_Dataframe = pd.concat([merged_Dataframe, merged_sub_hem_ses])
+
+    merged_Dataframe = merged_Dataframe.drop(columns=["index", "subject_hemisphere_x"])
+    merged_Dataframe = merged_Dataframe.rename(columns={"subject_hemisphere_y": "subject_hemisphere"})
+
+    # # write Dataframe to new Excel file
+    # Excel_path = os.path.join(current_path, 'Longterm_beta_project','data', 'imagingData', f'SenSightElectrode_MEANcoordinates_{coordinates}.xlsx')
+
+    # # create an Excel writer, so that different sheets are written within the same excel file
+    # with pd.ExcelWriter(Excel_path) as writer:
+        
+    #     merged_Dataframe.to_excel(writer, sheet_name=f"mean_reco_{coordinates}")
+
+
+    return {
+        "mean_xyz_coord": mean_xyz_coord,
+        "fooof_group_copy":fooof_group_copy,
+        "merged_Dataframe": merged_Dataframe
+    }
 
 
 
