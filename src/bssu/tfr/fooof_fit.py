@@ -419,7 +419,7 @@ def fooof_fit_power_spectra(incl_sub: list):
 
     # define variables 
     hemispheres = ["Right", "Left"]
-    sessions = ['postop', 'fu3m', 'fu12m', 'fu18m']
+    sessions = ['postop', 'fu3m', 'fu12m', 'fu18m', 'fu24m']
     channels = ['03', '13', '02', '12', '01', '23', 
                 '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C', 
                 '1A2A', '1B2B', '1C2C']

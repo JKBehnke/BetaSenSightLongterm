@@ -486,7 +486,10 @@ def calculate_auc_beta_power(
                             # get power area under the curve
                             # first check if variable fum_beta_cf_range exist (only if there wasn´t a NaN)
                             if pd.isna((fu_data.iloc[0]["beta_center_frequency"])):
+                                ses_beta_nan = f"{stn}_{ses}"
+                                no_beta_peak.append(ses_beta_nan)
                                 print("no beta peak")
+
                             else:
                                 beta_power_in_freq_range = power[fum_beta_cf_range[0] : (fum_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
                                 beta_power_area_under_curve = simps(beta_power_in_freq_range, fum_beta_cf_range)
@@ -495,7 +498,10 @@ def calculate_auc_beta_power(
 
                             ########## LOW BETA ##########
                             if pd.isna((fu_data.iloc[0]["low_beta_center_frequency"])):
+                                ses_low_beta_nan = f"{stn}_{ses}"
+                                no_low_beta_peak.append(ses_low_beta_nan)
                                 print("no low beta peak")
+
                             else:
                                 low_beta_power_in_freq_range = power[fum_low_beta_cf_range[0] : (fum_low_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
                                 low_beta_power_area_under_curve = simps(low_beta_power_in_freq_range, fum_low_beta_cf_range)
@@ -505,7 +511,10 @@ def calculate_auc_beta_power(
 
                             ########## HIGH BETA ##########
                             if pd.isna((fu_data.iloc[0]["high_beta_center_frequency"])):
+                                ses_high_beta_nan = f"{stn}_{ses}"
+                                no_high_beta_peak.append(ses_high_beta_nan)
                                 print("no high beta peak")
+
                             else:
                                 high_beta_power_in_freq_range = power[fum_high_beta_cf_range[0] : (fum_high_beta_cf_range[6]+1)] # select the power values by indexing from frequency range first until last value
                                 high_beta_power_area_under_curve = simps(high_beta_power_in_freq_range, fum_high_beta_cf_range)
@@ -574,12 +583,12 @@ def calculate_auc_beta_power(
                 no_low_beta_peak_dict[group] = no_low_beta_peak
                 no_high_beta_peak_dict[group] = no_high_beta_peak
 
-    return group_dict
-    # return {
-    #     "group_dict": group_dict,
-    #     "no_beta_peak_dict": no_beta_peak_dict,
-    #     "no_low_beta_peak_dict": no_low_beta_peak_dict,
-    #     "no_high_beta_peak_dict": no_high_beta_peak_dict}
+    # return group_dict
+    return {
+        "group_dict": group_dict,
+        "no_beta_peak_dict": no_beta_peak_dict,
+        "no_low_beta_peak_dict": no_low_beta_peak_dict,
+        "no_high_beta_peak_dict": no_high_beta_peak_dict}
 
 
 

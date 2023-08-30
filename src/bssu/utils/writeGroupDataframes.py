@@ -1014,7 +1014,7 @@ def highest_beta_channels_fooof(
 
     ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
 
     stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
 

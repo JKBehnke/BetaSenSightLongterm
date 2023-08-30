@@ -785,7 +785,7 @@ def FOOOF_spectra_per_channel(
         save figure: "grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png"
     """
 
-    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
     channel_group = ["ring", "segm_inter", "segm_intra"]
 
     ring = ['01', '12', '23', '02', '03', '13']
@@ -908,7 +908,7 @@ def fooof_spectra_per_channel_group(
         all_or_one_chan="beta_ranks_all"
         )
     
-    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
     group_channels = ["ring", "segm_intra", "segm_inter"]
 
     ring = ['01', '12', '23']
@@ -944,23 +944,26 @@ def fooof_spectra_per_channel_group(
 
         for g, group in enumerate(group_channels): # 0,1,2
             
-            for s, ses in enumerate(sessions): # 0,1,2,3
+            for s, ses in enumerate(sessions): # 0,1,2,3,5
             
                 # check if session exists
                 if ses not in stn_df.session.values:
                     continue
 
                 elif ses == "postop":
-                    plt.subplot(4,3,s+g+1, label=f"{group}_{ses}") # e.g. 0+0+1, 0+1+1, 0+2+1 = row1
+                    plt.subplot(5,3,s+g+1, label=f"{group}_{ses}") # e.g. 0+0+1, 0+1+1, 0+2+1 = row1
                 
                 elif ses == "fu3m":
-                    plt.subplot(4,3,s+g+3, label=f"{group}_{ses}") # e.g. 1+0+3, 1+1+3, 1+2+3 = row1
+                    plt.subplot(5,3,s+g+3, label=f"{group}_{ses}") # e.g. 1+0+3, 1+1+3, 1+2+3 = row2
                 
                 elif ses == "fu12m":
-                    plt.subplot(4,3,s+g+5, label=f"{group}_{ses}") # e.g. 2+0+5, 2+1+5, 2+2+5 = row1
+                    plt.subplot(5,3,s+g+5, label=f"{group}_{ses}") # e.g. 2+0+5, 2+1+5, 2+2+5 = row3
                 
                 elif ses == "fu18m":
-                    plt.subplot(4,3,s+g+7, label=f"{group}_{ses}") # e.g. 3+0+7, 3+1+7, 3+2+7 = row1
+                    plt.subplot(5,3,s+g+7, label=f"{group}_{ses}") # e.g. 3+0+7, 3+1+7, 3+2+7 = row4
+                
+                elif ses == "fu24m":
+                    plt.subplot(5,3,s+g+9, label=f"{group}_{ses}") # e.g. 4+0+9, 4+1+9, 4+2+9 = row5
 
                 session_df = stn_df.loc[stn_df.session == ses]
 
