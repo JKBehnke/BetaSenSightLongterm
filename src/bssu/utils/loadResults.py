@@ -941,9 +941,13 @@ def load_fooof_rank_beta_peak_power():
     
     return data
 
+
+
+
 def load_fooof_beta_ranks(
         fooof_spectrum:str,
-        all_or_one_chan: str
+        all_or_one_chan: str,
+        all_or_one_longterm_ses: str
 ):
 
     """
@@ -954,6 +958,11 @@ def load_fooof_beta_ranks(
             "periodic_flat"             -> model._peak_fit
         
         - all_or_one_chan: str "highest_beta" or "beta_ranks_all"
+
+        - all_or_one_longterm_ses: str "all_sessions", "one_longterm_session"
+
+        if all_or_one_longterm_ses == "one_longterm_session" -> The loaded dataframe only consists of one longterm session (fu18m or fu24m). 
+        So if a STN was recorded at the fu18m and fu24m, the fu24m session was deleted
 
 
     Load the file: f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}.pickle"
@@ -972,8 +981,36 @@ def load_fooof_beta_ranks(
     # load the pickle file
     with open(filepath, "rb") as file:
         data = pickle.load(file)
+
+    ############## only keep one longterm session ##############
+    if all_or_one_longterm_ses == "one_longterm_session":
+
+        # per stn and session: if fu18m and fu24m exist -> delete fu24m
+        stn_unique = list(data.subject_hemisphere.unique())
+        longterm_sessions = ["fu18m", "fu24m"]
+        dataframe_longterm = pd.DataFrame()
+
+        for stn in stn_unique:
+
+            stn_data = data.loc[data.subject_hemisphere == stn]
+
+            # check if both fu18m and fu24m exist, if yes: delete fu24m
+            if all(l_ses in stn_data["session"].values for l_ses in longterm_sessions):
+                # exclude all rows including "fu24m"
+                stn_data = stn_data[stn_data["session"] != "fu24m"]
+
+            # append stn dataframe to the longterm dataframe
+            dataframe_longterm = pd.concat([dataframe_longterm, stn_data])
+
+        # replace all "fu18m" and "fu24m" by "longterm"
+        dataframe_longterm["session"] = dataframe_longterm["session"].replace(longterm_sessions, "fu18or24m")
+
+    ############## or keep all sessions ##############
+    elif all_or_one_longterm_ses == "all_sessions":
+        dataframe_longterm = data
+
     
-    return data
+    return dataframe_longterm
 
 
 def load_power_spectra_session_comparison(
@@ -1021,6 +1058,9 @@ def load_fooof_monopolar_weighted_psd(
 ):
 
     """
+    The loaded dataframe only consists of one longterm session (fu18m or fu24m). 
+    So if a STN was recorded at the fu18m and fu24m, the fu24m session was deleted
+    
     Input: 
         - fooof_spectrum: 
             "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)

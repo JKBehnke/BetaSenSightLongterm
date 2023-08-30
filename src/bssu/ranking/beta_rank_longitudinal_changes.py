@@ -61,13 +61,13 @@ def write_df_xy_changes_of_beta_ranks(
     fooof_monopolar_df = pd.concat([loaded_fooof_monopolar_data["postop_monopolar_Dataframe"],
                                     loaded_fooof_monopolar_data["fu3m_monopolar_Dataframe"],
                                     loaded_fooof_monopolar_data["fu12m_monopolar_Dataframe"],
-                                    loaded_fooof_monopolar_data["fu18m_monopolar_Dataframe"]])
+                                    loaded_fooof_monopolar_data["fu18or24m_monopolar_Dataframe"]])
     
     fooof_monopolar_df_copy = fooof_monopolar_df.copy()
     fooof_monopolar_df_copy["rank_beta"] = fooof_monopolar_df["rank"].astype(int)
 
     # replace session names by integers
-    fooof_monopolar_df_copy = fooof_monopolar_df_copy.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0, 3, 12, 18])
+    fooof_monopolar_df_copy = fooof_monopolar_df_copy.replace(to_replace=["postop", "fu3m", "fu12m", "fu18or24m"], value=[0, 3, 12, 18])
 
     # add 2 new columns "x_coordinate", "y_coordinate"
     fooof_monopolar_df_copy = fooof_monopolar_df_copy.assign(x_direction=fooof_monopolar_df_copy["contact"]).rename(columns={"x_direction":"x_direction"})

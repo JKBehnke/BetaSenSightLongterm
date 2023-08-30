@@ -1006,7 +1006,7 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
 
     #segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
     #segmental_channels = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
-    incl_sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    incl_sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
 
 
     d = 2 # SenSight B33005: 0.5mm spacing between electrodes, 1.5mm electrode length
@@ -1087,7 +1087,8 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
     #####################  Loading the Data #####################
     beta_average_DF = loadResults.load_fooof_beta_ranks(
         fooof_spectrum=fooof_spectrum,
-        all_or_one_chan="beta_ranks_all"
+        all_or_one_chan="beta_ranks_all",
+        all_or_one_longterm_ses="one_longterm_session"
     )
 
     # only take rows of channels of interest
@@ -1267,7 +1268,7 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(
 
     results_paths = find_folders.get_local_path(folder="GroupResults")
 
-    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
 
     # load the dataframes from segmented and ring contacts
     segmented_data = fooof_monoRef_weight_psd_by_distance_segm_or_ring(

@@ -413,17 +413,18 @@ def permutation_fooof_beta_ranks(
     # load FOOOF beta rank DF
     beta_rank_DF = loadResults.load_fooof_beta_ranks(
         fooof_spectrum=fooof_spectrum,
-        all_or_one_chan="beta_ranks_all"
+        all_or_one_chan="beta_ranks_all",
+        all_or_one_longterm_ses="one_longterm_session"
         )
     
     # new column with stn and channel info combined
     beta_rank_DF_copy = beta_rank_DF.copy()
     beta_rank_DF_copy["stn_channel"] = beta_rank_DF_copy.subject_hemisphere.values + "_" + beta_rank_DF_copy.bipolar_channel.values
 
-    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
-                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
-                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
-                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18or24m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18or24m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18or24m",
+                   "fu18or24m_postop", "fu18or24m_fu3m", "fu18or24m_fu12m", "fu18or24m_fu18or24m"]
 
     channel_groups = ["ring", "segm_inter", "segm_intra"]
 
@@ -666,8 +667,8 @@ def heatmap_distances_to_permutated_mean(
         ax.set_yticks(np.arange(distance_to_plot.shape[0])+0.5, minor=False)
 
         # Set the tick labels to show the values of the matrix
-        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
-        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
+        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
 
         
         # Add a colorbar to the right of the heatmap
@@ -971,17 +972,18 @@ def fooof_beta_write_session_comparison_df(
     # load FOOOF beta rank DF
     beta_rank_DF = loadResults.load_fooof_beta_ranks(
         fooof_spectrum=fooof_spectrum,
-        all_or_one_chan="beta_ranks_all"
+        all_or_one_chan="beta_ranks_all",
+        all_or_one_longterm_ses="one_longterm_session"
         )
     
     # new column with stn and channel info combined
     beta_rank_DF_copy = beta_rank_DF.copy()
     beta_rank_DF_copy["stn_channel"] = beta_rank_DF_copy.subject_hemisphere.values + "_" + beta_rank_DF_copy.bipolar_channel.values
 
-    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
-                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
-                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
-                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18or24m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18or24m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18or24m",
+                   "fu18or24m_postop", "fu18or24m_fu3m", "fu18or24m_fu12m", "fu18or24m_fu18or24m"]
 
     channel_groups = ["ring", "segm_inter", "segm_intra"]
 
@@ -1072,10 +1074,10 @@ def fooof_bip_channel_groups_beta_spearman(
     results_path = find_folders.get_local_path(folder="GroupResults")
     figures_path = find_folders.get_local_path(folder="GroupFigures")
 
-    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
-                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m", 
-                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m",
-                   "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+    compare_sessions = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18or24m", 
+                   "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18or24m", 
+                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18or24m",
+                   "fu18or24m_postop", "fu18or24m_fu3m", "fu18or24m_fu12m", "fu18or24m_fu18or24m"]
 
     channel_groups = ["ring", "segm_inter", "segm_intra"]
 
@@ -1246,8 +1248,8 @@ def fooof_bip_channel_groups_beta_spearman(
         ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
 
         # Set the tick labels to show the values of the matrix
-        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
-        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+        ax.set_xticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
+        ax.set_yticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
 
 
         # Add a colorbar to the right of the heatmap
@@ -1305,8 +1307,8 @@ def fooof_bip_channel_groups_beta_spearman(
             ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
 
             # Set the tick labels to show the values of the matrix
-            ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
-            ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+            ax.set_xticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
+            ax.set_yticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
 
 
             # Add a colorbar to the right of the heatmap

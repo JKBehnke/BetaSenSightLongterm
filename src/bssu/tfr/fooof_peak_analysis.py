@@ -71,7 +71,7 @@ def highest_beta_channels_fooof(
 
     ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    sessions = ["postop", "fu3m", "fu12m", "fu18m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
 
     stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
 
@@ -245,7 +245,7 @@ def highest_beta_channels_fooof(
         # session values have to be integers, add column group with integers for each STN electrode 
         group_df_copy = group_df.copy()
         group_df_copy["group"] = le.fit_transform(group_df_copy["subject_hemisphere"]) # adds a column "group" with integer values for each subject_hemisphere
-        group_df_copy["session"] = group_df_copy.session.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0,3,12,18])
+        group_df_copy["session"] = group_df_copy.session.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m", "fu24m"], value=[0,3,12,18,24])
 
         # split beta, low beta and high beta peak columns into three columns each
         group_df_copy[["beta_center_frequency", "beta_peak_power", "beta_band_width"]] = group_df_copy["beta_peak_CF_power_bandWidth"].apply(split_array)
@@ -295,7 +295,7 @@ def calculate_auc_beta_power(
     
 
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    sessions = [0, 3, 12, 18]
+    sessions = [0, 3, 12, 18, 24]
 
     group_dict = {}
     no_beta_peak_dict = {}
@@ -583,14 +583,74 @@ def calculate_auc_beta_power(
                 no_low_beta_peak_dict[group] = no_low_beta_peak
                 no_high_beta_peak_dict[group] = no_high_beta_peak
 
-    # return group_dict
-    return {
-        "group_dict": group_dict,
-        "no_beta_peak_dict": no_beta_peak_dict,
-        "no_low_beta_peak_dict": no_low_beta_peak_dict,
-        "no_high_beta_peak_dict": no_high_beta_peak_dict}
+    return group_dict
+    # return {
+    #     "group_dict": group_dict,
+    #     "no_beta_peak_dict": no_beta_peak_dict,
+    #     "no_low_beta_peak_dict": no_low_beta_peak_dict,
+    #     "no_high_beta_peak_dict": no_high_beta_peak_dict}
 
 
+def calculate_auc_beta_power_fu18or24(
+        fooof_spectrum: str,
+        highest_beta_session: str,
+        around_cf: str
+):
+    
+    """
+    Taking the output dataframes from the function calculate_auc_beta_power_fu18or24()
+    and if there are two longterm sessions fu18m AND fu24m from one STN -> fu24m will be deleted and only fu18m stays
+
+    This way only one longterm session will be evaluated. To make analysis easier, the remaining fu18m and fu24m will be renamed to 18.
+
+    - fooof_spectrum: 
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+    
+    - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+    - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
+
+    """
+
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+    dataframe_longterm_all = {}
+
+    data_all = calculate_auc_beta_power(
+        fooof_spectrum=fooof_spectrum,
+        highest_beta_session=highest_beta_session,
+        around_cf=around_cf
+    )
+
+    for group in channel_group:
+
+        data_group = data_all[group]
+
+        # per stn and session: if fu18m and fu24m exist -> delete fu24m
+        stn_unique = list(data_group.subject_hemisphere.unique())
+        longterm_sessions = [18, 24]
+        dataframe_longterm_group = pd.DataFrame()
+
+        for stn in stn_unique:
+
+            stn_data = data_group.loc[data_group.subject_hemisphere == stn]
+
+            # check if both fu18m and fu24m exist, if yes: delete fu24m
+            if all(l_ses in stn_data["session"].values for l_ses in longterm_sessions):
+                # exclude all rows including "fu24m"
+                stn_data = stn_data[stn_data["session"] != 24]
+
+            # append stn dataframe to the longterm dataframe
+            dataframe_longterm_group = pd.concat([dataframe_longterm_group, stn_data])
+
+        # replace all "fu18m" and "fu24m" by 18
+        dataframe_longterm_group["session"] = dataframe_longterm_group["session"].replace(longterm_sessions, 18)
+
+        dataframe_longterm_all[f"{group}"] = dataframe_longterm_group
+    
+    
+    return dataframe_longterm_all
 
 
 def fooof_mixedlm_highest_beta_channels(
@@ -683,7 +743,7 @@ def fooof_mixedlm_highest_beta_channels(
 
     ############################## select the center frequency of 3MFU and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
 
-    beta_peak_auc_data = calculate_auc_beta_power(
+    beta_peak_auc_data = calculate_auc_beta_power_fu18or24(
         fooof_spectrum=fooof_spectrum,
         highest_beta_session=highest_beta_session,
         around_cf=around_cf
@@ -978,7 +1038,7 @@ def change_beta_peak_power_or_cf_violinplot(
     fontdict = {"size": 25}
 
     # Load the dataframe with only highest beta channels and calculated area under the curve of highest beta peaks
-    beta_data = calculate_auc_beta_power(
+    beta_data = calculate_auc_beta_power_fu18or24(
         fooof_spectrum=fooof_spectrum,
         highest_beta_session=highest_beta_session,
         around_cf=around_cf

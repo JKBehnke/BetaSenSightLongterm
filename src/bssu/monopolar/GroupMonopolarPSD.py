@@ -503,10 +503,10 @@ def fooof_monopol_psd_spearman_betw_sessions(
 
     segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
 
-    session_comparison = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18m", 
-                  "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18m",
-                  "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18m", 
-                  "fu18m_postop", "fu18m_fu3m", "fu18m_fu12m", "fu18m_fu18m"]
+    session_comparison = ["postop_postop", "postop_fu3m", "postop_fu12m", "postop_fu18or24m", 
+                  "fu3m_postop", "fu3m_fu3m", "fu3m_fu12m", "fu3m_fu18or24m",
+                  "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18or24m", 
+                  "fu18or24m_postop", "fu18or24m_fu3m", "fu18or24m_fu12m", "fu18or24m_fu18or24m"]
     
 
     loaded_fooof_monopolar = loadResults.load_fooof_monoRef_all_contacts_weight_beta(similarity_calculation=similarity_calculation)
@@ -656,8 +656,8 @@ def fooof_monopol_psd_spearman_betw_sessions(
     ax.set_yticks(np.arange(spearmanr_to_plot.shape[0])+0.5, minor=False)
 
     # Set the tick labels to show the values of the matrix
-    ax.set_xticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
-    ax.set_yticklabels(["postop", "3MFU", "12MFU", "18MFU"], minor=False)
+    ax.set_xticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
+    ax.set_yticklabels(["postop", "3MFU", "12MFU", "18or24MFU"], minor=False)
 
 
     # Add a colorbar to the right of the heatmap
@@ -1326,7 +1326,7 @@ def fooof_mono_rank_differences(
         fooof_monopolar_df = pd.concat([loaded_fooof_monopolar["postop_monopolar_Dataframe"],
                                     loaded_fooof_monopolar["fu3m_monopolar_Dataframe"],
                                     loaded_fooof_monopolar["fu12m_monopolar_Dataframe"],
-                                    loaded_fooof_monopolar["fu18m_monopolar_Dataframe"]])
+                                    loaded_fooof_monopolar["fu18or24m_monopolar_Dataframe"]])
         
         fooof_monopolar_df_copy = fooof_monopolar_df.copy()
         fooof_monopolar_df_copy["rank_beta"] = fooof_monopolar_df["rank"].astype(int)
@@ -1346,7 +1346,7 @@ def fooof_mono_rank_differences(
         fooof_monopolar_df_copy["rank_beta"] = fooof_monopolar_df["rank_8"].astype(int)
 
     # replace session names by integers
-    fooof_monopolar_df_copy = fooof_monopolar_df_copy.replace(to_replace=["postop", "fu3m", "fu12m", "fu18m"], value=[0, 3, 12, 18])
+    fooof_monopolar_df_copy = fooof_monopolar_df_copy.replace(to_replace=["postop", "fu3m", "fu12m", "fu18or24m"], value=[0, 3, 12, 18])
 
     # add a column with the direction
 
