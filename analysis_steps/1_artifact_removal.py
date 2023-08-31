@@ -56,14 +56,14 @@ import src.bssu.tfr.movement_artifact_cleaning as move_artifacts
 
 
 # run the plotting raw time series function to plot all raw data and select movement artifacts
-# time_series = move_artifacts.plot_raw_time_series(
-#     incl_sub=["017", "019", "021"],
-#     incl_session=["postop", "fu3m", "fu12m", "fu18m"],
-#     incl_condition=["m0s0"],
-#     filter="band-pass"
-# )
+time_series = move_artifacts.plot_raw_time_series(
+    incl_sub=["038"],
+    incl_session=["postop","fu3m"],
+    incl_condition=["m0s0"],
+    filter="band-pass"
+)
 
-artifact_removal_time_series = move_artifacts.clean_time_series_move_artifact()
+#artifact_removal_time_series = move_artifacts.clean_time_series_move_artifact()
 
 # plot_spectra = move_artifacts.plot_clean_power_spectra(signal_filter="band-pass")
 

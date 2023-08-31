@@ -1323,7 +1323,7 @@ def fooof_mono_beta_and_clinical_activity_write_dataframes(
 
     # load Excel file with best clinical stimulation parameters
     best_clinical_stimulation = loadResults.load_BestClinicalStimulation_excel()
-    best_clinical_contacts = best_clinical_stimulation["BestClinicalContacts"]
+    best_clinical_contacts = best_clinical_stimulation["BestContacts_one_longterm"] # or BestClinicalContacts
 
     ##################### FILTER THE monopolar beta dataframe: clinically ACTIVE contacts #####################
     active_and_inactive_contacts_data = pd.DataFrame()
@@ -1890,8 +1890,8 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
 
     ##################### PERFORM STATISTICAL TEST  #####################
 
-    ses_clinical_activity= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
-    ses_clinical_activity_stats_test= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18m_active", "fu18m_inactive")]
+    ses_clinical_activity= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18or24m_active", "fu18or24m_inactive"]
+    ses_clinical_activity_stats_test= [("fu3m_active", "fu3m_inactive"), ("fu12m_active", "fu12m_inactive"), ("fu18or24m_active", "fu18or24m_inactive")]
     pairs = list(combinations(ses_clinical_activity, 2))
     all_results_statistics = []
     describe_arrays = {}
@@ -2037,6 +2037,9 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
 
     ##################### PLOT VIOLINPLOT OF relative PSD to rank 1 OF CLINICALLY ACTIVE VS NON-ACTIVE CONTACTS #####################
   
+    # set seaborn style:
+    sns.set_style("whitegrid", {"axes.grid": True, "axes.grid.axis": "y"})
+
     #fig=plt.figure()
     fig, axes = plt.subplots(1,1,figsize=(15,12)) 
     #fontdict = {"size": 25}
@@ -2092,7 +2095,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     axes.tick_params(axis="x", labelsize=10)
     axes.tick_params(axis="y", labelsize=10)
     #plt.ylim(y_lim)
-    axes.grid(axis="y")
+    # axes.grid(axis="y")
     fig.legend(loc="upper right", bbox_to_anchor=(1.3, 0.8))
     fig.tight_layout()
 
