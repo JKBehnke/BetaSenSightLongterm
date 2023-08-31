@@ -558,7 +558,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
     # concatenate the PSD Dataframes to one and take out the Duplicated columns
     PSD_Dataframe = pd.concat([rawPSDDataFrame, normPsdToTotalSumDataFrame, normPsdToSum1to100HzDataFrame, normPsdToSum40to90DataFrame], axis=1)
     PSD_Dataframe = PSD_Dataframe.loc[:,~PSD_Dataframe.columns.duplicated()]
-    PSD_Dataframe.to_json(os.path.join(results_path,f"SPECTROGRAMPSD_{hemisphere}_{filter}.json"))
+    PSD_Dataframe.to_json(os.path.join(results_path,f"SPECTROGRAMPSD_{hemisphere}_{filter}.json"))  
 
 
     return {

@@ -129,8 +129,8 @@ class MainClass:
                                                    "PEAK_frequency", "PEAK_amplitude", "PEAK_5HzAverage", 
                                                    ])
     
-    
-    
+   
+
 
     def __post_init__(self,):
 

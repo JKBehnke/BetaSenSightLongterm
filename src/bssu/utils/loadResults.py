@@ -10,7 +10,6 @@ from .. utils import find_folders as find_folders
 
 
 
-
 def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
 
     """
