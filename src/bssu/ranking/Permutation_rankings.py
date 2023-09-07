@@ -1091,6 +1091,7 @@ def fooof_bip_channel_groups_beta_spearman(
     # 2) calculate the mean of all spearman r and pvalues for each session comparison and channel group
 
     fooof_beta_spearman = {}
+    single_hemisphere_fooof_beta_spearman = {}
 
     fontdict = {"size": 25}
 
@@ -1132,6 +1133,9 @@ def fooof_bip_channel_groups_beta_spearman(
                 # store all spearman values of all stns in a group 
                 spearman_r_list.append(spearman_beta_r)
                 spearman_pval_list.append(spearman_beta_pval)
+
+                # add single stn correlation values to a dictionary
+                single_hemisphere_fooof_beta_spearman[f"{comp}_{group_name}_{stn}"] = [comp, group_name, stn, spearman_beta_r, spearman_beta_pval]
 
                 
             # for each session comparison - get description of data list
@@ -1181,8 +1185,11 @@ def fooof_bip_channel_groups_beta_spearman(
                     spearman_r_list.append(spearman_beta_r)
                     spearman_pval_list.append(spearman_beta_pval)
 
+                    # add single stn correlation values to a dictionary
+                    single_hemisphere_fooof_beta_spearman[f"{comp}_{group}_{stn}"] = [comp, group, stn, spearman_beta_r, spearman_beta_pval]
+
+
                     
-                
                 # for each channel group and session comparison - get description of data list
                 # spearman r
                 mean_spearman_comp_group = np.mean(spearman_r_list)
@@ -1203,6 +1210,37 @@ def fooof_bip_channel_groups_beta_spearman(
                                                         std_pval_comp_group, mean_pval_comp_group, median_pval_comp_group]
                 
         
+    # from dictionary to DF: single spearman values per STN, group and session comparison
+    single_stn_spearman_DF = pd.DataFrame(single_hemisphere_fooof_beta_spearman)
+    single_stn_spearman_DF.rename(index={
+        0: "comparison",
+        1: "channel_group",
+        2: "subject_hemisphere",
+        3: "spearman_r",
+        4: "spearman_pval"
+    }, inplace=True)
+    single_stn_spearman_DF = single_stn_spearman_DF.transpose()
+    single_stn_spearman_DF_copy = single_stn_spearman_DF.copy()
+
+    # add new column: significant yes, no
+    significant_correlation = single_stn_spearman_DF_copy["spearman_pval"] < 0.05
+    single_stn_spearman_DF_copy["significant_correlation"] = ["yes" if cond else "no" for cond in significant_correlation]
+
+    # delete postop_postop, fu3m_fu3m etc
+    filter_comparisons = ["postop_postop", "fu3m_fu3m", "fu12m_fu12m", "fu18or24m_fu18or24m",
+                          "fu3m_postop", "fu12m_postop", "fu18or24m_postop",
+                          "fu12m_fu3m", "fu18or24m_fu3m", "fu18or24m_fu12m"]
+    single_stn_spearman_DF_copy = single_stn_spearman_DF_copy[~single_stn_spearman_DF_copy["comparison"].isin(filter_comparisons)] # filters out all rows with comparison values in the given list
+
+    # save as Excel
+    single_stn_spearman_DF_copy.to_excel(os.path.join(results_path, f"{fooof_spectrum}_bipolar_LFPs_beta_correlations_per_stn.xlsx"), 
+                                    sheet_name="bipolar_beta_correlations",
+                                    index=False)
+    print("file: ", 
+          f"{fooof_spectrum}_bipolar_LFPs_beta_correlations_per_stn.xlsx",
+          "\nwritten in: ", results_path)
+    
+    
     # Permutation_BIP transform from dictionary to Dataframe
     spearman_result_df = pd.DataFrame(fooof_beta_spearman)
     spearman_result_df.rename(index={
@@ -1338,7 +1376,8 @@ def fooof_bip_channel_groups_beta_spearman(
                     )
 
 
-    return spearman_result_df
+    return {"spearman_result_df": spearman_result_df,
+            "single_stn_spearman_DF_copy": single_stn_spearman_DF}
             
 
 

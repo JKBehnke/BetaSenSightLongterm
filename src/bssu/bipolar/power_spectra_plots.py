@@ -992,7 +992,7 @@ def fooof_spectra_per_channel_group(
 
                     plt.xlabel("frequency [Hz]", fontdict={"size": 30})
                     plt.xlim(2, 50)
-                    plt.ylim(-0.05, 1.0)
+                    plt.ylim(-0.05, 3.0)
                     plt.ylabel("power [uV^2/Hz]", fontdict={"size": 30})
                     plt.xticks(fontsize= 30), plt.yticks(fontsize= 30)
                     plt.legend(loc= 'upper right', edgecolor="black", fontsize=20)
@@ -1006,10 +1006,10 @@ def fooof_spectra_per_channel_group(
         fig.subplots_adjust(wspace=40, hspace=60)
         # plt.tight_layout(pad=10, w_pad=10, h_pad=10)
 
-        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y1.0.svg"), 
+        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y3.0.svg"), 
                         bbox_inches = "tight", format="svg")
         
-        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y1.0.png"), 
+        fig.savefig(os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y3.0.png"), 
                         bbox_inches = "tight")
 
 

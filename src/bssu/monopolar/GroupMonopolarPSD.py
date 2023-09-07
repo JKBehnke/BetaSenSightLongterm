@@ -584,6 +584,29 @@ def fooof_monopol_psd_spearman_betw_sessions(
     results_DF.rename(index={0: "session_1", 1: "session_2", 2: "session_comparison", 3: "subject_hemisphere", 4: f"spearman_r", 5: f"pval"}, inplace=True)
     results_DF = results_DF.transpose()
 
+    # save Dataframe to Excel
+    results_DF_copy = results_DF.copy()
+    results_DF_copy = results_DF_copy.drop(columns=["session_1", "session_2"])
+
+    # delete postop_postop, fu3m_fu3m etc
+    filter_comparisons = ["postop_postop", "fu3m_fu3m", "fu12m_fu12m", "fu18or24m_fu18or24m",
+                          "fu3m_postop", "fu12m_postop", "fu18or24m_postop",
+                          "fu12m_fu3m", "fu18or24m_fu3m", "fu18or24m_fu12m"]
+    results_DF_copy = results_DF_copy[~results_DF_copy["session_comparison"].isin(filter_comparisons)] # filters out all rows with comparison values in the given list
+
+    # add new column: significant yes, no
+    significant_correlation = results_DF_copy["pval"] < 0.05
+    results_DF_copy["significant_correlation"] = ["yes" if cond else "no" for cond in significant_correlation]
+
+    # save as Excel
+    results_DF_copy.to_excel(os.path.join(results_path, f"fooof_monopol_{similarity_calculation}_beta_correlations_per_stn.xlsx"), 
+                                    sheet_name="monopolar_beta_correlations",
+                                    index=False)
+    print("file: ", 
+          f"fooof_monopol_{similarity_calculation}_beta_correlations_per_stn.xlsx",
+          "\nwritten in: ", results_path)
+
+
     # get sample size
     for s_comp in session_comparison:
 
