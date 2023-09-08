@@ -499,6 +499,15 @@ def fooof_fit_power_spectra(incl_sub: list):
                     ax[1].grid(False)
                     ax[2].grid(False)
 
+                    # check if fooof attributes are None:
+                    if model._peak_fit is None:
+                        print(f"subject {subject}, session {ses}, {chan}: model peak fit is None.")
+                        continue
+
+                    if model._ap_fit is None:
+                        print(f"subject {subject}, session {ses}, {chan}: model aperiodic fit is None.")
+                        continue
+                
 
                     # plot only the fooof spectrum of the periodic component
                     fooof_power_spectrum = 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)

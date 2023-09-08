@@ -1032,6 +1032,10 @@ def fooof_beta_write_session_comparison_df(
             comparison_df_2 = session_2_df.loc[session_2_df["subject_hemisphere"].isin(STN_list)]
 
             # subtract ranks from each other row by row from session 1 to session 2
+            # check if for both sessions all channels are available (sometimes FOOOF fitting didnt work and channels are missing)
+            comparison_df_1 = comparison_df_1[comparison_df_1["stn_channel"].isin(comparison_df_2["stn_channel"])]
+            comparison_df_2 = comparison_df_2[comparison_df_2["stn_channel"].isin(comparison_df_1["stn_channel"])]
+
             abs_difference_ranks = np.absolute(comparison_df_1.beta_rank.values - comparison_df_2.beta_rank.values) # array with differences of ranks of one session comparison
             sample_size = len(abs_difference_ranks)
 
@@ -1043,6 +1047,7 @@ def fooof_beta_write_session_comparison_df(
             comparisons_storage[f"{group}_{comparison}"] = comparison_df_merged_copy
         
     return comparisons_storage
+    
 
 
 
