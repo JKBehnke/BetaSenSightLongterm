@@ -68,6 +68,60 @@ def get_onedrive_path(
     # elif folder == "raw_perceive": # containing all relevant perceive .mat files
     #     return os.path.join(datapath, "sourcedata", f"sub-{sub}", "raw_perceive")
 
+def get_onedrive_path_mac(
+    folder: str = 'onedrive', sub: str = None
+):
+    """
+    Device and OS independent function to find
+    the synced-OneDrive folder where data is stored
+    Folder has to be in ['onedrive', 'Percept_Data_structured', 'sourcedata']
+    """
+
+    folder_options = [
+        'onedrive', 'sourcedata'
+        ]
+
+    # Error checking, if folder input is in folder options
+    if folder.lower() not in folder_options:
+        raise ValueError(
+            f'given folder: {folder} is incorrect, '
+            f'should be {folder_options}')
+
+    # from your cwd get the path and stop at 'Users'
+    path = os.getcwd()
+
+    while os.path.dirname(path)[-5:] != 'Users':
+        path = os.path.dirname(path) # path is now leading to Users/username
+
+    # get the onedrive folder containing "charit" and add it to the path
+  
+    path = os.path.join(path, 'Charité - Universitätsmedizin Berlin')
+
+    # onedrive_f = [
+    #     f for f in os.listdir(path) if np.logical_and(
+    #         'onedrive' in f.lower(),
+    #         'shared' in f.lower())
+    #         ]
+    #print(onedrive_f)
+
+    #path = os.path.join(path, onedrive_f[0]) # path is now leading to Onedrive folder
+
+
+    # add the folder DATA-Test to the path and from there open the folders depending on input folder
+    datapath = os.path.join(path, 'AG Bewegungsstörungen - Percept - Percept_Data_structured')
+    if folder == 'onedrive': 
+        return datapath
+
+    elif folder == 'sourcedata':
+        return os.path.join(datapath, 'sourcedata')
+    
+
+    # elif folder == 'results': # must be data or figures
+    #     return os.path.join(datapath, 'results')
+    
+    # elif folder == "raw_perceive": # containing all relevant perceive .mat files
+    #     return os.path.join(datapath, "sourcedata", f"sub-{sub}", "raw_perceive")
+
 
 def get_local_path(folder: str, sub: str = None):
     """
