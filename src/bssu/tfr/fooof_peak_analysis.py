@@ -994,11 +994,81 @@ def fooof_mixedlm_highest_beta_channels(
 
     return {
         "beta_peak_auc_data": beta_peak_auc_data,
+        "cropped_data": cropped_data,
         "sample_size_df": sample_size_df,
         "conf_int":conf_int,
         "model_output":model_output,
         "md": md
         }
+
+
+def calculate_mean_squared_error(
+        fooof_spectrum:str,
+        highest_beta_session:str,
+        data_to_fit:str,
+        around_cf:str,
+
+):
+    
+    """
+    Input
+        - fooof_spectrum: 
+                "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+                "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+                "periodic_flat"             -> model._peak_fit
+
+        - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+        - data_to_fit: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc"
+                                "low_beta_center_frequency", "low_beta_power_auc", "high_beta_center_frequency", "high_beta_power_auc"
+                               
+        - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
+
+    
+    calculates the mean squared error of all models: "straight", "curved", "asymptotic"
+
+        - mean of (predicted - real)**2 
+
+    """
+
+    shape_of_model_all = ["straight", "curved", "asymptotic"]
+    mean_squared_error_result = {}
+
+    for model in shape_of_model_all:
+
+        mixedlm_highest_beta_channels = fooof_mixedlm_highest_beta_channels(
+            fooof_spectrum=fooof_spectrum,
+            highest_beta_session=highest_beta_session,
+            data_to_fit=data_to_fit,
+            around_cf=around_cf,
+            incl_sessions=[0,3,12,18],
+            shape_of_model=model
+        )
+
+        # merge dataframes of all LFP groups together
+        ring_DF = mixedlm_highest_beta_channels["cropped_data"]["ring"]
+        segm_inter_DF = mixedlm_highest_beta_channels["cropped_data"]["segm_inter"]
+        segm_intra_DF = mixedlm_highest_beta_channels["cropped_data"]["segm_intra"]
+
+        data_all_LFP_groups = pd.concat([ring_DF, segm_inter_DF, segm_intra_DF])
+
+        # calculate the mean square error of the model: mean of (predicted - real)**2 
+        mean_squared_error = np.mean((data_all_LFP_groups["predictions"] - data_all_LFP_groups[f"{data_to_fit}"])**2)
+
+        mean_squared_error_result[f"{model}"] = [model, mean_squared_error]
+    
+    mean_squared_error_df = pd.DataFrame(mean_squared_error_result)
+    mean_squared_error_df.rename(index={
+        0: "model",
+        1: "mean_squared_error"
+    }, inplace=True)
+
+    mean_squared_error_df = mean_squared_error_df.transpose()
+
+    return mean_squared_error_df
+
+        
+
 
 
 
