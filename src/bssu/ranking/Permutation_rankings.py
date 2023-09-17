@@ -1384,8 +1384,3 @@ def fooof_bip_channel_groups_beta_spearman(
     return {"spearman_result_df": spearman_result_df,
             "single_stn_spearman_DF_copy": single_stn_spearman_DF}
             
-
-
-
-
-
