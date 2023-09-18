@@ -389,8 +389,8 @@ def permutation_fooof_beta_rank_location_differences(
                 
 
                 # Array of real differences: 1 horizontal direction, 2 vertical level
-                location_diff_mean = np.mean(comp_df[f"{diff}"].values)
-                location_diff_std = np.std(comp_df[f"{diff}"].values)
+                location_diff_mean = np.mean(comp_df[f"{diff}"].abs()) # absolute values! because otherwise you take the mean of -1, 0 and 1 and it will be close to 0
+                location_diff_std = np.std(comp_df[f"{diff}"].abs())
 
                 sample_size = len(comp_df[f"{diff}"].values)
 
@@ -419,6 +419,11 @@ def permutation_fooof_beta_rank_location_differences(
                     if diff == "x_difference":
 
                         difference_random_coord = [-1 if x == 2 else (1 if x == -2 else x) for x in difference_random_coord]
+                        difference_random_coord = [abs(x) for x in difference_random_coord] # take absolute differences
+                    
+                    elif diff == "y_difference":
+
+                        difference_random_coord = [abs(x) for x in difference_random_coord] # take absolute differences
 
                     # get mean of differences 
                     shuffled_mean_differences.append(np.mean(difference_random_coord))
@@ -496,7 +501,8 @@ def permutation_fooof_beta_rank_location_differences(
 
         
     return {
-        "permutation_result_df":permutation_result_df
+        "permutation_result_df":permutation_result_df,
+        "beta_rank_DF_copy":beta_rank_DF_copy
     }
                 
 
