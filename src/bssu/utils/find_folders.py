@@ -123,6 +123,50 @@ def get_onedrive_path_mac(
     #     return os.path.join(datapath, "sourcedata", f"sub-{sub}", "raw_perceive")
 
 
+############## PyPerceive Repo: add to dev, after pulling ##############
+ # check if 'Charité - Universitätsmedizin Berlin' is in directory
+    # if 'Charité - Universitätsmedizin Berlin' in os.listdir(path):
+
+    #     path = os.path.join(path, 'Charité - Universitätsmedizin Berlin')
+
+    #     # add the folder DATA-Test to the path and from there open the folders depending on input folder
+    #     datapath = os.path.join(path, 'AG Bewegungsstörungen - Percept - Percept_Data_structured')
+    #     if folder == 'onedrive': 
+    #         return datapath
+
+    #     elif folder == 'sourcedata':
+    #         return os.path.join(datapath, 'sourcedata')
+
+    # else:
+    #     # get the onedrive folder containing "onedrive" and "charit" and add it to the path
+    #     onedrive_f = [
+    #         f for f in os.listdir(path) if np.logical_and(
+    #             'onedrive' in f.lower(),
+    #             'charit' in f.lower())
+    #             ]
+
+    #     path = os.path.join(path, onedrive_f[0]) # path is now leading to Onedrive folder
+
+
+    #     # add the folder DATA-Test to the path and from there open the folders depending on input folder
+    #     path = os.path.join(path, 'Percept_Data_structured')
+    #     if folder == 'onedrive':
+
+    #         assert os.path.exists(path), f'wanted path ({path}) not found'
+            
+    #         return path
+
+    #     elif folder == 'sourcedata':
+
+    #         path = os.path.join(path, 'sourcedata')
+    #         if sub: path = os.path.join(path, f'sub-{sub}')
+
+    #         assert os.path.exists(path), f'wanted path ({path}) not found'
+                
+    #         return path
+
+
+
 def get_local_path(folder: str, sub: str = None):
     """
     find_project_folder is a function to find the folder "Longterm_beta_project" on your local computer
