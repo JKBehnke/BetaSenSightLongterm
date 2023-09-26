@@ -1,4 +1,4 @@
-""" Monopolar referencing Johannes Busch method """
+""" Monopolar referencing: Johannes Busch method """
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,7 +16,6 @@ from .. utils import loadResults as loadResults
 
 
 # import analysis.loadResults as loadcsv
-
 
 def MonoRef_JLB(incl_sub:str, hemisphere:str, normalization:str, incl_session: list):
 
@@ -502,7 +501,164 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str):
 
     
 
+def fooof_monoRef_JLB( 
+    ):
 
+    """
+    Calculate the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C)
+
+    Input:
+        - power_range: "beta", "low_beta", "high_beta" (TODO: for this I have to rewrite the original FOOOF JSON files!)
+
+    Load the fooof Dataframe and edit it: 
+
+
+
+
+    1) Calculate the percentage of each direction A, B and C:
+        - proxy of direction:
+            A = 1A2A
+            B = 1B2B
+            C = 1C2C
+
+        - Percentage of direction = Mean beta power of one direction divided by total mean beta power of all directions 
+    
+    2) Weight each segmented level 1 and 2 with percentage of direction:
+        - proxy of hight:
+            1 = 02
+            2 = 13
+
+        - Percentage of direction multiplied with mean beta power of each level
+        - e.g. 1A = Percentage of direction(A) * mean beta power (02)
+    
+
+    """
+
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    incl_sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
+    segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+ 
+    monopolar_results_single = {}
+    monopolar_results_all = pd.DataFrame()
+
+    ############# Load the FOOOF dataframe #############
+    beta_average_DF = loadResults.load_fooof_beta_ranks(
+        fooof_spectrum="periodic_spectrum",
+        all_or_one_chan="beta_all",
+        all_or_one_longterm_ses="one_longterm_session"
+    )
+
+    # loop over sessions
+    for ses in incl_sessions:
+
+        # check if session exists
+        if ses not in beta_average_DF.session.values:
+            continue 
+
+        session_Dataframe = beta_average_DF[beta_average_DF.session==ses]
+        # copying session_Dataframe to add new columns
+        session_Dataframe_copy = session_Dataframe.copy()
+        session_Dataframe_copy = session_Dataframe_copy.reset_index()
+        session_Dataframe_copy = session_Dataframe_copy.drop(columns=["index"])
+
+        stn_unique = list(session_Dataframe_copy.subject_hemisphere.unique())
+
+        ##################### for every STN: get directional percentage of beta power and weight every monopolar contact #####################
+        for stn in stn_unique:
+
+            stn_data = session_Dataframe_copy.loc[session_Dataframe_copy.subject_hemisphere == stn]
+
+            # get averaged beta power from the relevant directional channels and level channels
+            ### direction ###
+            beta_1A2A = stn_data.loc[stn_data.bipolar_channel == "1A2A"]
+            beta_1A2A = beta_1A2A["beta_average"].values[0]
+
+            beta_1B2B = stn_data.loc[stn_data.bipolar_channel == "1B2B"]
+            beta_1B2B = beta_1B2B["beta_average"].values[0]
+
+            beta_1C2C = stn_data.loc[stn_data.bipolar_channel == "1C2C"]
+            beta_1C2C = beta_1C2C["beta_average"].values[0]
+
+            # percentage of each direction
+            direction_A = beta_1A2A / np.sum([beta_1A2A, beta_1B2B, beta_1C2C])
+            direction_B = beta_1B2B / np.sum([beta_1A2A, beta_1B2B, beta_1C2C])
+            direction_C = beta_1C2C / np.sum([beta_1A2A, beta_1B2B, beta_1C2C])
+
+            ### level ###
+            level_1 = stn_data.loc[stn_data.bipolar_channel == "02"]
+            level_1 = level_1["beta_average"].values[0]
+
+            level_2 = stn_data.loc[stn_data.bipolar_channel == "13"]
+            level_2 = level_2["beta_average"].values[0]
+
+            ### calculate the monopolar estimate of spectral beta power for all segmental contacts ###
+            for s, segment in enumerate(segmental_contacts):
+
+                # get level
+                if "1" in segment:
+                    level = level_1
+                
+                elif "2" in segment: 
+                    level = level_2
+                
+                # get direction
+                if "A" in segment:
+                    direction = direction_A
+                
+                elif "B" in segment:
+                    direction = direction_B
+                
+                elif "C" in segment:
+                    direction = direction_C
+                
+                monopol_beta = direction * level
+
+                # store monopolar references in a dictionary
+                monopolar_results_single[f"{ses}_{stn}_{segment}"] = [ses, stn, segment, monopol_beta]
+
+            
+    #################### WRITE DATAFRAMES seperately for each STN to also rank within an STN and session ####################
+
+    monopolar_dataframe = pd.DataFrame(monopolar_results_single) 
+    monopolar_dataframe.rename(index={
+        0: "session",
+        1: "subject_hemisphere",
+        2: "contact", 
+        3: "estimated_monopolar_beta_psd"}, inplace=True) # rename the rows
+    monopolar_dataframe = monopolar_dataframe.transpose()
+
+    # rank monopolar estimates for every session and stn
+    for ses in incl_sessions:
+
+        # check if session exists
+        if ses not in monopolar_dataframe.session.values:
+            continue 
+
+        session_Dataframe_2 = monopolar_dataframe[monopolar_dataframe.session==ses]
+        # copying session_Dataframe to add new columns
+        stn_unique_2 = list(session_Dataframe_2.subject_hemisphere.unique())
+
+        for stn in stn_unique_2:
+            stn_data_2 = session_Dataframe_2.loc[session_Dataframe_2.subject_hemisphere == stn]
+            stn_data_2_copy = stn_data_2.copy()
+            stn_data_2_copy["rank"] = stn_data_2_copy["estimated_monopolar_beta_psd"].rank(ascending=False) # rank monopolar estimates per stn and session
+
+            # merge all dataframes (per session per STN)
+            monopolar_results_all = pd.concat([monopolar_results_all, stn_data_2_copy])
+
+
+    # save monopolar psd estimate Dataframes as pickle files
+    MonoRef_JLB_result_filepath = os.path.join(results_path, f"MonoRef_JLB_fooof_beta.pickle")
+    with open(MonoRef_JLB_result_filepath, "wb") as file:
+        pickle.dump(monopolar_results_all, file)
+
+    print(f"MonoRef_JLB_fooof_beta.pickle",
+            f"\nwritten in: {results_path}" )
+
+
+    return monopolar_results_all
+        
 
 
 

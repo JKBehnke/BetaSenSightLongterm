@@ -1,4 +1,5 @@
-""" monopolar Referencing: Robert approach """
+""" monopolar Referencing: weighting power by Euclidean coordinates and distance to the contact of interest 
+(Robert approach) """
 
 
 import os

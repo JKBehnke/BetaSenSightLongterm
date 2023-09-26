@@ -996,8 +996,11 @@ def highest_beta_channels_fooof(
     # load the group dataframe
     fooof_group_result = loadResults.load_group_fooof_result()
 
+    # frequency_range = ["beta", "low_beta", "high_beta"]
+
     # create new column: first duplicate column fooof power spectrum, then apply calculation to each row -> average of indices [13:36] so averaging the beta range
     fooof_group_result_copy = fooof_group_result.copy()
+
 
     if fooof_spectrum == "periodic_spectrum":
         fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_power_spectrum"]
@@ -1008,7 +1011,7 @@ def highest_beta_channels_fooof(
     elif fooof_spectrum == "periodic_flat":
         fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_periodic_flat"]
     
-    
+
     fooof_group_result_copy["beta_average"] = fooof_group_result_copy["beta_average"].apply(lambda row: np.mean(row[13:36]))
 
 
@@ -1020,6 +1023,7 @@ def highest_beta_channels_fooof(
 
     highest_beta_df = pd.DataFrame()
     beta_ranks_all_channels = pd.DataFrame()
+    beta_ranks_all_and_all_channels = pd.DataFrame()
 
     for stn in stn_unique:
 
@@ -1033,6 +1037,10 @@ def highest_beta_channels_fooof(
 
             else:
                 stn_ses_df = stn_df.loc[stn_df.session == ses] # df of only 1 stn and 1 session
+            
+            # save data for all channels, no ranks
+            beta_ranks_all_and_all_channels = pd.concat([beta_ranks_all_and_all_channels, stn_ses_df])
+                
 
             for group in channel_group:
 
@@ -1060,7 +1068,7 @@ def highest_beta_channels_fooof(
                 beta_ranks_all_channels = pd.concat([beta_ranks_all_channels, beta_ranks])
                 highest_beta_df = pd.concat([highest_beta_df, group_comp_df_copy])
     
-    # save DF as pickle file
+    # this dataframe contains only the highest beta channel per session and lfp group
     highest_beta_df_filepath = os.path.join(results_path, f"highest_beta_channels_fooof_{fooof_spectrum}.pickle")
     with open(highest_beta_df_filepath, "wb") as file:
         pickle.dump(highest_beta_df, file)
@@ -1070,7 +1078,7 @@ def highest_beta_channels_fooof(
           "\nwritten in: ", results_path
           )
     
-    # save DF as pickle file
+    # this dataframe contains 12 lfp channels and beta ranks per lfp group
     beta_ranks_all_channels_filepath = os.path.join(results_path, f"beta_ranks_all_channels_fooof_{fooof_spectrum}.pickle")
     with open(beta_ranks_all_channels_filepath, "wb") as file:
         pickle.dump(beta_ranks_all_channels, file)
@@ -1079,11 +1087,22 @@ def highest_beta_channels_fooof(
           f"beta_ranks_all_channels_fooof_{fooof_spectrum}.pickle",
           "\nwritten in: ", results_path
           )
+    
+    # this dataframe contains all 15 LFP channels and no ranks
+    all_channels_filepath = os.path.join(results_path, f"beta_all_channels_fooof_{fooof_spectrum}.pickle")
+    with open(all_channels_filepath, "wb") as file:
+        pickle.dump(beta_ranks_all_and_all_channels, file)
+
+    print("file: ", 
+          f"beta_all_channels_fooof_{fooof_spectrum}.pickle",
+          "\nwritten in: ", results_path
+          )
 
 
     return {
         "highest_beta_df": highest_beta_df,
-        "beta_ranks_all_channels": beta_ranks_all_channels
+        "beta_ranks_all_channels": beta_ranks_all_channels,
+        "beta_ranks_all_and_all_channels": beta_ranks_all_and_all_channels
     }
 
 

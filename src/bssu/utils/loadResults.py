@@ -956,7 +956,8 @@ def load_fooof_beta_ranks(
             "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
             "periodic_flat"             -> model._peak_fit
         
-        - all_or_one_chan: str "highest_beta" or "beta_ranks_all"
+        - all_or_one_chan: str "highest_beta" or "beta_ranks_all" (12 LFP channels, with ranks) or "beta_all" (all 15 channels, no ranks)
+
 
         - all_or_one_longterm_ses: str "all_sessions", "one_longterm_session"
 
@@ -1096,6 +1097,36 @@ def load_fooof_monopolar_weighted_psd(
         data = pickle.load(file)
     
     return data
+
+def load_fooof_monopolar_JLB(
+):
+    
+    """
+    The loaded dataframe consists of monopolar beta estimates with ranks 
+    for all segmented contacts, for all STNs at each session ("postop", "fu3m", "fu12m", "fu18or24m")
+
+    The pickle file: "MonoRef_JLB_fooof_beta.pickle"
+    in the results path /Users/jenniferbehnke/Dropbox/work/ResearchProjects/BetaSenSightLongterm/results
+    is written by the function MonoRefJLB.fooof_monoRef_JLB()
+    
+
+    """
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = "MonoRef_JLB_fooof_beta.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
+
+
+
 
 
 def load_fooof_permutation_bip_beta_ranks():

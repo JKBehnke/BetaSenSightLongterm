@@ -508,7 +508,6 @@ def fooof_monopol_psd_spearman_betw_sessions(
                   "fu12m_postop", "fu12m_fu3m", "fu12m_fu12m", "fu12m_fu18or24m", 
                   "fu18or24m_postop", "fu18or24m_fu3m", "fu18or24m_fu12m", "fu18or24m_fu18or24m"]
     
-
     loaded_fooof_monopolar = loadResults.load_fooof_monoRef_all_contacts_weight_beta(similarity_calculation=similarity_calculation)
 
 
