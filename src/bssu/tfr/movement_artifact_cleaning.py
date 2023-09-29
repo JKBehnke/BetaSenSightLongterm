@@ -232,6 +232,7 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
                         plt.show(block=False)
                         plt.gcf().canvas.draw()
                         
+                        
 
                         input_y_or_n = get_input_y_n("Artifacts found?") # interrups run and asks for input
 

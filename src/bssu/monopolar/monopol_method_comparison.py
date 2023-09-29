@@ -48,7 +48,6 @@ monopolar_fooof_JLB = loadResults.load_fooof_monopolar_JLB()
 
 
 
-
 def spearman_monopol_fooof_beta_methods(
         method_1:str,
         method_2:str
