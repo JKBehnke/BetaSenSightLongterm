@@ -7,9 +7,16 @@ import pickle
 import json
 from pathlib import Path
 import mne_bids
-from mne_bids import BIDSPath
+from mne_bids import (
+    BIDSPath,
+    inspect_dataset,
+    mark_channels
+)
 
-from .. utils import find_folders as find_folders
+import sys
+sys.path.append(os.getcwd())
+sys.path.append(os.path.join(os.getcwd(), "src"))
+from src.bssu.utils import find_folders
 
 
 def load_patient_metadata_externalized():
@@ -118,17 +125,39 @@ def load_BIDS_externalized_vhdr_files(
         bids_root = raw_data_folder
         bids_path = BIDSPath(root=bids_root)
 
+
         ########## UPDATE BIDS PATH ##########
-        # check if the BIDS key has a sub-EL or sub-L folder 
-        if "EL" in sub_BIDS_ID:
-            session = "EcogLfpMedOff01"
+        # check if BIDS session directory contains "Dys"
+        sessions = os.listdir(os.path.join(raw_data_folder, f"sub-{sub_BIDS_ID}"))
+        dys_list = []
+        for s in sessions:
+            if "MedOffDys" in s:
+                dys_list.append("Dys")
+            
+        if len(dys_list) == 0:
+            dys = ""
+            dopa = ""
         
         else:
-            session = "LfpMedOff01"
+            dys = "Dys"
+            if sub_BIDS_ID == "EL016":
+                dopa = "DopaPre"
+            else:
+                dopa = "Dopa00"
+        
+        # check if the BIDS key has a sub-EL or sub-L folder 
+        session = f"LfpMedOff{dys}01"
+
+        if "EL" in sub_BIDS_ID:
+            session = f"EcogLfpMedOff{dys}01"    
         
         task = "Rest"
-        acquisition = "StimOff"
+        acquisition = f"StimOff{dopa}"
+
         run = "1"
+        if sub_BIDS_ID == "L014":
+            run = "2"
+        
         datatype = "ieeg"
         extension = ".vhdr"
         suffix = "ieeg"
@@ -144,13 +173,19 @@ def load_BIDS_externalized_vhdr_files(
             suffix = suffix,
         )
         
-        data = mne_bids.read_raw_bids(bids_path=bids_path)
+        #inspect_dataset(bids_path, l_freq=5.0, h_freq=95.0)
+
+        data = mne_bids.read_raw_bids(bids_path=bids_path) # datatype: mne.io.brainvision.brainvision.RawBrainVision
+        # to work with the data, load the data
+        data.load_data()
 
         return data
         
-       
 
-        
+
+
+
+# load_BIDS_externalized_vhdr_files(sub="25")        
     
 
 
