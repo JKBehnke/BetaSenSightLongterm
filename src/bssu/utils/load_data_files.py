@@ -183,9 +183,34 @@ def load_BIDS_externalized_vhdr_files(
         
 
 
+def load_externalized_pickle(
+        filename:str
+):
+    
+    """
+    Pickle files in the group results folder of the monopolar estimation project
+    Input: 
+        - filename: str, must be in 
+            ["externalized_preprocessed_data",
+            "externalized_recording_info_original",
+            "mne_objects_cropped_2_min"
+            ]
+    """
+
+    group_results_path = find_folders.get_monopolar_project_path(folder="GroupResults")
+
+    # create filename and filepath
+    pickle_filename = f"{filename}.pickle"
+    filepath = os.path.join(group_results_path, pickle_filename)
+
+    # load the file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
-# load_BIDS_externalized_vhdr_files(sub="25")        
+
     
 
 

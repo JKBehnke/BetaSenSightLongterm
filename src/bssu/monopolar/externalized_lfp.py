@@ -54,6 +54,7 @@ def preprocess_externalized_lfp(
 
     group_data = pd.DataFrame()
     group_originial_rec_info = pd.DataFrame()
+    mne_objects = {}
     
     for patient in sub:
 
@@ -101,15 +102,17 @@ def preprocess_externalized_lfp(
         mne_data.crop(60,180)
 
         # downsample from TMSi sampling frequency to 250 sfreq (like Percept)
-        resampled_data = mne_data.copy().resample(sfreq=250)
+        # resampled_data = mne_data.copy().resample(sfreq=250)
         # cropped data should have 30000 samples (2 min of sfreq 250)
+
+        mne_objects[f"{patient}_original_2min"] = mne_data
+        # mne_objects[f"{patient}_resampled_2min"] = resampled_data
 
         ########## save processed LFP data in dataframe ##########
         for idx, lfp in enumerate(ch_names_LFP):
 
-            lfp_data = resampled_data[idx][0][0] # LFP data from each channel
-            time_stamps = resampled_data[idx][1] # time stamps
-            sfreq = resampled_data.info["sfreq"]
+            lfp_data = mne_data[idx][0][0]
+            time_stamps = mne_data[idx][1]
 
             # ch_name corresponding to Percept -> TODO: is the order always correct???? 02 = 1A? could it also be 1B?
             if "_01_" in lfp:
@@ -152,9 +155,10 @@ def preprocess_externalized_lfp(
             2: "hemisphere",
             3: "original_ch_name",
             4: "contact",
-            5: "cropped_lfp",
+            5: "lfp_2_min",
             6: "time_stamps",
-            7: "sfreq"
+            7: "sfreq",
+ 
         }, inplace=True)
         preprocessed_dataframe = preprocessed_dataframe.transpose()
     
@@ -176,26 +180,29 @@ def preprocess_externalized_lfp(
 
     print(f"externalized_recording_info_original.pickle",
             f"\nwritten in: {group_results_path}" )
+    
+    group_mne_objects_path = os.path.join(group_results_path, f"mne_objects_cropped_2_min.pickle")
+    with open(group_mne_objects_path, "wb") as file:
+        pickle.dump(mne_objects, file)
+
+    print(f"mne_objects_cropped_2_min.pickle",
+            f"\nwritten in: {group_results_path}" )
 
     return {
         "group_originial_rec_info": group_originial_rec_info,
-        "group_data": group_data
+        "group_data": group_data,
+        "mne_objects": mne_objects
     }
 
 
 
+    ####### plot all channels and check for any artefacts ####### TF and raw data plots
 
 
 
+    ####### Fourier Transform, plot averaged Power Spectra
 
-
-
-
-
-
-
-
-    ####### plot all channels and check for any artefacts #######
+    ####### FOOOF unfiltered power spectra
 
 
 
