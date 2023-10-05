@@ -5,6 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import scipy
+from scipy import signal
+from scipy.signal import spectrogram, hann, butter, filtfilt, freqz
 
 import json
 import os
@@ -21,18 +24,76 @@ from .. utils import load_data_files as load_data
 group_results_path = find_folders.get_monopolar_project_path(folder="GroupResults")
 group_figures_path = find_folders.get_monopolar_project_path(folder="GroupFigures")
 
-patient_metadata = load_data.load_patient_metadata_externalized()
+# patient_metadata = load_data.load_patient_metadata_externalized()
+patient_metadata = load_data.load_excel_data(filename="patient_metadata")
+hemispheres = ["Right", "Left"]
 
 # get index of each channel and get the corresponding LFP data
 # plot filtered channels 1-8 [0]-[7] Right and 9-16 [8]-[15] 
 # butterworth filter: band pass -> filter order = 5, high pass 5 Hz, low-pass 95 Hz
-# nodge filter: 48-52 Hz
+def band_pass_filter_externalized(
+        fs: int,
+        signal: np.array
+):
+    """
+    Input:
+        - fs: sampling frequency of the signal
+        - signal: array of the signal
+
+    Applying a band pass filter to the signal
+        - 5 Hz high pass
+        - 95 Hz low pass
+        - filter order: 3
+
+    """
+    # parameters
+    filter_order = 3 # in MATLAB spm_eeg_filter default=5 Butterworth
+    frequency_cutoff_low = 5 # 5Hz high-pass filter 
+    frequency_cutoff_high = 95 # 95 Hz low-pass filter
+
+    # create and apply the filter
+    b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
+    band_pass_filtered = scipy.signal.filtfilt(b, a, signal) 
+
+    return band_pass_filtered
+
+
+# notch filter: 50 Hz
+def notch_filter_externalized(
+        fs: int,
+        signal: np.array
+):
+    """
+    Input:
+        - fs: sampling frequency of the signal
+        - signal: array of the signal
+
+    Applying a notch filter to the signal
+    
+    
+    """
+
+    # parameters
+    notch_freq = 50 # 50 Hz line noise in Europe
+    Q = 30 # Q factor for notch filter
+
+    # apply notch filter
+    b, a = scipy.signal.iirnotch(w0=notch_freq, Q=Q, fs=fs)
+    filtered_signal = scipy.signal.filtfilt(b, a, signal)
+
+    return filtered_signal
 
 
 # detect artefacts 
 # remove artefacts (cut out)
 
 # save the cleaned data unfiltered
+
+####### plot all channels and check for any artefacts ####### TF and raw data plots
+
+####### Fourier Transform, plot averaged Power Spectra
+
+####### FOOOF unfiltered power spectra
 
 # perform FOOOF to extract only periodic component
 
@@ -101,63 +162,102 @@ def preprocess_externalized_lfp(
         # select a period of 2 minutes with no aratefacts, default start at 1 min until 3 min
         mne_data.crop(60,180)
 
+        # downsample all to 4000 Hz
+        if int(sfreq) != 4000:
+            mne_data = mne_data.copy().resample(sfreq=4000)
+            sfreq = mne_data.info["sfreq"]
+        
         # downsample from TMSi sampling frequency to 250 sfreq (like Percept)
-        # resampled_data = mne_data.copy().resample(sfreq=250)
+        resampled_250 = mne_data.copy().resample(sfreq=250)
+        sfreq_250 = resampled_250.info["sfreq"]
         # cropped data should have 30000 samples (2 min of sfreq 250)
 
-        mne_objects[f"{patient}_original_2min"] = mne_data
-        # mne_objects[f"{patient}_resampled_2min"] = resampled_data
+        # save the mne object
+        mne_objects[f"{patient}_4000Hz_2min"] = mne_data
+        mne_objects[f"{patient}_resampled_250Hz"] = resampled_250
+
+        # from bids_id only keep the part after sub-
+        bids_ID = bids_ID.split('-')
+        bids_ID = bids_ID[1]
 
         ########## save processed LFP data in dataframe ##########
-        for idx, lfp in enumerate(ch_names_LFP):
+        for idx, chan in enumerate(ch_names_LFP):
 
-            lfp_data = mne_data[idx][0][0]
+            lfp_data = mne_data.get_data(picks = chan)[0]
             time_stamps = mne_data[idx][1]
 
+            lfp_data_250 = resampled_250.get_data(picks = chan)[0]
+            time_stamps_250 = resampled_250[idx][1]
+
             # ch_name corresponding to Percept -> TODO: is the order always correct???? 02 = 1A? could it also be 1B?
-            if "_01_" in lfp:
+            if "_01_" in chan:
                 monopol_chan_name = "0"
             
-            elif "_02_" in lfp:
+            elif "_02_" in chan:
                 monopol_chan_name = "1A"
             
-            elif "_03_" in lfp:
+            elif "_03_" in chan:
                 monopol_chan_name = "1B"
 
-            elif "_04_" in lfp:
+            elif "_04_" in chan:
                 monopol_chan_name = "1C"
 
-            elif "_05_" in lfp:
+            elif "_05_" in chan:
                 monopol_chan_name = "2A"
 
-            elif "_06_" in lfp:
+            elif "_06_" in chan:
                 monopol_chan_name = "2B"
 
-            elif "_07_" in lfp:
+            elif "_07_" in chan:
                 monopol_chan_name = "2C"
 
-            elif "_08_" in lfp:
+            elif "_08_" in chan:
                 monopol_chan_name = "3"
 
             # hemisphere
-            if "_L_" in lfp:
+            if "_L_" in chan:
                 hemisphere = "Left"
             
-            elif "_R_" in lfp:
+            elif "_R_" in chan:
                 hemisphere = "Right"
+            
+            # subject_hemisphere
+            subject_hemisphere = f"{subject}_{hemisphere}"
 
-            processed_recording[f"{lfp}"] = [bids_ID, subject, hemisphere, lfp, monopol_chan_name, lfp_data, time_stamps, sfreq]
+            # notch filter 50 Hz
+            notch_filtered_lfp_4000 = notch_filter_externalized(fs=sfreq, signal=lfp_data)
+            notch_filtered_lfp_250 = notch_filter_externalized(fs=sfreq_250, signal=lfp_data_250)
+
+            # band pass filter 5-95 Hz, Butter worth filter order 3
+            filtered_lfp_4000 = band_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
+            filtered_lfp_250 = band_pass_filter_externalized(fs=sfreq_250, signal=notch_filtered_lfp_250)
+
+            # number of samples
+            n_samples_250 = len(filtered_lfp_250)
+
+
+
+            processed_recording[f"{chan}"] = [bids_ID, subject, hemisphere, subject_hemisphere, chan, monopol_chan_name, 
+                                              lfp_data, time_stamps, sfreq, sfreq_250, lfp_data_250, time_stamps_250,
+                                              filtered_lfp_4000, filtered_lfp_250, n_samples_250]
         
         preprocessed_dataframe = pd.DataFrame(processed_recording)
         preprocessed_dataframe.rename(index={
             0: "BIDS_id",
             1: "subject",
             2: "hemisphere",
-            3: "original_ch_name",
-            4: "contact",
-            5: "lfp_2_min",
-            6: "time_stamps",
-            7: "sfreq",
+            3: "subject_hemisphere",
+            4: "original_ch_name",
+            5: "contact",
+            6: "lfp_2_min",
+            7: "time_stamps",
+            8: "sfreq",
+            9: "sfreq_250Hz",
+            10: "lfp_resampled_250Hz",
+            11: "time_stamps_250Hz",
+            12: "filtered_lfp_4000Hz",
+            13: "filtered_lfp_250Hz", 
+            14: "n_samples_250Hz"
  
         }, inplace=True)
         preprocessed_dataframe = preprocessed_dataframe.transpose()
@@ -195,14 +295,293 @@ def preprocess_externalized_lfp(
     }
 
 
+def fourier_transform_time_frequency_plots(
+        
+):
+    """
+    
+    """
 
-    ####### plot all channels and check for any artefacts ####### TF and raw data plots
+    # load the dataframe with all filtered LFP data
+    preprocessed_data = load_data.load_externalized_pickle(
+        filename="externalized_preprocessed_data"
+    )
+
+    # get all subject_hemispheres
+    BIDS_id_unique = list(preprocessed_data.BIDS_id.unique())
+    sub_hem_unique = list(preprocessed_data.subject_hemisphere.unique())
+
+    # plot all time frequency plots of the 250 Hz sampled filtered LFPs
+    for BIDS_id in BIDS_id_unique:
+        figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=BIDS_id)
+        subject_data = preprocessed_data.loc[preprocessed_data.BIDS_id == BIDS_id]
+        sub = subject_data.subject.values[0]
+
+        for hem in hemispheres:
+            sub_hem_data = subject_data.loc[subject_data.hemisphere == hem]
+            contacts = list(sub_hem_data.contact.values)
+
+            # Figure of one subject_hemisphere with all 8 channels 
+            # 4 columns, 2 rows
+
+            fig = plt.figure(figsize= (30, 30), layout="tight")
+
+            for c, contact in enumerate(contacts):
+
+                contact_data = sub_hem_data.loc[sub_hem_data.contact == contact]
+
+                # filtered LFP from one contact, resampled to 250 Hz
+                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0]
+                sfreq = 250
+
+                # Calculate the short time Fourier transform (STFT) using hamming window
+                window_length = int(sfreq) # 1 second window length
+                overlap = window_length // 4 # 25% overlap
+
+                frequencies, times, Zxx = signal.stft(filtered_lfp_250, fs=sfreq, nperseg=window_length, noverlap=overlap, window='hamming')
+                # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
+                # times: len=161, 0, 0.75, 1.5 .... 120.75
+                # Zxx: 126 arrays, each len=161
+                # Zxx with imaginary values -> take the absolute!
+                # to get power -> **2
+
+                plt.subplot(4, 2, c+1) # row 1: 1, 2, 3, 4; row 2: 5, 6, 7, 8
+                plt.title(f"Channel {contact}", fontdict={"size": 40})
+                plt.pcolormesh(times, frequencies, np.abs(Zxx), shading='auto', cmap='viridis')
+
+                plt.xlabel("Time [s]", fontdict={"size": 30})
+                plt.ylabel("Frequency [Hz]", fontdict={"size": 30})
+                plt.yticks(np.arange(0, 512, 30), fontsize= 20)
+                plt.ylim(1, 100)
+                plt.xticks(fontsize= 20)
+            
+            fig.suptitle(f"Time Frequency sub-{sub}, {hem} hemisphere, fs = 250 Hz", fontsize=55, y=1.02)
+            plt.show()
+
+            fig.savefig(os.path.join(figures_path, f"Time_Frequency_sub{sub}_{hem}_filtered_250Hz_resampled.png"),
+                        bbox_inches="tight")
 
 
 
-    ####### Fourier Transform, plot averaged Power Spectra
+def clean_artefacts(
+        
+):
+    """
+    Clean artefacts
 
-    ####### FOOOF unfiltered power spectra
+    """
+    sfreq = 250
+
+    # load data
+    artefacts_excel = load_data.load_excel_data(filename="movement_artefacts")
+    preprocessed_data = load_data.load_externalized_pickle(filename="externalized_preprocessed_data")
+
+    # artefact_free_dataframe= pd.DataFrame()
+    artefact_free_dataframe = preprocessed_data.copy()
+    artefact_free_dataframe = artefact_free_dataframe.reset_index(drop=True)
+
+    # check which subjects have artefacts
+    artefacts_excel = artefacts_excel.loc[artefacts_excel.contacts == "all"]
+    BIDS_id_artefacts = list(artefacts_excel.BIDS_key.unique())
+
+    for bids_id in BIDS_id_artefacts:
+
+        figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+        
+        # data only of one subject
+        subject_artefact_data = artefacts_excel.loc[artefacts_excel.BIDS_key == bids_id]
+        subject_data = preprocessed_data.loc[preprocessed_data.BIDS_id == bids_id]
+        sub = subject_data.subject.values[0]
+
+        # check which hemispheres have artefacts
+        hemispheres_with_artefacts = []
+
+        if "Right" in subject_artefact_data.hemisphere.values:
+            hemispheres_with_artefacts.append("Right")
+
+        
+        if "Left" in subject_artefact_data.hemisphere.values:
+            hemispheres_with_artefacts.append("Left")
+            
+        
+        for hem in hemispheres_with_artefacts:
+
+            # get artefact data from one subject hemisphere
+            hem_artefact_data = subject_artefact_data.loc[subject_artefact_data.hemisphere == hem]
+
+            artefact_samples_list = []
+            artefact1_start = hem_artefact_data.artefact1_start.values[0]
+            artefact1_stop = hem_artefact_data.artefact1_stop.values[0]
+            
+            # calculate the samples: X sample = 250 Hz * second
+            sample_start1 = int(sfreq * artefact1_start)
+            sample_stop1 = int(sfreq * artefact1_stop)
+
+            artefact_samples_list.append(sample_start1)
+
+            # check if there are more artefacts
+            if hem_artefact_data["artefact2_start"].notna().any():
+                artefact2_start = hem_artefact_data.artefact2_start.values[0]
+                artefact2_stop = hem_artefact_data.artefact2_stop.values[0]
+
+                sample_start2 = int(sfreq * artefact2_start)
+                sample_stop2 = int(sfreq * artefact2_stop)
+
+                artefact_samples_list.append(sample_start2)
+            
+            if hem_artefact_data["artefact3_start"].notna().any():
+                artefact3_start = hem_artefact_data.artefact3_start.values[0]
+                artefact3_stop = hem_artefact_data.artefact3_stop.values[0]
+
+                sample_start3 = int(sfreq * artefact3_start)
+                sample_stop3 = int(sfreq * artefact3_stop)
+
+                artefact_samples_list.append(sample_start3)
+
+            # get lfp data from one subject hemisphere
+            hem_data = subject_data.loc[subject_data.hemisphere == hem]
+            contacts = list(hem_data.contact.values)
+
+            # Figure of one subject_hemisphere with all 8 channels 
+            # 4 columns, 2 rows
+
+            fig = plt.figure(figsize= (30, 30), layout="tight")
+
+            for c, contact in enumerate(contacts):
+
+                contact_data = hem_data.loc[hem_data.contact == contact]
+
+                # get LFP data from one contact
+                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0]
+
+                # clean artefacts from LFP data
+                # check how many artefacts 1-3?
+                if len(artefact_samples_list) == 1:
+
+                    data_clean_1 = filtered_lfp_250[0 : sample_start1+1]
+                    data_clean_2 = filtered_lfp_250[sample_stop1 : 30000]
+
+                    clean_data = np.concatenate([data_clean_1, data_clean_2])
+
+                elif len(artefact_samples_list) == 2:
+
+                    data_clean_1 = filtered_lfp_250[0 : sample_start1+1]
+                    data_clean_2 = filtered_lfp_250[sample_stop1 : sample_start2+1]
+                    data_clean_3 = filtered_lfp_250[sample_stop2 : 30000]
+
+                    clean_data = np.concatenate([data_clean_1, data_clean_2, data_clean_3])
+                
+                elif len(artefact_samples_list) == 3:
+
+                    data_clean_1 = filtered_lfp_250[0 : sample_start1+1]
+                    data_clean_2 = filtered_lfp_250[sample_stop1 : sample_start2+1]
+                    data_clean_3 = filtered_lfp_250[sample_stop2 : sample_start3+1]
+                    data_clean_4 = filtered_lfp_250[sample_stop3 : 30000]
+
+                    clean_data = np.concatenate([data_clean_1, data_clean_2, data_clean_3, data_clean_4])
+
+                # replace artefact_free data in the copied original dataframe 
+                # get the index of the contact you're in
+                row_index = artefact_free_dataframe[(artefact_free_dataframe['BIDS_id'] == bids_id) & (artefact_free_dataframe['hemisphere'] == hem) & (artefact_free_dataframe['contact'] == contact)]
+                row_index = row_index.index[0]
+                artefact_free_dataframe.loc[row_index, "filtered_lfp_250Hz"] = clean_data
+                artefact_free_dataframe.loc[row_index, "n_samples_250Hz"] = len(clean_data)
+                #clean_contact_data = contact_data.copy()
+                #clean_contact_data.loc[row_index, "filtered_lfp_250Hz"] = clean_data
+                #clean_contact_data.loc[row_index, "n_samples_250Hz"] = len(clean_data)
+                # artefact_free_dataframe = pd.concat([artefact_free_dataframe, clean_contact_data])
+                
+                # Calculate the short time Fourier transform (STFT) using hamming window
+                window_length = int(sfreq) # 1 second window length
+                overlap = window_length // 4 # 25% overlap
+
+                frequencies, times, Zxx = signal.stft(clean_data, fs=sfreq, nperseg=window_length, noverlap=overlap, window='hamming')
+                # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
+                # times: len=161, 0, 0.75, 1.5 .... 120.75
+                # Zxx: 126 arrays, each len=161
+                # Zxx with imaginary values -> take the absolute!
+                # to get power -> **2
+
+                plt.subplot(4, 2, c+1) # row 1: 1, 2, 3, 4; row 2: 5, 6, 7, 8
+                plt.title(f"Channel {contact}", fontdict={"size": 40})
+                plt.pcolormesh(times, frequencies, np.abs(Zxx), shading='auto', cmap='viridis')
+
+                plt.xlabel("Time [s]", fontdict={"size": 30})
+                plt.ylabel("Frequency [Hz]", fontdict={"size": 30})
+                plt.yticks(np.arange(0, 512, 30), fontsize= 20)
+                plt.ylim(1, 100)
+                plt.xticks(fontsize= 20)
+            
+            fig.suptitle(f"Time Frequency sub-{sub}, {hem} hemisphere, fs = 250 Hz, artefact-free", fontsize=55, y=1.02)
+            plt.show()
+
+            fig.savefig(os.path.join(figures_path, f"Time_Frequency_sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free.png"),
+                        bbox_inches="tight")
+    
+    # save dataframes
+    group_data_path = os.path.join(group_results_path, f"externalized_preprocessed_data_artefact_free.pickle")
+    with open(group_data_path, "wb") as file:
+        pickle.dump(artefact_free_dataframe, file)
+
+    print(f"externalized_preprocessed_data_artefact_free.pickle",
+            f"\nwritten in: {group_results_path}" )
+    
+    return artefact_free_dataframe
+                    
+
+
+
+
+
+
+
+
+            
+            
+
+
+
+
+
+
+
+
+            
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   
 
 
 

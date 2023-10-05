@@ -3,9 +3,12 @@
 
 import os
 import pandas as pd
+import numpy as np
 import pickle
 import json
+import h5py
 from pathlib import Path
+import mne
 import mne_bids
 from mne_bids import (
     BIDSPath,
@@ -17,6 +20,7 @@ import sys
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "src"))
 from src.bssu.utils import find_folders
+
 
 
 def load_patient_metadata_externalized():
@@ -45,10 +49,43 @@ def load_patient_metadata_externalized():
     return data
 
 
+def load_excel_data(
+        filename:str
+):
+    """
+    Input:
+        - filename: "patient_metadata", "movement_artefacts"
+    
+    """
+
+    patient_metadata_sheet = ["patient_metadata", "movement_artefacts"]
+
+    # find the path to the results folder
+    path = find_folders.get_monopolar_project_path(folder="data")
+
+    # create filename
+    f_name = f"{filename}.xlsx"
+    
+    if filename in patient_metadata_sheet:
+        sheet_name = "patient_metadata"
+    
+
+    filepath = os.path.join(path, f_name)
+
+    # load the file
+    data = pd.read_excel(filepath, keep_default_na=True, sheet_name=sheet_name) 
+    print("Excel file loaded: ",f_name, "\nloaded from: ", path)
+
+    return data
+
+
+
 def load_externalized_Poly5_files(
         sub: str
 ):
     """
+    Input:
+        - sub: str e.g. "24"
 
     filepath: '/Users/jenniferbehnke/Dropbox/work/ResearchProjects/Monopolar_power_estimation/data/externalized_lfp/
     -> subject path depending on the externalized patient ID
@@ -73,7 +110,22 @@ def load_externalized_Poly5_files(
         if f.endswith(".Poly5"):
             filename = f
     
-    return os.path.join(subject_folder_path, filename)
+    filepath = os.path.join(subject_folder_path, filename)
+
+    # load the Poly5 file
+    # with h5py.File(filepath, "r") as poly5_data:
+    #     # Extract relevant data from Poly5
+    #     eeg_data = np.array(poly5_data['EEG']['data'])
+    #     eeg_info = mne.create_info(ch_names=['EEG'], ch_types='eeg')
+        
+    #     # Create MNE Raw object
+    #     raw = mne.io.RawArray(eeg_data, eeg_info)
+        
+    #     # Save as FIF
+    #     fif_file = 'output_file.fif'
+    #     #raw.save(fif_file, overwrite=True)
+
+    return filepath
 
 
 def load_BIDS_externalized_vhdr_files(
@@ -193,7 +245,8 @@ def load_externalized_pickle(
         - filename: str, must be in 
             ["externalized_preprocessed_data",
             "externalized_recording_info_original",
-            "mne_objects_cropped_2_min"
+            "mne_objects_cropped_2_min",
+            "externalized_preprocessed_data_artefact_free"
             ]
     """
 

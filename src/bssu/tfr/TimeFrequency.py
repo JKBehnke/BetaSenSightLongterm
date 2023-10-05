@@ -299,6 +299,7 @@ def time_frequency(incl_sub: list,
                                 # only get picked channels
                                 if i not in ch_names_indices:
                                     continue
+                                
 
                                 #################### FILTER ####################
 

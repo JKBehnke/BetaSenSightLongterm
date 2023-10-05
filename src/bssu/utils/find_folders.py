@@ -333,7 +333,7 @@ def get_monopolar_project_path(folder: str, sub: str = None):
             'GroupResults': path to results folder, without going in subject level
             'results': subject folder of results
             'GroupFigures': path to figures folder, without going in subject level
-            'figures': figure folder of results
+            'figures': subject folder of figures
 
         - sub: str, e.g. "EL001" or "L010"
 

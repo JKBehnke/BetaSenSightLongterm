@@ -226,7 +226,7 @@ def spectrogram_Psd(incl_sub: str, incl_session: list, incl_condition: list, pic
                         #################### PERFORM FOURIER TRANSFORMATION AND CALCULATE POWER SPECTRAL DENSITY ####################
 
                         window = 250 # with sfreq 250 frequencies will be from 0 to 125 Hz, 125Hz = Nyquist = fs/2
-                        noverlap = 0.5 # 50% overlap of windows
+                        noverlap = 0.5 # 50% overlap of windows 250/2=125 would be an overlap of 50%...
 
                         window = hann(window, sym=False) # 250 points in the output window, sym=False for use in spectral analysis
 
