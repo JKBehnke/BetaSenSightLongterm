@@ -367,7 +367,16 @@ def clean_artefacts(
         
 ):
     """
-    Clean artefacts
+    Clean artefacts:
+
+    - Load the artefact Excel sheet with the time in seconds of when visually inspected artefacts start and end
+    - load the preprocessed data
+
+    - clean the artefacts from: 
+        - lfp_2_min -> unfiltered LFP, sfreq 4000 Hz
+        - lfp_resampled_250 Hz -> unfiltered LFP, resampled to 250 Hz
+        - filtered_lfp_4000Hz -> notch, band-pass filtered, resampled to 4000 Hz
+        - filtered_lfp_250Hz -> notch, band-pass filtered, resampled to 250 Hz
 
     """
     sfreq = 250
@@ -452,65 +461,90 @@ def clean_artefacts(
                 contact_data = hem_data.loc[hem_data.contact == contact]
 
                 # get LFP data from one contact
-                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0]
-
-                # clean artefacts from LFP data
-                # check how many artefacts 1-3?
-                if len(artefact_samples_list) == 1:
-
-                    data_clean_1 = filtered_lfp_250[0 : sample_start1+1]
-                    data_clean_2 = filtered_lfp_250[sample_stop1 : 30000]
-
-                    clean_data = np.concatenate([data_clean_1, data_clean_2])
-
-                elif len(artefact_samples_list) == 2:
-
-                    data_clean_1 = filtered_lfp_250[0 : sample_start1+1]
-                    data_clean_2 = filtered_lfp_250[sample_stop1 : sample_start2+1]
-                    data_clean_3 = filtered_lfp_250[sample_stop2 : 30000]
-
-                    clean_data = np.concatenate([data_clean_1, data_clean_2, data_clean_3])
+                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0] # to plot
                 
-                elif len(artefact_samples_list) == 3:
+                lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
+                # lfp_2_min = contact_data.lfp_2_min.values[0]
+                # filtered_lfp_4000Hz = contact_data.filtered_lfp_4000Hz.values[0]
 
-                    data_clean_1 = filtered_lfp_250[0 : sample_start1+1]
-                    data_clean_2 = filtered_lfp_250[sample_stop1 : sample_start2+1]
-                    data_clean_3 = filtered_lfp_250[sample_stop2 : sample_start3+1]
-                    data_clean_4 = filtered_lfp_250[sample_stop3 : 30000]
+                loop_over_data = [1,2]
 
-                    clean_data = np.concatenate([data_clean_1, data_clean_2, data_clean_3, data_clean_4])
+                for data in loop_over_data:
 
-                # replace artefact_free data in the copied original dataframe 
-                # get the index of the contact you're in
-                row_index = artefact_free_dataframe[(artefact_free_dataframe['BIDS_id'] == bids_id) & (artefact_free_dataframe['hemisphere'] == hem) & (artefact_free_dataframe['contact'] == contact)]
-                row_index = row_index.index[0]
-                artefact_free_dataframe.loc[row_index, "filtered_lfp_250Hz"] = clean_data
-                artefact_free_dataframe.loc[row_index, "n_samples_250Hz"] = len(clean_data)
-                #clean_contact_data = contact_data.copy()
-                #clean_contact_data.loc[row_index, "filtered_lfp_250Hz"] = clean_data
-                #clean_contact_data.loc[row_index, "n_samples_250Hz"] = len(clean_data)
-                # artefact_free_dataframe = pd.concat([artefact_free_dataframe, clean_contact_data])
+                    if data == 1:
+                        lfp_data = filtered_lfp_250
+                        column_name = "filtered_lfp_250Hz"
+                    
+                    elif data == 2:
+                        lfp_data = lfp_resampled_250Hz
+                        column_name = "lfp_resampled_250Hz"
+                    
+                    # elif data == 3:
+                    #     lfp_data = lfp_2_min
+                    #     column_name = "lfp_2_min"
+                    
+                    # elif data == 4:
+                    #     lfp_data = filtered_lfp_4000Hz
+                    #     column_name = "filtered_lfp_4000Hz"
+                    
+
+                    # clean artefacts from LFP data
+                    # check how many artefacts 1-3?
+                    if len(artefact_samples_list) == 1:
+
+                        data_clean_1 = lfp_data[0 : sample_start1+1]
+                        data_clean_2 = lfp_data[sample_stop1 : 30000]
+                        clean_data = np.concatenate([data_clean_1, data_clean_2]) 
+
+
+                    elif len(artefact_samples_list) == 2:
+                        
+                        data_clean_1 = lfp_data[0 : sample_start1+1]
+                        data_clean_2 = lfp_data[sample_stop1 : sample_start2+1]
+                        data_clean_3 = lfp_data[sample_stop2 : 30000]
+                        clean_data = np.concatenate([data_clean_1, data_clean_2, data_clean_3]) 
+
+                    
+                    elif len(artefact_samples_list) == 3:
+                        
+                        data_clean_1 = lfp_data[0 : sample_start1+1]
+                        data_clean_2 = lfp_data[sample_stop1 : sample_start2+1]
+                        data_clean_3 = lfp_data[sample_stop2 : sample_start3+1]
+                        data_clean_4 = lfp_data[sample_stop3 : 30000]
+                        clean_data = np.concatenate([data_clean_1, data_clean_2, data_clean_3, data_clean_4]) 
+
+
+                    # replace artefact_free data in the copied original dataframe 
+                    # get the index of the contact you're in
+                    row_index = artefact_free_dataframe[(artefact_free_dataframe['BIDS_id'] == bids_id) & (artefact_free_dataframe['hemisphere'] == hem) & (artefact_free_dataframe['contact'] == contact)]
+                    row_index = row_index.index[0]
+
+                    # filtered LFP, resampled to 250 Hz
+                    artefact_free_dataframe.loc[row_index, column_name] = clean_data
+                    artefact_free_dataframe.loc[row_index, "n_samples_250Hz"] = len(clean_data)
+
+                    if data == 1: 
                 
-                # Calculate the short time Fourier transform (STFT) using hamming window
-                window_length = int(sfreq) # 1 second window length
-                overlap = window_length // 4 # 25% overlap
+                        ############################# Calculate the short time Fourier transform (STFT) using hamming window #############################
+                        window_length = int(sfreq) # 1 second window length
+                        overlap = window_length // 4 # 25% overlap
 
-                frequencies, times, Zxx = signal.stft(clean_data, fs=sfreq, nperseg=window_length, noverlap=overlap, window='hamming')
-                # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
-                # times: len=161, 0, 0.75, 1.5 .... 120.75
-                # Zxx: 126 arrays, each len=161
-                # Zxx with imaginary values -> take the absolute!
-                # to get power -> **2
+                        frequencies, times, Zxx = signal.stft(clean_data, fs=sfreq, nperseg=window_length, noverlap=overlap, window='hamming')
+                        # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
+                        # times: len=161, 0, 0.75, 1.5 .... 120.75
+                        # Zxx: 126 arrays, each len=161
+                        # Zxx with imaginary values -> take the absolute!
+                        # to get power -> **2
 
-                plt.subplot(4, 2, c+1) # row 1: 1, 2, 3, 4; row 2: 5, 6, 7, 8
-                plt.title(f"Channel {contact}", fontdict={"size": 40})
-                plt.pcolormesh(times, frequencies, np.abs(Zxx), shading='auto', cmap='viridis')
+                        plt.subplot(4, 2, c+1) # row 1: 1, 2, 3, 4; row 2: 5, 6, 7, 8
+                        plt.title(f"Channel {contact}", fontdict={"size": 40})
+                        plt.pcolormesh(times, frequencies, np.abs(Zxx), shading='auto', cmap='viridis')
 
-                plt.xlabel("Time [s]", fontdict={"size": 30})
-                plt.ylabel("Frequency [Hz]", fontdict={"size": 30})
-                plt.yticks(np.arange(0, 512, 30), fontsize= 20)
-                plt.ylim(1, 100)
-                plt.xticks(fontsize= 20)
+                        plt.xlabel("Time [s]", fontdict={"size": 30})
+                        plt.ylabel("Frequency [Hz]", fontdict={"size": 30})
+                        plt.yticks(np.arange(0, 512, 30), fontsize= 20)
+                        plt.ylim(1, 100)
+                        plt.xticks(fontsize= 20)
             
             fig.suptitle(f"Time Frequency sub-{sub}, {hem} hemisphere, fs = 250 Hz, artefact-free", fontsize=55, y=1.02)
             plt.show()
@@ -528,6 +562,148 @@ def clean_artefacts(
     
     return artefact_free_dataframe
                     
+
+
+def fourier_transform_to_psd(
+        
+):
+    
+    """
+    Load the artefact free data: 
+        - 2 min rest
+        - artefacts removed
+        - resampled to 250 Hz
+        - filtered: notch, band-pass
+        - and unfiltered
+    
+    calculate the power spectrum for both filtered and unfiltered LFP:
+        - window length = 250 # 1 second window length
+        - overlap = window_length // 4 # 25% overlap
+        - window = hann(window_length, sym=False)
+        - frequencies, times, Zxx = scipy.signal.spectrogram(band_pass_filtered, fs=fs, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0)
+   
+
+    
+    """
+
+    sfreq = 250
+    hemispheres = ["Right", "Left"]
+
+    power_spectra_dict = {}
+
+    artefact_free_lfp = load_data.load_externalized_pickle(filename="externalized_preprocessed_data_artefact_free")
+
+    BIDS_id_unique = list(artefact_free_lfp.BIDS_id.unique())
+
+    for bids_id in BIDS_id_unique:
+
+        figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+        
+        # data only of one subject
+        subject_data = artefact_free_lfp.loc[artefact_free_lfp.BIDS_id == bids_id]
+        sub = subject_data.subject.values[0]
+
+        for hem in hemispheres:
+
+            hem_data = subject_data.loc[subject_data.hemisphere == hem]
+            contacts = list(hem_data.contact.values)
+            subject_hemisphere = f"{sub}_{hem}"
+
+            # Figure of one subject_hemisphere with all 8 channels 
+            # 4 columns, 2 rows
+            fig = plt.figure(figsize= (30, 30), layout="tight")
+
+            for c, contact in enumerate(contacts):
+
+                contact_data = hem_data.loc[hem_data.contact == contact]
+
+                original_ch_name = contact_data.original_ch_name.values[0]
+
+                # get LFP data from one contact
+                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0] # to plot
+                lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
+                
+                loop_over_data = ["filtered", "unfiltered"]
+
+                for filt in loop_over_data:
+
+                    if filt == "filtered":
+                        lfp_data = filtered_lfp_250
+                    
+                    elif filt == "unfiltered":
+                        lfp_data = lfp_resampled_250Hz
+                    
+                    ######### short time fourier transform to calculate PSD #########
+                    window_length = int(sfreq) # 1 second window length
+                    overlap = window_length // 4 # 25% overlap
+
+                    # Calculate the short-time Fourier transform (STFT) using Hann window
+                    window = hann(window_length, sym=False)
+
+                    frequencies, times, Zxx = scipy.signal.spectrogram(lfp_data, fs=sfreq, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0)
+                    # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
+                    # times: len=161, 0, 0.75, 1.5 .... 120.75
+                    # Zxx: 126 arrays, each len=161
+
+                    # average PSD across duration of the recording
+                    average_Zxx = np.mean(Zxx, axis=1)
+                    std_Zxx = np.std(Zxx, axis=1)
+                    sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
+
+                    # save power spectra values
+                    power_spectra_dict[f"{bids_id}_{hem}_{contact}_{filt}"] = [bids_id, sub, hem, subject_hemisphere, contact, original_ch_name,
+                                                                               filt, lfp_data, frequencies, times, Zxx, average_Zxx, std_Zxx, sem_Zxx]
+
+                    if filt == "filtered": 
+                        plt.subplot(4, 2, c+1) # row 1: 1, 2, 3, 4; row 2: 5, 6, 7, 8
+                        plt.title(f"Channel {contact}", fontdict={"size": 40})
+                        plt.plot(frequencies, average_Zxx)
+                        plt.fill_between(frequencies, average_Zxx-sem_Zxx, average_Zxx+sem_Zxx, color='lightgray', alpha=0.5)
+
+                        plt.xlabel("Frequency [Hz]", fontdict={"size": 30})
+                        plt.ylabel("PSD", fontdict={"size": 30})
+                        #plt.ylim(1, 100)
+                        plt.xticks(fontsize= 20)
+                        plt.yticks(fontsize= 20)
+
+            fig.suptitle(f"Power Spectrum sub-{sub}, {hem} hemisphere, fs = 250 Hz, filtered and artefact-free", fontsize=55, y=1.02)
+            plt.show()
+
+            fig.savefig(os.path.join(figures_path, f"Power_spectrum_sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free.png"),
+                        bbox_inches="tight") 
+    
+
+    power_spectra_df = pd.DataFrame(power_spectra_dict)
+    power_spectra_df.rename(index={
+        0: "BIDS_id",
+        1: "subject",
+        2: "hemisphere",
+        3: "subject_hemisphere",
+        4: "contact",
+        5: "original_ch_name",
+        6: "filter",
+        7: "lfp_data",
+        8: "frequencies",
+        9: "times",
+        10: "power",
+        11: "power_average_over_time",
+        12: "power_std",
+        13: "power_sem", 
+
+    }, inplace=True)
+    power_spectra_df = power_spectra_df.transpose()
+
+    # save dataframes
+    group_data_path = os.path.join(group_results_path, f"externalized_power_spectra_250Hz_artefact_free.pickle")
+    with open(group_data_path, "wb") as file:
+        pickle.dump(power_spectra_df, file)
+
+    print(f"externalized_power_spectra_250Hz_artefact_free.pickle",
+            f"\nwritten in: {group_results_path}" )
+    
+    return power_spectra_df
+
+
 
 
 
