@@ -247,7 +247,8 @@ def load_externalized_pickle(
             "externalized_recording_info_original",
             "mne_objects_cropped_2_min",
             "externalized_preprocessed_data_artefact_free",
-            "externalized_power_spectra_250Hz_artefact_free"
+            "externalized_power_spectra_250Hz_artefact_free",
+            "externalized_contacts_common_reference
             ]
     """
 
