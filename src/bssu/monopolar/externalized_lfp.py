@@ -117,9 +117,9 @@ def preprocess_externalized_lfp(
         1) sfreq=4000 Hz (if it was 4096Hz originally)
         2) sfreq=250 Hz 
     
-    - Filter both versions:
+    - Filter 2 versions:
         1) notch filter 50 Hz
-        2) band-pass filter 5-95 Hz (filterorder 2)
+        2) notch filter 50 Hz + band-pass filter 5-95 Hz (filterorder 2)
         
     - save the data of all contacts into Dataframe:
         1) externalized_preprocessed_data -> all versions of the data filtered, unfiltered, 250 Hz, 4000 Hz
@@ -251,11 +251,9 @@ def preprocess_externalized_lfp(
             # number of samples
             n_samples_250 = len(filtered_lfp_250)
 
-
-
             processed_recording[f"{chan}"] = [bids_ID, subject, hemisphere, subject_hemisphere, chan, monopol_chan_name, 
                                               lfp_data, time_stamps, sfreq, sfreq_250, lfp_data_250, time_stamps_250,
-                                              filtered_lfp_4000, filtered_lfp_250, n_samples_250]
+                                              filtered_lfp_4000, filtered_lfp_250, notch_filtered_lfp_4000, notch_filtered_lfp_250, n_samples_250]
         
         preprocessed_dataframe = pd.DataFrame(processed_recording)
         preprocessed_dataframe.rename(index={
@@ -273,7 +271,9 @@ def preprocess_externalized_lfp(
             11: "time_stamps_250Hz",
             12: "filtered_lfp_4000Hz",
             13: "filtered_lfp_250Hz", 
-            14: "n_samples_250Hz"
+            14: "notch_filtered_lfp_4000Hz",
+            15: "notch_filtered_lfp_250Hz",
+            16: "n_samples_250Hz"
  
         }, inplace=True)
         preprocessed_dataframe = preprocessed_dataframe.transpose()
@@ -394,9 +394,10 @@ def clean_artefacts(
     - Load the artefact Excel sheet with the time in seconds of when visually inspected artefacts start and end
     - load the preprocessed data
 
-    - clean the artefacts from the two versions of 250 Hz resampled data: 
+    - clean the artefacts from 3 versions of 250 Hz resampled data: 
         - lfp_resampled_250 Hz -> unfiltered LFP, resampled to 250 Hz
-        - filtered_lfp_250Hz -> notch, band-pass filtered, resampled to 250 Hz
+        - filtered_lfp_250Hz -> notch + band-pass filtered, resampled to 250 Hz
+        - notch_filtered_lfp_250 -> only notch filtered 50 Hz, resampled to 250 Hz
     
     - Plot again the clean Time Frequency plots (sfreq=250 Hz, filtered, artefact-free) to check, if artefacts are gone
 
@@ -489,10 +490,11 @@ def clean_artefacts(
                 filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0] # to plot
                 
                 lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
+                notch_filtered_lfp_250Hz = contact_data.notch_filtered_lfp_250Hz.values[0]
                 # lfp_2_min = contact_data.lfp_2_min.values[0]
                 # filtered_lfp_4000Hz = contact_data.filtered_lfp_4000Hz.values[0]
 
-                loop_over_data = [1,2]
+                loop_over_data = [1, 2, 3]
 
                 for data in loop_over_data:
 
@@ -503,6 +505,10 @@ def clean_artefacts(
                     elif data == 2:
                         lfp_data = lfp_resampled_250Hz
                         column_name = "lfp_resampled_250Hz"
+                    
+                    elif data == 3:
+                        lfp_data = notch_filtered_lfp_250Hz
+                        column_name = "notch_filtered_lfp_250Hz"
                     
                     # elif data == 3:
                     #     lfp_data = lfp_2_min
@@ -598,7 +604,7 @@ def fourier_transform_to_psd(
         - 2 min rest
         - artefacts removed
         - resampled to 250 Hz
-        - 2 versions: filtered (notch, band-pass) and unfiltered
+        - 3 versions: filtered (notch, band-pass), only notch-filtered and unfiltered
     
     calculate the power spectrum for both filtered and unfiltered LFP:
         - window length = 250 # 1 second window length
@@ -649,8 +655,9 @@ def fourier_transform_to_psd(
                 # get LFP data from one contact
                 filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0] # to plot
                 lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
+                notch_filtered_lfp_250Hz = contact_data.notch_filtered_lfp_250Hz.values[0]
                 
-                loop_over_data = ["filtered", "unfiltered"]
+                loop_over_data = ["filtered", "unfiltered", "notch-filtered"]
 
                 for filt in loop_over_data:
 
@@ -659,6 +666,9 @@ def fourier_transform_to_psd(
                     
                     elif filt == "unfiltered":
                         lfp_data = lfp_resampled_250Hz
+                    
+                    elif filt == "notch-filtered":
+                        lfp_data = notch_filtered_lfp_250Hz
                     
                     ######### short time fourier transform to calculate PSD #########
                     window_length = int(sfreq) # 1 second window length
@@ -732,14 +742,20 @@ def fourier_transform_to_psd(
 
 
 def externalized_fooof_fit(
-        
+        filtered:str
 ):
     """
+    Input:
+        - filtered: str, "unfiltered" or "notch-filtered"    
+
     Load the Power Spectra data
         - externalized_power_spectra_250Hz_artefact_free.pickle
         - resampled sfreq=250 Hz
         - artefact-free
+
+        2 versions:
         - unfiltered Power Spectra
+        - notch-filtered Power Spectra
 
     1) First set and fit a FOOOF model without a knee -> within a frequency range from 1-95 Hz (broad frequency range for fitting the aperiodic component)
         - peak_width_limits=[2, 15.0],  # must be a list, low limit should be more than twice as frequency resolution, usually not more than 15Hz bw
@@ -792,8 +808,8 @@ def externalized_fooof_fit(
 
     power_spectra_data = load_data.load_externalized_pickle(filename="externalized_power_spectra_250Hz_artefact_free")
 
-    # first select only the rows with UNFILTERED DATA 
-    power_spectra_data = power_spectra_data.loc[power_spectra_data.filtered == "unfiltered"]
+    # first select only the rows with UNFILTERED OR NOTCH-FILTERED DATA 
+    power_spectra_data = power_spectra_data.loc[power_spectra_data.filtered == filtered]
 
     BIDS_id_unique = list(power_spectra_data.BIDS_id.unique())
 
@@ -876,7 +892,7 @@ def externalized_fooof_fit(
                 fig.suptitle(f"sub {sub}, {hem} hemisphere, contact: {contact}",
                                         fontsize=25)
 
-                ax[0].set_title("unfiltered, artefact-free power spectrum", fontsize=20, y=0.97, pad=-20)
+                ax[0].set_title(f"{filtered}, artefact-free power spectrum", fontsize=20, y=0.97, pad=-20)
                 ax[3].set_title("power spectrum of periodic component", fontsize=20)
 
                 # mark beta band
@@ -886,8 +902,8 @@ def externalized_fooof_fit(
                 ax[3].grid(False)
 
                 fig.tight_layout()
-                fig.savefig(os.path.join(figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean.svg"), bbox_inches="tight", format="svg")
-                fig.savefig(os.path.join(figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean.png"), bbox_inches="tight")
+                fig.savefig(os.path.join(figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}.svg"), bbox_inches="tight", format="svg")
+                fig.savefig(os.path.join(figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}.png"), bbox_inches="tight")
 
                 # extract parameters from the chosen model
                 # model.print_results()
@@ -947,6 +963,7 @@ def externalized_fooof_fit(
 
                 # save all results in dictionary
                 fooof_results = {
+                    "filtered": [filtered],
                     "BIDS_id": [bids_id],
                     "subject": [sub],
                     "hemisphere": [hem],
@@ -972,11 +989,11 @@ def externalized_fooof_fit(
                 fooof_results_df = pd.concat([fooof_results_df, fooof_results_single], ignore_index=True)
 
     # save DF as pickle
-    fooof_results_df_path = os.path.join(group_results_path, f"fooof_externalized_group.pickle")
+    fooof_results_df_path = os.path.join(group_results_path, f"fooof_externalized_group_{filtered}.pickle")
     with open(fooof_results_df_path, "wb") as file:
         pickle.dump(fooof_results_df, file)
 
-    print(f"fooof_externalized_group.pickle",
+    print(f"fooof_externalized_group{filtered}.pickle",
             f"\nwritten in: {group_results_path}" )
 
     
@@ -1003,60 +1020,96 @@ def externalized_fooof_fit(
 
 
 
-# def write_group_fooof(
-        
-# ):
-#     """
-#     Loop through each subject folder in the results path, check if there is a FOOOF JSON file, 
-#         - Load the fooof_externalized_sub{sub}.json file from each subject
 
-#     1) 
+def calculate_periodic_beta_power(
+        filtered:str
+):
+    """
+    Input:
+        - filtered: str, "unfiltered" or "notch-filtered"
 
-
-
-#     """
-
-#     group_fooof_dataframe = pd.DataFrame()
-
-#     # loop through each folder in results path
-#     sub_folders = os.listdir(group_results_path)
-#     sub_folders = [folder for folder in sub_folders if folder.startswith("sub-")]
-
-#     for sub_dir in sub_folders:
-
-#         bids_id = sub_dir.split('-')
-#         bids_id = bids_id[1]
-
-#         sub_path = os.path.join(group_results_path, sub_dir)
-#         files = os.listdir(sub_path)
-
-#         found = False
-
-#         for file in files:
-
-#             if file.startswith("fooof_externalized") and file.endswith(".json"):
-#                 found = True
-#                 filename = file
-#                 break
-
-#         # check if the file was not found
-#         if not found:
-#             print(f"No FOOOF externalized JSON file in the results folder: {sub_dir}")
-#             continue
-
-#         # continues only, if file exists
-#         # load the file
-#         with open(os.path.join(sub_path, filename)) as f:
-#             data = json.load(f)
-#             data = pd.DataFrame(data)
-        
-#         # concatenate all dataframes together
-#         group_fooof_dataframe = pd.concat([group_fooof_dataframe, data], ignore_index=True)
+    Load the Fooof group data:
+        - fooof_externalized_group_notch-filtered.pickle
     
-#     # save the new dataframe
-#     group_fooof_dataframe.to_json(os.path.join(group_results_path, f"fooof_externalized_group_data.json"))
+    1) Add a column with the average beta power 13-35 Hz from the fooof_power_spectrum
 
-#     return group_fooof_dataframe
+    2) Create 2 versions of data with beta ranks
+        - directional contacts (rank 1-6)
+        - all contacts (rank 1-8)   
+
+    Save both dataframes as pickle files:
+        -      
+
+
+    """
+
+    # dataframes with beta ranks: 
+    beta_rank_all_contacts = pd.DataFrame()
+    beta_rank_directional_contacts = pd.DataFrame()
+
+    directional_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+
+    group_fooof_data = load_data.load_externalized_pickle(filename = f"fooof_externalized_group_{filtered}")
+
+    # new column beta_average 
+    group_fooof_copy = group_fooof_data.copy()
+    group_fooof_copy["beta_average"] = group_fooof_copy["fooof_power_spectrum"]
+    group_fooof_copy["beta_average"] = group_fooof_copy["beta_average"].apply(lambda row: np.mean(row[13:36]))
+
+    
+    ########## RANK ALL CONTACTS ##########
+    # for each STN rank the beta average -> rank 1-8
+    sub_hem_unique = list(group_fooof_copy.subject_hemisphere.unique())
+
+    for stn in sub_hem_unique:
+
+        stn_data = group_fooof_copy.loc[group_fooof_copy.subject_hemisphere == stn]
+        stn_data_copy = stn_data.copy()
+        stn_data_copy["beta_rank"] = stn_data_copy["beta_average"].rank(ascending=False) # rank 1-8
+
+        # save to the beta rank dataframe
+        beta_rank_all_contacts = pd.concat([beta_rank_all_contacts, stn_data_copy])
+    
+    # save DF
+    beta_rank_all_contacts_path = os.path.join(group_results_path, f"fooof_externalized_beta_ranks_all_contacts.pickle")
+    with open(beta_rank_all_contacts_path, "wb") as file:
+        pickle.dump(beta_rank_all_contacts, file)
+
+    print(f"fooof_externalized_beta_ranks_all_contacts.pickle",
+            f"\nwritten in: {group_results_path}" )
+
+
+    ########## RANK DIRECTIONAL CONTACTS ONLY ##########
+    # select only directional contacts from each STN and rank beta average
+    directional_data = group_fooof_copy[group_fooof_copy["contact"].isin(directional_contacts)]
+    for stn in sub_hem_unique:
+
+        stn_directional = directional_data.loc[directional_data.subject_hemisphere == stn]
+        stn_directional_copy = stn_directional.copy()
+        stn_directional_copy["beta_rank"] = stn_directional_copy["beta_average"].rank(ascending=False) # rank 1-6
+
+        # save to the beta rank dataframe
+        beta_rank_directional_contacts = pd.concat([beta_rank_directional_contacts, stn_directional_copy])
+    
+    # save DF
+    beta_rank_directional_contacts_path = os.path.join(group_results_path, f"fooof_externalized_beta_ranks_directional_contacts.pickle")
+    with open(beta_rank_directional_contacts_path, "wb") as file:
+        pickle.dump(beta_rank_directional_contacts, file)
+
+    print(f"fooof_externalized_beta_ranks_directional_contacts.pickle",
+            f"\nwritten in: {group_results_path}" )
+    
+
+    return {
+        "beta_rank_all_contacts": beta_rank_all_contacts,
+        "beta_rank_directional_contacts": beta_rank_directional_contacts
+    }
+
+
+
+
+
+
 
 
 

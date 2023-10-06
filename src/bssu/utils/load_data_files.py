@@ -249,7 +249,10 @@ def load_externalized_pickle(
             "externalized_preprocessed_data_artefact_free",
             "externalized_power_spectra_250Hz_artefact_free",
             "externalized_contacts_common_reference",
-            "fooof_externalized_group"
+            "fooof_externalized_group",
+            "fooof_externalized_group_notch-filtered",
+            "fooof_externalized_beta_ranks_all_contacts",
+            "fooof_externalized_beta_ranks_directional_contacts"
             ]
     """
 
