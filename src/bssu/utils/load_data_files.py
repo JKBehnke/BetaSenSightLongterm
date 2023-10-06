@@ -248,7 +248,8 @@ def load_externalized_pickle(
             "mne_objects_cropped_2_min",
             "externalized_preprocessed_data_artefact_free",
             "externalized_power_spectra_250Hz_artefact_free",
-            "externalized_contacts_common_reference
+            "externalized_contacts_common_reference",
+            "fooof_externalized_group"
             ]
     """
 
@@ -263,6 +264,8 @@ def load_externalized_pickle(
         data = pickle.load(file)
     
     return data
+
+
 
 
 

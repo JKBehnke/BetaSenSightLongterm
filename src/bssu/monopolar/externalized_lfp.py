@@ -784,7 +784,9 @@ def externalized_fooof_fit(
     """
 
     freq_range = [1, 95] # frequency range to fit FOOOF model
-    fooof_results = {}
+
+    fooof_results_df = pd.DataFrame()
+    
     common_reference_contacts = {}
 
 
@@ -819,7 +821,7 @@ def externalized_fooof_fit(
                 power_spectrum = contact_data.power_average_over_time.values[0]
                 freqs = contact_data.frequencies.values[0]
 
-                # check if the power spectrum contains NaNs -> in case of a contact used as common reference
+                # check if the power spectrum contains only 0 -> in case of a contact used as common reference
                 if np.all(power_spectrum == 0):
                     common_reference_contacts[f"{sub}_{hem}_{contact}"] = [bids_id, sub, hem, contact, original_ch_name]
                     print(f"Sub-{sub}, {hem}: contact {contact} is used as common reference.")
@@ -869,6 +871,7 @@ def externalized_fooof_fit(
                 plot_spectrum(np.arange(1, (len(fooof_power_spectrum)+1)), fooof_power_spectrum, log_freqs=False, log_powers=False, ax=ax[3])
                 # frequencies: 1-95 Hz with 1 Hz resolution
 
+                
                 # titles
                 fig.suptitle(f"sub {sub}, {hem} hemisphere, contact: {contact}",
                                         fontsize=25)
@@ -943,38 +946,39 @@ def externalized_fooof_fit(
                     )
 
                 # save all results in dictionary
-                fooof_results[f"{sub}_{hem}_{contact}"] = [bids_id, sub, hem, subject_hemisphere, contact, original_ch_name,
-                                                           err, r_sq, exp, offset, 
-                                                           fooof_power_spectrum, log_power_fooof_periodic_plus_aperiodic, fooof_periodic_component,
-                                                           number_peaks, alpha_peak, low_beta_peak, high_beta_peak, beta_peak, gamma_peak]
-            
-        # store results in a DataFrame
-        fooof_results_df = pd.DataFrame(fooof_results)  
-        fooof_results_df.rename(index={
-            0: "BIDS_id",
-            0: "subject",
-            3: "hemisphere",
-            0: "subject_hemisphere", 
-            1: "contact", 
-            2: "original_ch_name", 
-            3: "fooof_error", 
-            4: "fooof_r_sq", 
-            5: "fooof_exponent", 
-            6: "fooof_offset", 
-            7: "fooof_power_spectrum", 
-            8: "periodic_plus_aperiodic_power_log",
-            9: "fooof_periodic_flat",
-            10: "fooof_number_peaks",
-            11: "alpha_peak_CF_power_bandWidth",
-            12: "low_beta_peak_CF_power_bandWidth",
-            13: "high_beta_peak_CF_power_bandWidth",
-            14: "beta_peak_CF_power_bandWidth",
-            15: "gamma_peak_CF_power_bandWidth"}, inplace=True)
-                        
-        fooof_results_df = fooof_results_df.transpose()              
+                fooof_results = {
+                    "BIDS_id": [bids_id],
+                    "subject": [sub],
+                    "hemisphere": [hem],
+                    "subject_hemisphere": [subject_hemisphere],
+                    "contact": [contact],
+                    "original_ch_name": [original_ch_name],
+                    "fooof_error": [err],
+                    "fooof_r_sq": [r_sq],
+                    "fooof_exponent": [exp],
+                    "fooof_offset": [offset],
+                    "fooof_power_spectrum": [fooof_power_spectrum],
+                    "periodic_plus_aperiodic_power_log": [log_power_fooof_periodic_plus_aperiodic],
+                    "fooof_periodic_flat": [fooof_periodic_component],
+                    "fooof_number_peaks": [number_peaks],
+                    "alpha_peak_CF_power_bandWidth": [alpha_peak],
+                    "low_beta_peak_CF_power_bandWidth": [low_beta_peak],
+                    "high_beta_peak_CF_power_bandWidth": [high_beta_peak],
+                    "beta_peak_CF_power_bandWidth": [beta_peak],
+                    "gamma_peak_CF_power_bandWidth": [gamma_peak]
+                }
 
-        # save DF in subject results folder
-        fooof_results_df.to_json(os.path.join(results_path, f"fooof_externalized_sub{sub}.json"))
+                fooof_results_single = pd.DataFrame(fooof_results)
+                fooof_results_df = pd.concat([fooof_results_df, fooof_results_single], ignore_index=True)
+
+    # save DF as pickle
+    fooof_results_df_path = os.path.join(group_results_path, f"fooof_externalized_group.pickle")
+    with open(fooof_results_df_path, "wb") as file:
+        pickle.dump(fooof_results_df, file)
+
+    print(f"fooof_externalized_group.pickle",
+            f"\nwritten in: {group_results_path}" )
+
     
     # bids_id, sub, hem, contact, original_ch_name
     common_reference_contacts_df = pd.DataFrame(common_reference_contacts)
@@ -995,64 +999,64 @@ def externalized_fooof_fit(
     print(f"externalized_contacts_common_reference.pickle",
             f"\nwritten in: {group_results_path}" )
     
-    return common_reference_contacts_df
+    return fooof_results_df
 
 
 
-def write_group_fooof(
+# def write_group_fooof(
         
-):
-    """
-    Loop through each subject folder in the results path, check if there is a FOOOF JSON file, 
-        - Load the fooof_externalized_sub{sub}.json file from each subject
+# ):
+#     """
+#     Loop through each subject folder in the results path, check if there is a FOOOF JSON file, 
+#         - Load the fooof_externalized_sub{sub}.json file from each subject
 
-    1) 
+#     1) 
 
 
 
-    """
+#     """
 
-    group_fooof_dataframe = pd.DataFrame()
+#     group_fooof_dataframe = pd.DataFrame()
 
-    # loop through each folder in results path
-    sub_folders = os.listdir(group_results_path)
-    sub_folders = [folder for folder in sub_folders if folder.startswith("sub-")]
+#     # loop through each folder in results path
+#     sub_folders = os.listdir(group_results_path)
+#     sub_folders = [folder for folder in sub_folders if folder.startswith("sub-")]
 
-    for sub_dir in sub_folders:
+#     for sub_dir in sub_folders:
 
-        bids_id = sub_dir.split('-')
-        bids_id = bids_id[1]
+#         bids_id = sub_dir.split('-')
+#         bids_id = bids_id[1]
 
-        sub_path = os.path.join(group_results_path, sub_dir)
-        files = os.listdir(sub_path)
+#         sub_path = os.path.join(group_results_path, sub_dir)
+#         files = os.listdir(sub_path)
 
-        found = False
+#         found = False
 
-        for file in files:
+#         for file in files:
 
-            if file.startswith("fooof_externalized") and file.endswith(".json"):
-                found = True
-                filename = file
-                break
+#             if file.startswith("fooof_externalized") and file.endswith(".json"):
+#                 found = True
+#                 filename = file
+#                 break
 
-        # check if the file was not found
-        if not found:
-            print(f"No FOOOF externalized JSON file in the results folder: {sub_dir}")
-            continue
+#         # check if the file was not found
+#         if not found:
+#             print(f"No FOOOF externalized JSON file in the results folder: {sub_dir}")
+#             continue
 
-        # continues only, if file exists
-        # load the file
-        with open(os.path.join(sub_path, filename)) as f:
-            data = json.load(f)
-            data = pd.DataFrame(data)
+#         # continues only, if file exists
+#         # load the file
+#         with open(os.path.join(sub_path, filename)) as f:
+#             data = json.load(f)
+#             data = pd.DataFrame(data)
         
-        # concatenate all dataframes together
-        group_fooof_dataframe = pd.concat([group_fooof_dataframe, data], ignore_index=True)
+#         # concatenate all dataframes together
+#         group_fooof_dataframe = pd.concat([group_fooof_dataframe, data], ignore_index=True)
     
-    # save the new dataframe
-    group_fooof_dataframe.to_json(os.path.join(group_results_path, f"fooof_externalized_group_data.json"))
+#     # save the new dataframe
+#     group_fooof_dataframe.to_json(os.path.join(group_results_path, f"fooof_externalized_group_data.json"))
 
-    return group_fooof_dataframe
+#     return group_fooof_dataframe
 
 
 
