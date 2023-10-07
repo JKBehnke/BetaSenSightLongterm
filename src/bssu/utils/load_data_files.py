@@ -19,7 +19,9 @@ from mne_bids import (
 import sys
 sys.path.append(os.getcwd())
 sys.path.append(os.path.join(os.getcwd(), "src"))
+
 from src.bssu.utils import find_folders
+from src.bssu.extern import tmsi_poly5reader 
 
 
 
@@ -113,19 +115,11 @@ def load_externalized_Poly5_files(
     filepath = os.path.join(subject_folder_path, filename)
 
     # load the Poly5 file
-    # with h5py.File(filepath, "r") as poly5_data:
-    #     # Extract relevant data from Poly5
-    #     eeg_data = np.array(poly5_data['EEG']['data'])
-    #     eeg_info = mne.create_info(ch_names=['EEG'], ch_types='eeg')
-        
-    #     # Create MNE Raw object
-    #     raw = mne.io.RawArray(eeg_data, eeg_info)
-        
-    #     # Save as FIF
-    #     fif_file = 'output_file.fif'
-    #     #raw.save(fif_file, overwrite=True)
+    raw_file = tmsi_poly5reader.Poly5Reader(filepath)
+    raw_file = raw_file.read_data_MNE()
+    raw_file.load_data()
 
-    return filepath
+    return raw_file
 
 
 def load_BIDS_externalized_vhdr_files(

@@ -57,7 +57,7 @@ externalized_fooof_beta_ranks_copy.drop(columns=[
 # drop rows of subject 052 Right, because directional contact 2C was used as common reference, so there is no data for contact 2C
 externalized_fooof_beta_ranks_copy.reset_index(drop=True, inplace=True)
 externalized_fooof_beta_ranks_copy.drop(externalized_fooof_beta_ranks_copy[externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "052_Right"].index, inplace=True)
-
+externalized_fooof_beta_ranks_copy.drop(externalized_fooof_beta_ranks_copy[externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "048_Right"].index, inplace=True)
 
 ################## method weighted by euclidean coordinates ##################
 # only directional contacts

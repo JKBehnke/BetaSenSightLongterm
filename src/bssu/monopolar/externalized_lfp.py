@@ -31,6 +31,48 @@ group_figures_path = find_folders.get_monopolar_project_path(folder="GroupFigure
 patient_metadata = load_data.load_excel_data(filename="patient_metadata")
 hemispheres = ["Right", "Left"]
 
+# list of subjects with no BIDS transformation yet -> load these via poly5reader instead of BIDS
+subjects_no_bids = ["24", "28", "29", "48", "49", "56"]
+
+# rename channel names, if files were loaded via Poly5reader
+channel_mapping_1 = {
+    'LFPR1STNM': 'LFP_R_01_STN_MT',
+    'LFPR2STNM': 'LFP_R_02_STN_MT',
+    'LFPR3STNM': 'LFP_R_03_STN_MT',
+    'LFPR4STNM': 'LFP_R_04_STN_MT',
+    'LFPR5STNM': 'LFP_R_05_STN_MT',
+    'LFPR6STNM': 'LFP_R_06_STN_MT',
+    'LFPR7STNM': 'LFP_R_07_STN_MT',
+    'LFPR8STNM': 'LFP_R_08_STN_MT',
+    'LFPL1STNM': 'LFP_L_01_STN_MT',
+    'LFPL2STNM': 'LFP_L_02_STN_MT',
+    'LFPL3STNM': 'LFP_L_03_STN_MT',
+    'LFPL4STNM': 'LFP_L_04_STN_MT',
+    'LFPL5STNM': 'LFP_L_05_STN_MT',
+    'LFPL6STNM': 'LFP_L_06_STN_MT',
+    'LFPL7STNM': 'LFP_L_07_STN_MT',
+    'LFPL8STNM': 'LFP_L_08_STN_MT'
+}
+
+channel_mapping_2 = {
+    'LFP_0_R_S': 'LFP_R_01_STN_MT',
+    'LFP_1_R_S': 'LFP_R_02_STN_MT',
+    'LFP_2_R_S': 'LFP_R_03_STN_MT',
+    'LFP_3_R_S': 'LFP_R_04_STN_MT',
+    'LFP_4_R_S': 'LFP_R_05_STN_MT',
+    'LFP_5_R_S': 'LFP_R_06_STN_MT',
+    'LFP_6_R_S': 'LFP_R_07_STN_MT',
+    'LFP_7_R_S': 'LFP_R_08_STN_MT',
+    'LFP_0_L_S': 'LFP_L_01_STN_MT',
+    'LFP_1_L_S': 'LFP_L_02_STN_MT',
+    'LFP_2_L_S': 'LFP_L_03_STN_MT',
+    'LFP_3_L_S': 'LFP_L_04_STN_MT',
+    'LFP_4_L_S': 'LFP_L_05_STN_MT',
+    'LFP_5_L_S': 'LFP_L_06_STN_MT',
+    'LFP_6_L_S': 'LFP_L_07_STN_MT',
+    'LFP_7_L_S': 'LFP_L_08_STN_MT'
+}
+
 # get index of each channel and get the corresponding LFP data
 # plot filtered channels 1-8 [0]-[7] Right and 9-16 [8]-[15] 
 # butterworth filter: band pass -> filter order = 5, high pass 5 Hz, low-pass 95 Hz
@@ -112,6 +154,8 @@ def preprocess_externalized_lfp(
 
     Load the BIDS .vhdr files with mne_bids.read_raw_bids(bids_path=bids_path)
 
+    if subject doesn't have a BIDS file yet -> load via Poly5reader
+
     - crop the data to only 2 minutes: 1min - 3min
     - downsample the data to 
         1) sfreq=4000 Hz (if it was 4096Hz originally)
@@ -135,9 +179,41 @@ def preprocess_externalized_lfp(
     
     for patient in sub:
 
-        mne_data = load_data.load_BIDS_externalized_vhdr_files(
-            sub=patient
-        )
+        # check if patient is in the list with no BIDS yet
+        if patient in subjects_no_bids:
+            mne_data = load_data.load_externalized_Poly5_files(sub=patient)
+
+            # rename channels, first check which channel_mapping is correct
+            found = False
+            for name in mne_data.info["ch_names"]:
+                if name in channel_mapping_1:
+                    found=True
+                    channel_mapping = channel_mapping_1
+                    break
+
+                elif name in channel_mapping_2:
+                    found=True
+                    channel_mapping = channel_mapping_2
+                    break
+            
+            if found == False:
+                print(f"Channel names of sub-{patient} are not in channel_mapping_1 or channel_mapping_2.")
+
+            mne_data.rename_channels(channel_mapping)
+
+            subject_info = "no_bids"
+
+            # bids_ID
+            bids_ID = f"sub-noBIDS{patient}"
+            print(f"subject {patient} with bids ID {bids_ID} was loaded.")
+        
+        else:
+            mne_data = load_data.load_BIDS_externalized_vhdr_files(sub=patient)
+
+            subject_info = mne_data.info["subject_info"]
+            bids_ID = mne_data.info["subject_info"]["his_id"]
+            print(f"subject {patient} with bids ID {bids_ID} was loaded.")
+
 
         recording_info = {}
         processed_recording = {}
@@ -148,12 +224,10 @@ def preprocess_externalized_lfp(
         bads = mne_data.info["bads"] # channel L_01 is mostly used as reference, "bad" channel is the reference
         chs = mne_data.info["chs"] # list, [0] is dict
         sfreq = mne_data.info["sfreq"]
-        subject_info = mne_data.info["subject_info"]
         n_times = mne_data.n_times # number of timestamps
         rec_duration = (n_times / sfreq) / 60 # duration in minutes
 
         subject = f"0{patient}"
-        bids_ID = mne_data.info["subject_info"]["his_id"]
 
         # pick LFP channels of both hemispheres
         mne_data.pick_channels(ch_names_LFP) 
@@ -312,9 +386,12 @@ def preprocess_externalized_lfp(
 
 
 def fourier_transform_time_frequency_plots(
-        
+        incl_bids_id:list
 ):
     """
+    Input:
+        - incl_bids_id: list of bids_id ["L001", "L013"] or ["all"]
+
     Load the preprocessed data: externalized_preprocessed_data.pickle
 
     - For each subject, plot a Time Frequency figure of all channels for Left and Right hemisphere
@@ -330,8 +407,12 @@ def fourier_transform_time_frequency_plots(
     )
 
     # get all subject_hemispheres
-    BIDS_id_unique = list(preprocessed_data.BIDS_id.unique())
-    sub_hem_unique = list(preprocessed_data.subject_hemisphere.unique())
+    if "all" in incl_bids_id:
+        BIDS_id_unique = list(preprocessed_data.BIDS_id.unique())
+        sub_hem_unique = list(preprocessed_data.subject_hemisphere.unique())
+    
+    else:
+        BIDS_id_unique = incl_bids_id
 
     # plot all time frequency plots of the 250 Hz sampled filtered LFPs
     for BIDS_id in BIDS_id_unique:
@@ -389,6 +470,7 @@ def clean_artefacts(
         
 ):
     """
+    
     Clean artefacts:
 
     - Load the artefact Excel sheet with the time in seconds of when visually inspected artefacts start and end
@@ -417,7 +499,21 @@ def clean_artefacts(
 
     # check which subjects have artefacts
     artefacts_excel = artefacts_excel.loc[artefacts_excel.contacts == "all"]
+
     BIDS_id_artefacts = list(artefacts_excel.BIDS_key.unique())
+    
+    # if "all" not in incl_bids_id:
+
+    #     bids_id_from_input = []
+        
+    #     for id in incl_bids_id:
+
+    #         if id in BIDS_id_artefacts:
+    #             bids_id_from_input.append(id)
+        
+        
+    #     BIDS_id_artefacts = bids_id_from_input
+    
 
     for bids_id in BIDS_id_artefacts:
 
