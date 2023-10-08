@@ -581,9 +581,9 @@ def fooof_monoRef_JLB(
             beta_1C2C = beta_1C2C["beta_average"].values[0]
 
             # percentage of each direction
-            direction_A = beta_1A2A / np.sum([beta_1A2A, beta_1B2B, beta_1C2C])
-            direction_B = beta_1B2B / np.sum([beta_1A2A, beta_1B2B, beta_1C2C])
-            direction_C = beta_1C2C / np.sum([beta_1A2A, beta_1B2B, beta_1C2C])
+            direction_A = beta_1A2A / (np.sum([beta_1A2A, beta_1B2B, beta_1C2C]))/3
+            direction_B = beta_1B2B / (np.sum([beta_1A2A, beta_1B2B, beta_1C2C]))/3
+            direction_C = beta_1C2C / (np.sum([beta_1A2A, beta_1B2B, beta_1C2C]))/3
 
             ### level ###
             level_1 = stn_data.loc[stn_data.bipolar_channel == "02"]

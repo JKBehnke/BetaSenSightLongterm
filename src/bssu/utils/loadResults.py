@@ -1266,6 +1266,38 @@ def load_preprocessing_files(table:str):
 
 
 
+def load_pickle_group_result(
+        filename:str
+):
+    
+    """
+    Loading pickle file. Filename must be in:
+    allowed_filenames: 
+        "fooof_rank_beta_power_dataframe",
+        "fooof_peaks_per_session",
+        "MonoRef_JLB_fooof_beta", 
+        "permutation_beta_ranks_fooof_spectra",
+        "best_2_contacts_from_directional_bssu"
+
+
+    The pickle file: "{filename}.pickle"
+    in the results path /Users/jenniferbehnke/Dropbox/work/ResearchProjects/BetaSenSightLongterm/results
+    
+
+    """
+    # find the path to the results folder
+    results_path = find_folders.get_local_path(folder="GroupResults")
+
+    # create filename
+    filename = f"{filename}.pickle"
+
+    filepath = os.path.join(results_path, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)
+    
+    return data
 
 
 

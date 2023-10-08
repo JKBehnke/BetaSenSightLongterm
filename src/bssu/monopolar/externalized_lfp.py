@@ -102,6 +102,31 @@ def band_pass_filter_externalized(
 
     return band_pass_filtered
 
+def high_pass_filter_externalized(
+        fs: int,
+        signal: np.array
+):
+    """
+    Input:
+        - fs: sampling frequency of the signal
+        - signal: array of the signal
+
+    Applying a band pass filter to the signal
+        - 1 Hz high pass
+        - filter order: 3
+    """
+    # parameters
+    filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
+    frequency_cutoff_low = 1 # 1Hz high-pass filter 
+
+    # create and apply the filter
+    b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low), btype='highpass', output='ba', fs=fs)
+    band_pass_filtered = scipy.signal.filtfilt(b, a, signal) 
+
+    return band_pass_filtered
+
+
+
 
 # notch filter: 50 Hz
 def notch_filter_externalized(
@@ -322,12 +347,19 @@ def preprocess_externalized_lfp(
             filtered_lfp_4000 = band_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
             filtered_lfp_250 = band_pass_filter_externalized(fs=sfreq_250, signal=notch_filtered_lfp_250)
 
+            # high-pass filter 1 Hz, Butter worth filter order 5
+            high_pass_notch_filtered_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
+            high_pass_notch_filtered_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_250)
+
             # number of samples
             n_samples_250 = len(filtered_lfp_250)
 
             processed_recording[f"{chan}"] = [bids_ID, subject, hemisphere, subject_hemisphere, chan, monopol_chan_name, 
                                               lfp_data, time_stamps, sfreq, sfreq_250, lfp_data_250, time_stamps_250,
-                                              filtered_lfp_4000, filtered_lfp_250, notch_filtered_lfp_4000, notch_filtered_lfp_250, n_samples_250]
+                                              filtered_lfp_4000, filtered_lfp_250, 
+                                              notch_filtered_lfp_4000, notch_filtered_lfp_250, 
+                                              high_pass_notch_filtered_lfp_4000, high_pass_notch_filtered_lfp_250,
+                                              n_samples_250]
         
         preprocessed_dataframe = pd.DataFrame(processed_recording)
         preprocessed_dataframe.rename(index={
@@ -347,7 +379,9 @@ def preprocess_externalized_lfp(
             13: "filtered_lfp_250Hz", 
             14: "notch_filtered_lfp_4000Hz",
             15: "notch_filtered_lfp_250Hz",
-            16: "n_samples_250Hz"
+            16: "high_pass_notch_filtered_lfp_4000Hz",
+            17: "high_pass_notch_filtered_lfp_250Hz",
+            18: "n_samples_250Hz"
  
         }, inplace=True)
         preprocessed_dataframe = preprocessed_dataframe.transpose()
@@ -480,6 +514,7 @@ def clean_artefacts(
         - lfp_resampled_250 Hz -> unfiltered LFP, resampled to 250 Hz
         - filtered_lfp_250Hz -> notch + band-pass filtered, resampled to 250 Hz
         - notch_filtered_lfp_250 -> only notch filtered 50 Hz, resampled to 250 Hz
+        - high_pass_notch_lfp_250 -> high-pass 1 Hz and notch 50 Hz filtered, resampled to 250 Hz
     
     - Plot again the clean Time Frequency plots (sfreq=250 Hz, filtered, artefact-free) to check, if artefacts are gone
 
@@ -587,10 +622,11 @@ def clean_artefacts(
                 
                 lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
                 notch_filtered_lfp_250Hz = contact_data.notch_filtered_lfp_250Hz.values[0]
+                high_pass_notch_filtered_lfp_250Hz = contact_data.high_pass_notch_filtered_lfp_250Hz.values[0]
                 # lfp_2_min = contact_data.lfp_2_min.values[0]
                 # filtered_lfp_4000Hz = contact_data.filtered_lfp_4000Hz.values[0]
 
-                loop_over_data = [1, 2, 3]
+                loop_over_data = [1, 2, 3, 4]
 
                 for data in loop_over_data:
 
@@ -605,6 +641,10 @@ def clean_artefacts(
                     elif data == 3:
                         lfp_data = notch_filtered_lfp_250Hz
                         column_name = "notch_filtered_lfp_250Hz"
+                    
+                    elif data == 4:
+                        lfp_data = high_pass_notch_filtered_lfp_250Hz
+                        column_name = "high_pass_notch_filtered_lfp_250Hz"
                     
                     # elif data == 3:
                     #     lfp_data = lfp_2_min
@@ -752,8 +792,9 @@ def fourier_transform_to_psd(
                 filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0] # to plot
                 lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
                 notch_filtered_lfp_250Hz = contact_data.notch_filtered_lfp_250Hz.values[0]
+                high_pass_notch_lfp_250Hz = contact_data.high_pass_notch_filtered_lfp_250Hz.values[0]
                 
-                loop_over_data = ["filtered", "unfiltered", "notch-filtered"]
+                loop_over_data = ["filtered", "unfiltered", "notch-filtered", "high_pass_and_notch"]
 
                 for filt in loop_over_data:
 
@@ -765,6 +806,9 @@ def fourier_transform_to_psd(
                     
                     elif filt == "notch-filtered":
                         lfp_data = notch_filtered_lfp_250Hz
+                    
+                    elif filt == "high_pass_and_notch":
+                        lfp_data = high_pass_notch_lfp_250Hz
                     
                     ######### short time fourier transform to calculate PSD #########
                     window_length = int(sfreq) # 1 second window length
@@ -842,7 +886,7 @@ def externalized_fooof_fit(
 ):
     """
     Input:
-        - filtered: str, "unfiltered" or "notch-filtered"    
+        - filtered: str, "unfiltered" or "notch-filtered" or "high_pass_and_notch"    
 
     Load the Power Spectra data
         - externalized_power_spectra_250Hz_artefact_free.pickle
@@ -1122,7 +1166,7 @@ def calculate_periodic_beta_power(
 ):
     """
     Input:
-        - filtered: str, "unfiltered" or "notch-filtered"
+        - filtered: str, "unfiltered" or "notch-filtered" or "high_pass_and_notch"
 
     Load the Fooof group data:
         - fooof_externalized_group_notch-filtered.pickle
@@ -1167,11 +1211,11 @@ def calculate_periodic_beta_power(
         beta_rank_all_contacts = pd.concat([beta_rank_all_contacts, stn_data_copy])
     
     # save DF
-    beta_rank_all_contacts_path = os.path.join(group_results_path, f"fooof_externalized_beta_ranks_all_contacts.pickle")
+    beta_rank_all_contacts_path = os.path.join(group_results_path, f"fooof_externalized_beta_ranks_all_contacts_{filtered}.pickle")
     with open(beta_rank_all_contacts_path, "wb") as file:
         pickle.dump(beta_rank_all_contacts, file)
 
-    print(f"fooof_externalized_beta_ranks_all_contacts.pickle",
+    print(f"fooof_externalized_beta_ranks_all_contacts_{filtered}.pickle",
             f"\nwritten in: {group_results_path}" )
 
 
@@ -1188,11 +1232,11 @@ def calculate_periodic_beta_power(
         beta_rank_directional_contacts = pd.concat([beta_rank_directional_contacts, stn_directional_copy])
     
     # save DF
-    beta_rank_directional_contacts_path = os.path.join(group_results_path, f"fooof_externalized_beta_ranks_directional_contacts.pickle")
+    beta_rank_directional_contacts_path = os.path.join(group_results_path, f"fooof_externalized_beta_ranks_directional_contacts_{filtered}.pickle")
     with open(beta_rank_directional_contacts_path, "wb") as file:
         pickle.dump(beta_rank_directional_contacts, file)
 
-    print(f"fooof_externalized_beta_ranks_directional_contacts.pickle",
+    print(f"fooof_externalized_beta_ranks_directional_contacts_{filtered}.pickle",
             f"\nwritten in: {group_results_path}" )
     
 
