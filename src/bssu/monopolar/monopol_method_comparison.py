@@ -455,12 +455,16 @@ def spearman_validation_monopol_fooof(
     only of directional contacts
 
     Input: define methods to compare
-        - method: "JLB_directional", "euclidean_directional", "Strelow"
+        - method: "JLB_directional", "euclidean_directional", "Strelow", "best_bssu_contacts"
     """
 
     # results
     spearman_result = {}
+    
     sample_size_dict = {}
+
+    methods_for_spearman = ["JLB_directional", "euclidean_directional"]
+    methods_without_spearman = ["best_bssu_contacts"]
     
     # get only postop data from method
     if method == "JLB_directional":
@@ -473,6 +477,10 @@ def spearman_validation_monopol_fooof(
     
     elif method == "Strelow":
         print("Strelow method only gives optimal contacts with beta ranks 1-3")
+    
+    elif method == "best_bssu_contacts":
+        method_data = best_bssu_contacts_copy
+        method_data = method_data.loc[method_data.session == "postop"]
 
     # get data from externalized LFP
     externalized_data = externalized_fooof_beta_ranks_copy
@@ -505,20 +513,7 @@ def spearman_validation_monopol_fooof(
         stn_method = stn_comparison.loc[stn_comparison.method == method]
         stn_externalized = stn_comparison.loc[stn_comparison.method == "externalized"]
 
-        # Spearman correlation between beta average
-        spearman_beta_stn = stats.spearmanr(stn_method.estimated_monopolar_beta_psd.values, stn_externalized.estimated_monopolar_beta_psd.values)
-
-        # contacts with beta rank 1 and 2
-        # method:
-        rank1_method = stn_method.loc[stn_method.beta_rank == 1.0]
-        rank1_method = rank1_method.contact.values[0]
-
-        rank2_method = stn_method.loc[stn_method.beta_rank == 2.0]
-        rank2_method = rank2_method.contact.values[0]
-
-        rank_1_and_2_method = [rank1_method, rank2_method]
-        
-        # externalized:
+        ############## externalized rank contacts: ##############
         rank1_externalized = stn_externalized.loc[stn_externalized.beta_rank == 1.0]
         rank1_externalized = rank1_externalized.contact.values[0]
 
@@ -529,20 +524,53 @@ def spearman_validation_monopol_fooof(
             continue
 
         rank2_externalized = rank2_externalized.contact.values[0]
-        
 
         rank_1_and_2_externalized = [rank1_externalized, rank2_externalized]
 
-        # yes if contact with rank 1 is the same
-        if rank1_method == rank1_externalized:
-            compare_rank_1_contact = "same"
-        
-        else:
-            compare_rank_1_contact = "different"
+        ############## rank contacts from method ##############
+        # Spearman correlation between beta average only for the 2 monopolar methods
+        if method in methods_for_spearman:
+
+            spearman_beta_stn = stats.spearmanr(stn_method.estimated_monopolar_beta_psd.values, stn_externalized.estimated_monopolar_beta_psd.values)
+            spearman_statistic = spearman_beta_stn.statistic
+            spearman_pval = spearman_beta_stn.pvalue
+
+            # contacts with beta rank 1 and 2
+            # method:
+            rank1_method = stn_method.loc[stn_method.beta_rank == 1.0]
+            rank1_method = rank1_method.contact.values[0]
+
+            rank2_method = stn_method.loc[stn_method.beta_rank == 2.0]
+            rank2_method = rank2_method.contact.values[0]
+
+            rank_1_and_2_method = [rank1_method, rank2_method]
+
+            # yes if contact with rank 1 is the same
+            if rank1_method == rank1_externalized:
+                compare_rank_1_contact = "same"
+            
+            else:
+                compare_rank_1_contact = "different"
+                    
+
+        # for method "best_bssu_contacts" we only have a list of best 2 contacts 
+        elif method in methods_without_spearman:
+
+            spearman_statistic = "no_spearman"
+            spearman_pval = "no_spearman"
+            rank1_method = "no_rank_1"
+            compare_rank_1_contact = "no_rank_1"
+
+            # get beta rank 1 and 2 contacts 
+            rank_1_and_2_method = stn_method.selected_2_contacts.values[0] # list of the 2 contacts (bipolar contact pair with highest beta)
+
         
         # yes if 2 contacts with rank 1 or 2 are the same (independent of which one is rank 1 or 2)
-        # if set(rank_1_and_2_method_1) == set(rank_1_and_2_method_2):
-        #     compare_rank_1_and_2_contacts = "same"
+        if set(rank_1_and_2_method) == set(rank_1_and_2_externalized):
+            both_contacts_matching = "yes"
+        
+        else:
+            both_contacts_matching = "no"
 
         # check if at least one contact selected as beta rank 1 or 2 match for both methods
         if set(rank_1_and_2_method).intersection(set(rank_1_and_2_externalized)):
@@ -552,24 +580,25 @@ def spearman_validation_monopol_fooof(
             compare_rank_1_and_2_contacts = "no_contacts_match"
     
         # store values in a dictionary
-        spearman_result[f"{sub_hem}"] = [method, "externalized", "postop", sub_hem, spearman_beta_stn.statistic, spearman_beta_stn.pvalue,
-                                         rank1_method, rank1_externalized, rank_1_and_2_method, rank_1_and_2_externalized, 
-                                         compare_rank_1_contact, compare_rank_1_and_2_contacts]
-    
+        spearman_result[f"{sub_hem}"] = [method, "externalized", "postop", sub_hem, spearman_statistic, spearman_pval,
+                                        rank1_method, rank1_externalized, rank_1_and_2_method, rank_1_and_2_externalized, 
+                                        compare_rank_1_contact, compare_rank_1_and_2_contacts, both_contacts_matching]
+
 
     # save result
     results_DF = pd.DataFrame(spearman_result)
     results_DF.rename(index={0: "method", 1: "externalized", 2: "session", 3: "subject_hemisphere", 4: f"spearman_r", 5: f"pval",
                              6: "contact_rank_1_method", 7: "contact_rank_1_externalized", 8: "contacts_rank_1_2_method", 9: "contacts_rank_1_2_externalized",
-                             10: "compare_rank_1_contact", 11: "compare_rank_1_and_2_contacts"}, inplace=True)
+                             10: "compare_rank_1_contact", 11: "compare_rank_1_and_2_contacts", 12: "both_contacts_match"}, inplace=True)
     results_DF = results_DF.transpose()
 
     # save Dataframe to Excel
     results_DF_copy = results_DF.copy()
 
     # add new column: significant yes, no
-    significant_correlation = results_DF_copy["pval"] < 0.05
-    results_DF_copy["significant_correlation"] = ["yes" if cond else "no" for cond in significant_correlation]
+    if method in methods_for_spearman:
+        significant_correlation = results_DF_copy["pval"] < 0.05
+        results_DF_copy["significant_correlation"] = ["yes" if cond else "no" for cond in significant_correlation]
 
     # save as Excel
     results_DF_copy.to_excel(os.path.join(group_results_path, f"fooof_monopol_beta_correlations_per_stn_{method}_externalized.xlsx"), 
@@ -583,39 +612,74 @@ def spearman_validation_monopol_fooof(
     # get sample size
     result_count = results_DF_copy["subject_hemisphere"].count()
 
-    spearman_mean = results_DF_copy.spearman_r.mean()
-    spearman_median = results_DF_copy.spearman_r.median()
-    spearman_std = np.std(results_DF_copy.spearman_r)
+    if method in methods_for_spearman:
 
-    # calculate how often significant?
-    significant_count = results_DF_copy.loc[results_DF_copy.significant_correlation == "yes"]
-    significant_count = significant_count["subject_hemisphere"].count()
-    percentage_significant = significant_count / result_count
+        spearman_mean = results_DF_copy.spearman_r.mean()
+        spearman_median = results_DF_copy.spearman_r.median()
+        spearman_std = np.std(results_DF_copy.spearman_r)
 
-    # count how often compare_rank_1_contact same
-    same_rank_1 = results_DF_copy.loc[results_DF_copy.compare_rank_1_contact == "same"]
-    same_rank_1 = same_rank_1["subject_hemisphere"].count()
-    precentage_same_rank_1 = same_rank_1 / result_count
+        # calculate how often significant?
+        significant_count = results_DF_copy.loc[results_DF_copy.significant_correlation == "yes"]
+        significant_count = significant_count["subject_hemisphere"].count()
+        percentage_significant = significant_count / result_count
 
-    # count how often there is at least one matching contact in compare_rank_1_and_2_contact 
-    same_rank_1_and_2 = results_DF_copy.loc[results_DF_copy.compare_rank_1_and_2_contacts == "at_least_one_contact_match"]
-    same_rank_1_and_2 = same_rank_1_and_2["subject_hemisphere"].count()
-    precentage_same_rank_1_and_2 = same_rank_1_and_2 / result_count
+        # count how often compare_rank_1_contact same
+        same_rank_1 = results_DF_copy.loc[results_DF_copy.compare_rank_1_contact == "same"]
+        same_rank_1 = same_rank_1["subject_hemisphere"].count()
+        precentage_same_rank_1 = same_rank_1 / result_count
 
-    sample_size_dict = {
-        "sample_size": [result_count],
-        "spearman_mean": [spearman_mean],
-        "spearman_median": [spearman_median],
-        "spearman_std": [spearman_std],
-        "significant_count": [significant_count],
-        "percentage_significant": [percentage_significant],
-        "same_rank_1_count": [same_rank_1],
-        "percentage_same_rank_1": [precentage_same_rank_1],
-        "same_rank_1_and_2_count": [same_rank_1_and_2],
-        "percentage_same_rank_1_and_2": [precentage_same_rank_1_and_2]
-        }
+        # count how often there is at least one matching contact in compare_rank_1_and_2_contact 
+        at_least_one_contact_match = results_DF_copy.loc[results_DF_copy.compare_rank_1_and_2_contacts == "at_least_one_contact_match"]
+        at_least_one_contact_match = at_least_one_contact_match["subject_hemisphere"].count()
+        precentage_at_least_one_contact_match = at_least_one_contact_match / result_count
 
-    sample_size_df = pd.DataFrame(sample_size_dict)
+        # count how often both contacts match in compare_rank_1_and_2_contact 
+        both_contacts_matching_count = results_DF_copy.loc[results_DF_copy.both_contacts_match == "yes"]
+        both_contacts_matching_count = both_contacts_matching_count["subject_hemisphere"].count()
+        precentage_both_contacts_match = both_contacts_matching_count / result_count
+
+        sample_size_dict = {
+            "sample_size": [result_count],
+            "spearman_mean": [spearman_mean],
+            "spearman_median": [spearman_median],
+            "spearman_std": [spearman_std],
+            "significant_count": [significant_count],
+            "percentage_significant": [percentage_significant],
+            "same_rank_1_count": [same_rank_1],
+            "percentage_same_rank_1": [precentage_same_rank_1],
+            "at_least_one_contact_match": [at_least_one_contact_match],
+            "percentage_at_least_one_contact_match": [precentage_at_least_one_contact_match],
+            "both_contacts_matching_count": [both_contacts_matching_count],
+            "precentage_both_contacts_match": [precentage_both_contacts_match]
+            }
+
+        sample_size_df = pd.DataFrame(sample_size_dict)
+
+
+    elif method in methods_without_spearman:
+
+        # count how often there is at least one matching contact in compare_rank_1_and_2_contact 
+        at_least_one_contact_match = results_DF_copy.loc[results_DF_copy.compare_rank_1_and_2_contacts == "at_least_one_contact_match"]
+        at_least_one_contact_match = at_least_one_contact_match["subject_hemisphere"].count()
+        precentage_at_least_one_contact_match = at_least_one_contact_match / result_count
+
+        # count how often both contacts match in compare_rank_1_and_2_contact 
+        both_contacts_matching_count = results_DF_copy.loc[results_DF_copy.both_contacts_match == "yes"]
+        both_contacts_matching_count = both_contacts_matching_count["subject_hemisphere"].count()
+        precentage_both_contacts_match = both_contacts_matching_count / result_count
+
+
+
+        sample_size_dict = {
+            "sample_size": [result_count],
+            "at_least_one_contact_match": [at_least_one_contact_match],
+            "precentage_at_least_one_contact_match": [precentage_at_least_one_contact_match],
+            "both_contacts_matching_count": [both_contacts_matching_count],
+            "precentage_both_contacts_match": [precentage_both_contacts_match]
+            }
+
+        sample_size_df = pd.DataFrame(sample_size_dict)
+
 
     return results_DF_copy, sample_size_df, stn_comparison
 
