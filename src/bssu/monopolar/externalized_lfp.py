@@ -17,6 +17,7 @@ from scipy.signal import butter, filtfilt, freqz, hann, spectrogram
 from ..utils import find_folders as find_folders
 from ..utils import load_data_files as load_data
 from ..utils import loadResults as loadResults
+from ..tfr import feats_ssd as feats_ssd
 
 GROUP_RESULTS_PATH = find_folders.get_monopolar_project_path(folder="GroupResults")
 GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigures")
@@ -24,6 +25,7 @@ GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigure
 # patient_metadata = load_data.load_patient_metadata_externalized()
 PATIENT_METADATA = load_data.load_excel_data(filename="patient_metadata")
 HEMISPHERES = ["Right", "Left"]
+DIRECTIONAL_CONTACTS = ["1A", "1B", "1C", "2A", "2B", "2C"]
 
 # list of subjects with no BIDS transformation yet -> load these via poly5reader instead of BIDS
 SUBJECTS_NO_BIDS = ["24", "28", "29", "48", "49", "56"]
@@ -100,6 +102,148 @@ def notch_filter_externalized(fs: int, signal: np.array):
     filtered_signal = scipy.signal.filtfilt(b, a, signal)
 
     return filtered_signal
+
+
+def SSD_filter_externalized(bids_id: str, sub: str, hemisphere: str, fs: int, directional_signals=None):
+    """
+    Input:
+        - fs: sampling frequency of the signal
+        - directional_signals: must be a 2D array with 6 signals of the directional channels
+            e.g. of one hemisphere:
+            directional_channels = [f"LFP_{hem[0]}_02_STN_MT",
+                                f"LFP_{hem[0]}_03_STN_MT",
+                                f"LFP_{hem[0]}_04_STN_MT",
+                                f"LFP_{hem[0]}_05_STN_MT",
+                                f"LFP_{hem[0]}_06_STN_MT",
+                                f"LFP_{hem[0]}_07_STN_MT"]
+
+    This function will follow these steps:
+
+        - filter SSD in the beta range (13-35 Hz)
+        - plot a figure with a plot of the Raw Power Spectra of all channels and a plot with the first component Power spectrum
+        - return the results: ssd_filt_data, ssd_pattern, ssd_eigvals
+
+    """
+
+    SSD_result = {}
+
+    figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+
+    f_range = 13, 35
+
+    (ssd_filt_data, ssd_pattern, ssd_eigvals) = feats_ssd.get_SSD_component(
+        data_2d=directional_signals,
+        fband_interest=f_range,
+        s_rate=fs,
+        use_freqBand_filtered=True,
+        return_comp_n=0,
+    )
+
+    # check if length of ssd pattern and ssd eigenvalues is 6, if not, break
+    if len(ssd_eigvals) < 6:
+        print(f"Sub-{sub}, {hemisphere} hemisphere, only has {len(ssd_pattern)} Eigenvalues.")
+
+    # Figure with 2 subplots (2 rows, 1 column)
+    fig, axes = plt.subplots(2, 1, figsize=(10, 15))
+
+    ########### PLOT 1: Power Spectra of all directional channels without SSD ###########
+    for c, chan in enumerate(DIRECTIONAL_CONTACTS):
+        if c == 5 and len(ssd_eigvals) < 6:
+            ssd_pattern_chan = "no_6th_Eigenvalue"
+            ssd_eigvals_chan = "no_6th_Eigenvalue"
+
+        else:
+            ssd_pattern_chan = ssd_pattern[0][c]
+            ssd_eigvals_chan = ssd_eigvals[c]
+
+        # filter to plot
+        notch_filtered = notch_filter_externalized(fs=fs, signal=directional_signals[c])
+        band_pass_and_notch = band_pass_filter_externalized(fs=fs, signal=notch_filtered)
+
+        ######### short time fourier transform to calculate PSD #########
+        window_length = int(fs)  # 1 second window length
+        overlap = window_length // 4  # 25% overlap
+
+        # Calculate the short-time Fourier transform (STFT) using Hann window
+        window = hann(window_length, sym=False)
+
+        frequencies, times, Zxx = scipy.signal.spectrogram(
+            band_pass_and_notch, fs=fs, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0
+        )
+
+        # average PSD across duration of the recording
+        average_Zxx = np.mean(Zxx, axis=1)
+        std_Zxx = np.std(Zxx, axis=1)
+        sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
+
+        axes[0].plot(frequencies, average_Zxx, label=f"Contact{chan}_ssd_pattern_{ssd_pattern_chan}")
+        axes[0].fill_between(frequencies, average_Zxx - sem_Zxx, average_Zxx + sem_Zxx, color='lightgray', alpha=0.5)
+        axes[0].set_title(f'Power Spectra: sub{bids_id} {hemisphere} hemisphere', fontsize=20)
+        axes[0].set_xlim(0, 100)
+        axes[0].set_xlabel("Frequency [Hz]", fontsize=20)
+        axes[0].set_ylabel("PSD [uV^2/Hz]", fontsize=20)
+        # axes[0].set_xticks([0, 20, 40, 60, 80, 100], fontsize=15)
+        # axes[1].set_xticklabels([0, 20, 40, 60, 80, 100], fontsize=15)
+        # axes[0].set_yticks([], fontsize=15)
+        axes[0].axvline(x=13, color='black', linestyle='--')
+        axes[0].axvline(x=35, color='black', linestyle='--')
+        axes[0].legend()
+
+        # save result for each contact
+        sub_hem = f"{sub}_{hemisphere}"
+        SSD_result[chan] = [bids_id, sub, hemisphere, sub_hem, chan, ssd_filt_data, ssd_pattern_chan, ssd_eigvals_chan]
+
+    ########### PLOT 2: Power Spectrum of the first SSD component ###########
+    # use Welch to transform the time domain data to frequency domain data
+    f, psd = signal.welch(
+        ssd_filt_data, axis=-1, nperseg=fs, fs=fs
+    )  # ssd_filt_data is only one array with the PSD of the FIRST component
+
+    # plot the first component Power spectrum of each recording group
+    axes[1].plot(f, psd)
+
+    axes[1].set_xlim(0, 100)
+    axes[1].set_xlabel("Frequency", fontsize=20)
+    axes[1].set_ylim(-0.005, 0.12)
+    axes[1].set_title(f'Power Spectrum beta first component (13-35 Hz)', fontsize=20)
+    # axes[1].set_xticks([0, 20, 40, 60, 80, 100], fontsize=15)
+    # axes[1].set_xticklabels([0, 20, 40, 60, 80, 100], fontsize=15)
+    # axes[1].set_yticks(fontsize=15)
+    axes[1].axvline(x=13, color='black', linestyle='--')
+    axes[1].axvline(x=35, color='black', linestyle='--')
+
+    fig.tight_layout()
+
+    fig.savefig(
+        os.path.join(
+            figures_path,
+            f"sub-{bids_id}_{hemisphere}_externalized_directional_SSD_beta_first_component_Power_spectrum.png",
+        ),
+        bbox_inches="tight",
+    )
+
+    plt.close()
+
+    # save the dataframe
+    SSD_result_columns = [
+        "BIDS_id",
+        "subject",
+        "hemisphere",
+        "subject_hemisphere",
+        "contact",
+        "ssd_filtered_timedomain",
+        "ssd_pattern",
+        "ssd_eigvals",
+    ]
+
+    SSD_result_dataframe = pd.DataFrame.from_dict(SSD_result, orient="index", columns=SSD_result_columns)
+
+    return {
+        "ssd_filt_data": ssd_filt_data,
+        "ssd_pattern": ssd_pattern,
+        "ssd_eigvals": ssd_eigvals,
+        "SSD_result_dataframe": SSD_result_dataframe,
+    }
 
 
 def load_patient_data(patient: str):
@@ -1216,8 +1360,6 @@ def calculate_periodic_beta_power(filtered: str):
     beta_rank_all_contacts = pd.DataFrame()
     beta_rank_directional_contacts = pd.DataFrame()
 
-    directional_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
-
     group_fooof_data = load_data.load_externalized_pickle(filename=f"fooof_externalized_group_{filtered}")
 
     # new column beta_average
@@ -1244,7 +1386,7 @@ def calculate_periodic_beta_power(filtered: str):
 
     ########## RANK DIRECTIONAL CONTACTS ONLY ##########
     # select only directional contacts from each STN and rank beta average
-    directional_data = group_fooof_copy[group_fooof_copy["contact"].isin(directional_contacts)]
+    directional_data = group_fooof_copy[group_fooof_copy["contact"].isin(DIRECTIONAL_CONTACTS)]
     for stn in sub_hem_unique:
         stn_directional = directional_data.loc[directional_data.subject_hemisphere == stn]
         stn_directional_copy = stn_directional.copy()
@@ -1262,3 +1404,61 @@ def calculate_periodic_beta_power(filtered: str):
         "beta_rank_all_contacts": beta_rank_all_contacts,
         "beta_rank_directional_contacts": beta_rank_directional_contacts,
     }
+
+
+def directional_SSD_externalized():
+    """
+    Input:
+
+    STEPS:
+        - Load the preprocessed data (cropped 2 min, downsampled 259 Hz, artefact-free)
+        - for each subject and each hemisphere apply the SSD
+
+
+    """
+
+    SSD_group_result = pd.DataFrame()
+
+    artefact_free_lfp = load_data.load_externalized_pickle(filename="externalized_preprocessed_data_artefact_free")
+
+    BIDS_id_unique = list(artefact_free_lfp.BIDS_id.unique())
+
+    for bids_id in BIDS_id_unique:
+        # data only of one subject
+        subject_data = artefact_free_lfp.loc[artefact_free_lfp.BIDS_id == bids_id]
+        sub = subject_data.subject.values[0]
+
+        # pick the directional channels of both hemispheres
+        for h, hem in enumerate(HEMISPHERES):
+            directional_channels = [
+                f"LFP_{hem[0]}_02_STN_MT",
+                f"LFP_{hem[0]}_03_STN_MT",
+                f"LFP_{hem[0]}_04_STN_MT",
+                f"LFP_{hem[0]}_05_STN_MT",
+                f"LFP_{hem[0]}_06_STN_MT",
+                f"LFP_{hem[0]}_07_STN_MT",
+            ]
+
+            channels_in_hemisphere = subject_data.loc[subject_data.original_ch_name.isin(directional_channels)]
+
+            # get unfiltered 250 Hz downsampled, artefact-free LFP from all 6 directional channels from one hemisphere
+            unfiltered_data = channels_in_hemisphere.lfp_resampled_250Hz.values
+            unfiltered_data = np.array(
+                unfiltered_data.tolist()
+            )  # transform to 2D array, so it fits the requirements for feats_ssd
+
+            sfreq = 250
+
+            # apply the SSD filter, plot the Power Spectra
+            SSD_result_single = SSD_filter_externalized(
+                bids_id=bids_id, sub=sub, hemisphere=hem, fs=sfreq, directional_signals=unfiltered_data
+            )
+            SSD_result_dataframe_single = SSD_result_single["SSD_result_dataframe"]
+
+            # append the result to the group result Dataframe
+            SSD_group_result = pd.concat([SSD_group_result, SSD_result_dataframe_single], ignore_index=True)
+
+    # save the results dataframe
+    save_result_dataframe_as_pickle(data=SSD_group_result, filename=f"SSD_directional_externalized_channels")
+
+    return SSD_group_result
