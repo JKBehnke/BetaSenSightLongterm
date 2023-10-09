@@ -18,15 +18,15 @@ from ..utils import find_folders as find_folders
 from ..utils import load_data_files as load_data
 from ..utils import loadResults as loadResults
 
-group_results_path = find_folders.get_monopolar_project_path(folder="GroupResults")
-group_figures_path = find_folders.get_monopolar_project_path(folder="GroupFigures")
+GROUP_RESULTS_PATH = find_folders.get_monopolar_project_path(folder="GroupResults")
+GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigures")
 
 # patient_metadata = load_data.load_patient_metadata_externalized()
-patient_metadata = load_data.load_excel_data(filename="patient_metadata")
-hemispheres = ["Right", "Left"]
+PATIENT_METADATA = load_data.load_excel_data(filename="patient_metadata")
+HEMISPHERES = ["Right", "Left"]
 
 # list of subjects with no BIDS transformation yet -> load these via poly5reader instead of BIDS
-subjects_no_bids = ["24", "28", "29", "48", "49", "56"]
+SUBJECTS_NO_BIDS = ["24", "28", "29", "48", "49", "56"]
 
 
 # get index of each channel and get the corresponding LFP data
@@ -163,7 +163,7 @@ def load_patient_data(patient: str):
     }
 
     # check if patient is in the list with no BIDS yet
-    if patient in subjects_no_bids:
+    if patient in SUBJECTS_NO_BIDS:
         mne_data = load_data.load_externalized_Poly5_files(sub=patient)
 
         # rename channels, first check which channel_mapping is correct
@@ -210,11 +210,11 @@ def save_result_dataframe_as_pickle(data: pd.DataFrame, filename: str):
 
     """
 
-    group_data_path = os.path.join(group_results_path, f"{filename}.pickle")
+    group_data_path = os.path.join(GROUP_RESULTS_PATH, f"{filename}.pickle")
     with open(group_data_path, "wb") as file:
         pickle.dump(data, file)
 
-    print(f"{filename}.pickle", f"\nwritten in: {group_results_path}")
+    print(f"{filename}.pickle", f"\nwritten in: {GROUP_RESULTS_PATH}")
 
 
 # detect artefacts
@@ -376,6 +376,10 @@ def preprocess_externalized_lfp(sub: list):
             # subject_hemisphere
             subject_hemisphere = f"{subject}_{hemisphere}"
 
+            # only high-pass filter 1 Hz
+            only_high_pass_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=lfp_data)
+            only_high_pass_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=lfp_data_250)
+
             # notch filter 50 Hz
             notch_filtered_lfp_4000 = notch_filter_externalized(fs=sfreq, signal=lfp_data)
             notch_filtered_lfp_250 = notch_filter_externalized(fs=sfreq_250, signal=lfp_data_250)
@@ -385,8 +389,8 @@ def preprocess_externalized_lfp(sub: list):
             filtered_lfp_250 = band_pass_filter_externalized(fs=sfreq_250, signal=notch_filtered_lfp_250)
 
             # high-pass filter 1 Hz, Butter worth filter order 5
-            high_pass_notch_filtered_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
-            high_pass_notch_filtered_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_250)
+            # high_pass_notch_filtered_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
+            # high_pass_notch_filtered_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_250)
 
             # number of samples
             n_samples_250 = len(filtered_lfp_250)
@@ -406,10 +410,12 @@ def preprocess_externalized_lfp(sub: list):
                 time_stamps_250,
                 filtered_lfp_4000,
                 filtered_lfp_250,
-                notch_filtered_lfp_4000,
-                notch_filtered_lfp_250,
-                high_pass_notch_filtered_lfp_4000,
-                high_pass_notch_filtered_lfp_250,
+                # notch_filtered_lfp_4000,
+                # notch_filtered_lfp_250,
+                # high_pass_notch_filtered_lfp_4000,
+                # high_pass_notch_filtered_lfp_250,
+                only_high_pass_lfp_4000,
+                only_high_pass_lfp_250,
                 n_samples_250,
             ]
 
@@ -428,10 +434,12 @@ def preprocess_externalized_lfp(sub: list):
             "time_stamps_250Hz",
             "filtered_lfp_4000Hz",
             "filtered_lfp_250Hz",
-            "notch_filtered_lfp_4000Hz",
-            "notch_filtered_lfp_250Hz",
-            "high_pass_notch_filtered_lfp_4000Hz",
-            "high_pass_notch_filtered_lfp_250Hz",
+            # "notch_filtered_lfp_4000Hz",
+            # "notch_filtered_lfp_250Hz",
+            # "high_pass_notch_filtered_lfp_4000Hz",
+            # "high_pass_notch_filtered_lfp_250Hz",
+            "only_high_pass_lfp_4000Hz",
+            "only_high_pass_lfp_250Hz",
             "n_samples_250Hz",
         ]
 
@@ -470,7 +478,6 @@ def fourier_transform_time_frequency_plots(incl_bids_id: list):
     # get all subject_hemispheres
     if "all" in incl_bids_id:
         BIDS_id_unique = list(preprocessed_data.BIDS_id.unique())
-        sub_hem_unique = list(preprocessed_data.subject_hemisphere.unique())
 
     else:
         BIDS_id_unique = incl_bids_id
@@ -481,7 +488,7 @@ def fourier_transform_time_frequency_plots(incl_bids_id: list):
         subject_data = preprocessed_data.loc[preprocessed_data.BIDS_id == BIDS_id]
         sub = subject_data.subject.values[0]
 
-        for hem in hemispheres:
+        for hem in HEMISPHERES:
             sub_hem_data = subject_data.loc[subject_data.hemisphere == hem]
             contacts = list(sub_hem_data.contact.values)
 
@@ -540,8 +547,7 @@ def clean_artefacts():
     - clean the artefacts from 3 versions of 250 Hz resampled data:
         - lfp_resampled_250 Hz -> unfiltered LFP, resampled to 250 Hz
         - filtered_lfp_250Hz -> notch + band-pass filtered, resampled to 250 Hz
-        - notch_filtered_lfp_250 -> only notch filtered 50 Hz, resampled to 250 Hz
-        - high_pass_notch_lfp_250 -> high-pass 1 Hz and notch 50 Hz filtered, resampled to 250 Hz
+        - only_high_pass_lfp_250Hz -> only high-pass 1 Hz
 
     - Plot again the clean Time Frequency plots (sfreq=250 Hz, filtered, artefact-free) to check, if artefacts are gone
 
@@ -647,41 +653,18 @@ def clean_artefacts():
             for c, contact in enumerate(contacts):
                 contact_data = hem_data.loc[hem_data.contact == contact]
 
-                # get LFP data from one contact
-                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0]  # to plot
+                lfp_to_clean = [
+                    "filtered_lfp_250Hz",
+                    "lfp_resampled_250Hz",
+                    # "notch_filtered_lfp_250Hz",
+                    # "high_pass_notch_filtered_lfp_250Hz",
+                    "only_high_pass_lfp_250Hz",
+                ]
 
-                lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
-                notch_filtered_lfp_250Hz = contact_data.notch_filtered_lfp_250Hz.values[0]
-                high_pass_notch_filtered_lfp_250Hz = contact_data.high_pass_notch_filtered_lfp_250Hz.values[0]
-                # lfp_2_min = contact_data.lfp_2_min.values[0]
-                # filtered_lfp_4000Hz = contact_data.filtered_lfp_4000Hz.values[0]
-
-                loop_over_data = [1, 2, 3, 4]
-
-                for data in loop_over_data:
-                    if data == 1:
-                        lfp_data = filtered_lfp_250
-                        column_name = "filtered_lfp_250Hz"
-
-                    elif data == 2:
-                        lfp_data = lfp_resampled_250Hz
-                        column_name = "lfp_resampled_250Hz"
-
-                    elif data == 3:
-                        lfp_data = notch_filtered_lfp_250Hz
-                        column_name = "notch_filtered_lfp_250Hz"
-
-                    elif data == 4:
-                        lfp_data = high_pass_notch_filtered_lfp_250Hz
-                        column_name = "high_pass_notch_filtered_lfp_250Hz"
-
-                    # elif data == 3:
-                    #     lfp_data = lfp_2_min
-                    #     column_name = "lfp_2_min"
-
-                    # elif data == 4:
-                    #     lfp_data = filtered_lfp_4000Hz
-                    #     column_name = "filtered_lfp_4000Hz"
+                for data in lfp_to_clean:
+                    # get LFP data from one contact
+                    lfp_data = contact_data[data].values[0]
+                    # column_name = data
 
                     # clean artefacts from LFP data
                     # check how many artefacts 1-3?
@@ -713,11 +696,11 @@ def clean_artefacts():
                     row_index = row_index.index[0]
 
                     # filtered LFP, resampled to 250 Hz
-                    artefact_free_dataframe.loc[row_index, column_name] = clean_data
+                    artefact_free_dataframe.at[row_index, data] = clean_data
                     artefact_free_dataframe.loc[row_index, "n_samples_250Hz"] = len(clean_data)
 
                     # plot only the filtered 250 Hz Power Spectra, separately for each subject hemisphere
-                    if data == 1:
+                    if data == "filtered_lfp_250Hz":
                         ############################# Calculate the short time Fourier transform (STFT) using hamming window #############################
                         window_length = int(sfreq)  # 1 second window length
                         overlap = window_length // 4  # 25% overlap
@@ -763,7 +746,7 @@ def fourier_transform_to_psd():
         - 2 min rest
         - artefacts removed
         - resampled to 250 Hz
-        - 3 versions: filtered (notch, band-pass), only notch-filtered and unfiltered
+        - 3 versions: filtered (notch, band-pass), only high-pass-filtered 1 Hz and unfiltered
 
     calculate the power spectrum for both filtered and unfiltered LFP:
         - window length = 250 # 1 second window length
@@ -809,25 +792,13 @@ def fourier_transform_to_psd():
                 original_ch_name = contact_data.original_ch_name.values[0]
 
                 # get LFP data from one contact
-                filtered_lfp_250 = contact_data.filtered_lfp_250Hz.values[0]  # to plot
-                lfp_resampled_250Hz = contact_data.lfp_resampled_250Hz.values[0]
-                notch_filtered_lfp_250Hz = contact_data.notch_filtered_lfp_250Hz.values[0]
-                high_pass_notch_lfp_250Hz = contact_data.high_pass_notch_filtered_lfp_250Hz.values[0]
 
-                loop_over_data = ["filtered", "unfiltered", "notch-filtered", "high_pass_and_notch"]
+                loop_over_data = ["filtered_lfp_250Hz", "lfp_resampled_250Hz", "only_high_pass_lfp_250Hz"]
+                filter_details = ["notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"]
 
-                for filt in loop_over_data:
-                    if filt == "filtered":
-                        lfp_data = filtered_lfp_250
-
-                    elif filt == "unfiltered":
-                        lfp_data = lfp_resampled_250Hz
-
-                    elif filt == "notch-filtered":
-                        lfp_data = notch_filtered_lfp_250Hz
-
-                    elif filt == "high_pass_and_notch":
-                        lfp_data = high_pass_notch_lfp_250Hz
+                for f, filt in enumerate(loop_over_data):
+                    lfp_data = contact_data[f"{filt}"].values[0]
+                    filter_id = filter_details[f]
 
                     ######### short time fourier transform to calculate PSD #########
                     window_length = int(sfreq)  # 1 second window length
@@ -849,14 +820,14 @@ def fourier_transform_to_psd():
                     sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
 
                     # save power spectra values
-                    power_spectra_dict[f"{bids_id}_{hem}_{contact}_{filt}"] = [
+                    power_spectra_dict[f"{bids_id}_{hem}_{contact}_{filter_id}"] = [
                         bids_id,
                         sub,
                         hem,
                         subject_hemisphere,
                         contact,
                         original_ch_name,
-                        filt,
+                        filter_id,
                         lfp_data,
                         frequencies,
                         times,
@@ -864,9 +835,10 @@ def fourier_transform_to_psd():
                         average_Zxx,
                         std_Zxx,
                         sem_Zxx,
+                        sfreq,
                     ]
 
-                    if filt == "filtered":
+                    if filter_id == "notch_and_band_pass_filtered":
                         plt.subplot(4, 2, c + 1)  # row 1: 1, 2, 3, 4; row 2: 5, 6, 7, 8
                         plt.title(f"Channel {contact}", fontdict={"size": 40})
                         plt.plot(frequencies, average_Zxx)
@@ -909,6 +881,7 @@ def fourier_transform_to_psd():
             11: "power_average_over_time",
             12: "power_std",
             13: "power_sem",
+            14: "sfreq",
         },
         inplace=True,
     )
@@ -920,10 +893,222 @@ def fourier_transform_to_psd():
     return power_spectra_df
 
 
+def fooof_model_settings(bids_id: str, power_spectra_data: pd.DataFrame, filtered: str):
+    """
+    Input:
+        - bids_id: str, e.g. "L001"
+        - power_spectra_data: Dataframe with power spectra
+        - filtered: str, e.g. "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
+    Requirements of the dataframe input:
+        - the dataframe has to be loaded first
+        e.g. power_spectra_data = load_data.load_externalized_pickle(filename="externalized_power_spectra_250Hz_artefact_free")
+
+        - first select only the rows with UNFILTERED OR NOTCH-FILTERED DATA
+        e.g. power_spectra_data = power_spectra_data.loc[power_spectra_data.filtered == filtered]
+
+        - if you want to run multiple subjects: loop over a list
+        e.g. BIDS_id_unique = list(power_spectra_data.BIDS_id.unique())
+
+    For a single subject, for each hemisphere seperately
+        - run the FOOOF model, plot the raw Power spectra and the FOOOFed periodic power spectra
+        - extract important variables and save them into a results dataframe
+        - extract also which channel is used as common reference and save it into a dataframe
+
+    """
+
+    figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+
+    common_reference_contacts = {}
+    fooof_results_df = pd.DataFrame()
+
+    # data only of one subject
+    subject_data = power_spectra_data.loc[power_spectra_data.BIDS_id == bids_id]
+    sub = subject_data.subject.values[0]
+
+    for hem in HEMISPHERES:
+        hem_data = subject_data.loc[subject_data.hemisphere == hem]
+        contacts = list(hem_data.contact.values)
+        subject_hemisphere = f"{sub}_{hem}"
+
+        for c, contact in enumerate(contacts):
+            contact_data = hem_data.loc[hem_data.contact == contact]
+            original_ch_name = contact_data.original_ch_name.values[0]
+
+            # get the data to fit
+            power_spectrum = contact_data.power_average_over_time.values[0]
+            freqs = contact_data.frequencies.values[0]
+
+            # check if the power spectrum contains only 0 -> in case of a contact used as common reference
+            if np.all(power_spectrum == 0):
+                common_reference_contacts[f"{sub}_{hem}_{contact}"] = [bids_id, sub, hem, contact, original_ch_name]
+                print(f"Sub-{sub}, {hem}: contact {contact} is used as common reference.")
+                continue
+
+            ############ SET PLOT LAYOUT ############
+            fig, ax = plt.subplots(4, 1, figsize=(7, 20))
+
+            # Plot the unfiltered Power spectrum in first ax
+            plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False, ax=ax[0])
+            ax[0].grid(False)
+
+            ############ SET FOOOF MODEL ############
+            freq_range = [1, 95]  # frequency range to fit FOOOF model
+
+            model = fooof.FOOOF(
+                peak_width_limits=[2, 15.0],
+                max_n_peaks=6,
+                min_peak_height=0.2,
+                peak_threshold=2.0,
+                aperiodic_mode="fixed",  # fitting without knee component
+                verbose=True,
+            )
+
+            # always fit a large Frequency band, later you can select Peaks within specific freq bands
+            model.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
+
+            # Plot an example power spectrum, with a model fit in second ax
+            # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
+            model.plot(ax=ax[1], plt_log=True)  # to evaluate the aperiodic component
+            model.plot(ax=ax[2], plt_log=False)  # To see the periodic component better without log in frequency axis
+            ax[1].grid(False)
+            ax[2].grid(False)
+
+            # check if fooof attributes are None:
+            if model._peak_fit is None:
+                print(f"subject {sub}, {hem}, {contact}: model peak fit is None.")
+                continue
+
+            if model._ap_fit is None:
+                print(f"subject {sub}, {hem}, {contact}: model aperiodic fit is None.")
+                continue
+
+            # plot only the fooof spectrum of the periodic component
+            fooof_power_spectrum = 10 ** (model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            plot_spectrum(
+                np.arange(1, (len(fooof_power_spectrum) + 1)),
+                fooof_power_spectrum,
+                log_freqs=False,
+                log_powers=False,
+                ax=ax[3],
+            )
+            # frequencies: 1-95 Hz with 1 Hz resolution
+
+            # titles
+            fig.suptitle(f"sub {sub}, {hem} hemisphere, contact: {contact}", fontsize=25)
+
+            ax[0].set_title(f"{filtered}, artefact-free power spectrum", fontsize=20, y=0.97, pad=-20)
+            ax[3].set_title("power spectrum of periodic component", fontsize=20)
+
+            # mark beta band
+            x1 = 13
+            x2 = 35
+            ax[3].axvspan(x1, x2, color="whitesmoke")
+            ax[3].grid(False)
+
+            fig.tight_layout()
+            fig.savefig(
+                os.path.join(figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}.svg"),
+                bbox_inches="tight",
+                format="svg",
+            )
+            fig.savefig(
+                os.path.join(figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}.png"),
+                bbox_inches="tight",
+            )
+
+            ############ SAVE APERIODIC PARAMETERS ############
+            # goodness of fit
+            err = model.get_params('error')
+            r_sq = model.r_squared_
+
+            # aperiodic components
+            exp = model.get_params('aperiodic_params', 'exponent')
+            offset = model.get_params('aperiodic_params', 'offset')
+
+            # periodic component
+            log_power_fooof_periodic_plus_aperiodic = (
+                model._peak_fit + model._ap_fit
+            )  # periodic+aperiodic component in log Power axis
+            fooof_periodic_component = model._peak_fit  # just periodic component, flattened spectrum
+
+            ############ SAVE ALL PEAKS IN ALPHA; HIGH AND LOW BETA ############
+
+            number_peaks = model.n_peaks_
+
+            # get the highest Peak of each frequency band as an array: CF center frequency, Power, BandWidth
+            alpha_peak = fooof.analysis.get_band_peak_fm(
+                model, band=(8.0, 12.0), select_highest=True, attribute="peak_params"
+            )
+
+            low_beta_peak = fooof.analysis.get_band_peak_fm(
+                model,
+                band=(13.0, 20.0),
+                select_highest=True,
+                attribute="peak_params",
+            )
+
+            high_beta_peak = fooof.analysis.get_band_peak_fm(
+                model,
+                band=(21.0, 35.0),
+                select_highest=True,
+                attribute="peak_params",
+            )
+
+            beta_peak = fooof.analysis.get_band_peak_fm(
+                model,
+                band=(13.0, 35.0),
+                select_highest=True,
+                attribute="peak_params",
+            )
+
+            gamma_peak = fooof.analysis.get_band_peak_fm(
+                model,
+                band=(60.0, 90.0),
+                select_highest=True,
+                attribute="peak_params",
+            )
+
+            # save all results in dictionary
+            fooof_results = {
+                "filtered": [filtered],
+                "BIDS_id": [bids_id],
+                "subject": [sub],
+                "hemisphere": [hem],
+                "subject_hemisphere": [subject_hemisphere],
+                "contact": [contact],
+                "original_ch_name": [original_ch_name],
+                "fooof_error": [err],
+                "fooof_r_sq": [r_sq],
+                "fooof_exponent": [exp],
+                "fooof_offset": [offset],
+                "fooof_power_spectrum": [fooof_power_spectrum],
+                "periodic_plus_aperiodic_power_log": [log_power_fooof_periodic_plus_aperiodic],
+                "fooof_periodic_flat": [fooof_periodic_component],
+                "fooof_number_peaks": [number_peaks],
+                "alpha_peak_CF_power_bandWidth": [alpha_peak],
+                "low_beta_peak_CF_power_bandWidth": [low_beta_peak],
+                "high_beta_peak_CF_power_bandWidth": [high_beta_peak],
+                "beta_peak_CF_power_bandWidth": [beta_peak],
+                "gamma_peak_CF_power_bandWidth": [gamma_peak],
+            }
+
+            fooof_results_single = pd.DataFrame(fooof_results)
+            fooof_results_df = pd.concat([fooof_results_df, fooof_results_single], ignore_index=True)
+
+    # bids_id, sub, hem, contact, original_ch_name
+    common_reference_contacts_columns = ["BIDS_id", "subject", "hemisphere", "contact", "original_ch_name"]
+    common_reference_contacts_df = pd.DataFrame.from_dict(
+        common_reference_contacts, orient="index", columns=common_reference_contacts_columns
+    )
+
+    return {"fooof_results_df": fooof_results_df, "common_reference_contacts_df": common_reference_contacts_df}
+
+
 def externalized_fooof_fit(filtered: str):
     """
     Input:
-        - filtered: str, "unfiltered" or "notch-filtered" or "high_pass_and_notch"
+        - filtered: str, "unfiltered", "only_high_pass_filtered"
 
     Load the Power Spectra data
         - externalized_power_spectra_250Hz_artefact_free.pickle
@@ -932,7 +1117,7 @@ def externalized_fooof_fit(filtered: str):
 
         2 versions:
         - unfiltered Power Spectra
-        - notch-filtered Power Spectra
+        - only high-pass filtered Power Spectra
 
     1) First set and fit a FOOOF model without a knee -> within a frequency range from 1-95 Hz (broad frequency range for fitting the aperiodic component)
         - peak_width_limits=[2, 15.0],  # must be a list, low limit should be more than twice as frequency resolution, usually not more than 15Hz bw
@@ -976,216 +1161,33 @@ def externalized_fooof_fit(filtered: str):
 
     """
 
-    freq_range = [1, 95]  # frequency range to fit FOOOF model
-
     fooof_results_df = pd.DataFrame()
-
-    common_reference_contacts = {}
+    common_reference_group_DF = pd.DataFrame()
 
     power_spectra_data = load_data.load_externalized_pickle(filename="externalized_power_spectra_250Hz_artefact_free")
 
-    # first select only the rows with UNFILTERED OR NOTCH-FILTERED DATA
+    # first select only the rows with UNFILTERED OR ONLY HIGH-PASS-FILTERED DATA
     power_spectra_data = power_spectra_data.loc[power_spectra_data.filtered == filtered]
 
     BIDS_id_unique = list(power_spectra_data.BIDS_id.unique())
 
     for bids_id in BIDS_id_unique:
-        figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+        # fit a FOOOF model, plot the spectra and save the results
+        bids_id_fooof_result = fooof_model_settings(
+            bids_id=bids_id, power_spectra_data=power_spectra_data, filtered=filtered
+        )
 
-        # data only of one subject
-        subject_data = power_spectra_data.loc[power_spectra_data.BIDS_id == bids_id]
-        sub = subject_data.subject.values[0]
+        fooof_results_bids_id_df = bids_id_fooof_result["fooof_results_df"]
+        fooof_results_df = pd.concat([fooof_results_df, fooof_results_bids_id_df], ignore_index=True)
 
-        for hem in hemispheres:
-            hem_data = subject_data.loc[subject_data.hemisphere == hem]
-            contacts = list(hem_data.contact.values)
-            subject_hemisphere = f"{sub}_{hem}"
-
-            for c, contact in enumerate(contacts):
-                contact_data = hem_data.loc[hem_data.contact == contact]
-                original_ch_name = contact_data.original_ch_name.values[0]
-
-                # get the data to fit
-                power_spectrum = contact_data.power_average_over_time.values[0]
-                freqs = contact_data.frequencies.values[0]
-
-                # check if the power spectrum contains only 0 -> in case of a contact used as common reference
-                if np.all(power_spectrum == 0):
-                    common_reference_contacts[f"{sub}_{hem}_{contact}"] = [bids_id, sub, hem, contact, original_ch_name]
-                    print(f"Sub-{sub}, {hem}: contact {contact} is used as common reference.")
-                    continue
-
-                ############ SET PLOT LAYOUT ############
-                fig, ax = plt.subplots(4, 1, figsize=(7, 20))
-
-                # Plot the unfiltered Power spectrum in first ax
-                plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False, ax=ax[0])
-                ax[0].grid(False)
-
-                ############ SET FOOOF MODEL ############
-
-                model = fooof.FOOOF(
-                    peak_width_limits=[2, 15.0],
-                    max_n_peaks=6,
-                    min_peak_height=0.2,
-                    peak_threshold=2.0,
-                    aperiodic_mode="fixed",  # fitting without knee component
-                    verbose=True,
-                )
-
-                # always fit a large Frequency band, later you can select Peaks within specific freq bands
-                model.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
-
-                # Plot an example power spectrum, with a model fit in second ax
-                # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
-                model.plot(ax=ax[1], plt_log=True)  # to evaluate the aperiodic component
-                model.plot(
-                    ax=ax[2], plt_log=False
-                )  # To see the periodic component better without log in frequency axis
-                ax[1].grid(False)
-                ax[2].grid(False)
-
-                # check if fooof attributes are None:
-                if model._peak_fit is None:
-                    print(f"subject {sub}, {hem}, {contact}: model peak fit is None.")
-                    continue
-
-                if model._ap_fit is None:
-                    print(f"subject {sub}, {hem}, {contact}: model aperiodic fit is None.")
-                    continue
-
-                # plot only the fooof spectrum of the periodic component
-                fooof_power_spectrum = 10 ** (model._peak_fit + model._ap_fit) - (10**model._ap_fit)
-                plot_spectrum(
-                    np.arange(1, (len(fooof_power_spectrum) + 1)),
-                    fooof_power_spectrum,
-                    log_freqs=False,
-                    log_powers=False,
-                    ax=ax[3],
-                )
-                # frequencies: 1-95 Hz with 1 Hz resolution
-
-                # titles
-                fig.suptitle(f"sub {sub}, {hem} hemisphere, contact: {contact}", fontsize=25)
-
-                ax[0].set_title(f"{filtered}, artefact-free power spectrum", fontsize=20, y=0.97, pad=-20)
-                ax[3].set_title("power spectrum of periodic component", fontsize=20)
-
-                # mark beta band
-                x1 = 13
-                x2 = 35
-                ax[3].axvspan(x1, x2, color="whitesmoke")
-                ax[3].grid(False)
-
-                fig.tight_layout()
-                fig.savefig(
-                    os.path.join(
-                        figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}.svg"
-                    ),
-                    bbox_inches="tight",
-                    format="svg",
-                )
-                fig.savefig(
-                    os.path.join(
-                        figures_path, f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}.png"
-                    ),
-                    bbox_inches="tight",
-                )
-
-                # extract parameters from the chosen model
-                # model.print_results()
-
-                ############ SAVE APERIODIC PARAMETERS ############
-                # goodness of fit
-                err = model.get_params('error')
-                r_sq = model.r_squared_
-
-                # aperiodic components
-                exp = model.get_params('aperiodic_params', 'exponent')
-                offset = model.get_params('aperiodic_params', 'offset')
-
-                # periodic component
-                log_power_fooof_periodic_plus_aperiodic = (
-                    model._peak_fit + model._ap_fit
-                )  # periodic+aperiodic component in log Power axis
-                fooof_periodic_component = model._peak_fit  # just periodic component, flattened spectrum
-
-                ############ SAVE ALL PEAKS IN ALPHA; HIGH AND LOW BETA ############
-
-                number_peaks = model.n_peaks_
-
-                # get the highest Peak of each frequency band as an array: CF center frequency, Power, BandWidth
-                alpha_peak = fooof.analysis.get_band_peak_fm(
-                    model, band=(8.0, 12.0), select_highest=True, attribute="peak_params"
-                )
-
-                low_beta_peak = fooof.analysis.get_band_peak_fm(
-                    model,
-                    band=(13.0, 20.0),
-                    select_highest=True,
-                    attribute="peak_params",
-                )
-
-                high_beta_peak = fooof.analysis.get_band_peak_fm(
-                    model,
-                    band=(21.0, 35.0),
-                    select_highest=True,
-                    attribute="peak_params",
-                )
-
-                beta_peak = fooof.analysis.get_band_peak_fm(
-                    model,
-                    band=(13.0, 35.0),
-                    select_highest=True,
-                    attribute="peak_params",
-                )
-
-                gamma_peak = fooof.analysis.get_band_peak_fm(
-                    model,
-                    band=(60.0, 90.0),
-                    select_highest=True,
-                    attribute="peak_params",
-                )
-
-                # save all results in dictionary
-                fooof_results = {
-                    "filtered": [filtered],
-                    "BIDS_id": [bids_id],
-                    "subject": [sub],
-                    "hemisphere": [hem],
-                    "subject_hemisphere": [subject_hemisphere],
-                    "contact": [contact],
-                    "original_ch_name": [original_ch_name],
-                    "fooof_error": [err],
-                    "fooof_r_sq": [r_sq],
-                    "fooof_exponent": [exp],
-                    "fooof_offset": [offset],
-                    "fooof_power_spectrum": [fooof_power_spectrum],
-                    "periodic_plus_aperiodic_power_log": [log_power_fooof_periodic_plus_aperiodic],
-                    "fooof_periodic_flat": [fooof_periodic_component],
-                    "fooof_number_peaks": [number_peaks],
-                    "alpha_peak_CF_power_bandWidth": [alpha_peak],
-                    "low_beta_peak_CF_power_bandWidth": [low_beta_peak],
-                    "high_beta_peak_CF_power_bandWidth": [high_beta_peak],
-                    "beta_peak_CF_power_bandWidth": [beta_peak],
-                    "gamma_peak_CF_power_bandWidth": [gamma_peak],
-                }
-
-                fooof_results_single = pd.DataFrame(fooof_results)
-                fooof_results_df = pd.concat([fooof_results_df, fooof_results_single], ignore_index=True)
+        common_reference_bids_id_DF = bids_id_fooof_result["common_reference_contacts_df"]
+        common_reference_group_DF = pd.concat(
+            [common_reference_group_DF, common_reference_bids_id_DF], ignore_index=True
+        )
 
     # save DF as pickle
     save_result_dataframe_as_pickle(data=fooof_results_df, filename=f"fooof_externalized_group_{filtered}")
-
-    # bids_id, sub, hem, contact, original_ch_name
-    common_reference_contacts_columns = ["BIDS_id", "subject", "hemisphere", "contact", "original_ch_name"]
-    common_reference_contacts_df = pd.DataFrame.from_dict(
-        common_reference_contacts, orient="index", columns=common_reference_contacts_columns
-    )
-
-    save_result_dataframe_as_pickle(
-        data=common_reference_contacts_df, filename="externalized_contacts_common_reference"
-    )
+    save_result_dataframe_as_pickle(data=common_reference_group_DF, filename="externalized_contacts_common_reference")
 
     return fooof_results_df
 
@@ -1193,7 +1195,7 @@ def externalized_fooof_fit(filtered: str):
 def calculate_periodic_beta_power(filtered: str):
     """
     Input:
-        - filtered: str, "unfiltered" or "notch-filtered" or "high_pass_and_notch"
+        - filtered: str, "unfiltered", "only_high_pass_filtered"
 
     Load the Fooof group data:
         - fooof_externalized_group_notch-filtered.pickle
