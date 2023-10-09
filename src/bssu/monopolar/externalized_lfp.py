@@ -1,6 +1,6 @@
 """ Read and preprocess externalized LFPs"""
 
-
+ ### Unused imports
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -78,7 +78,7 @@ channel_mapping_2 = {
 # butterworth filter: band pass -> filter order = 5, high pass 5 Hz, low-pass 95 Hz
 def band_pass_filter_externalized(
         fs: int,
-        signal: np.array
+        signal: np.ndarray
 ):
     """
     Input:
@@ -168,7 +168,7 @@ def notch_filter_externalized(
 # perform FOOOF to extract only periodic component
 
 def preprocess_externalized_lfp(
-        sub:list
+        sub:list[str]
 ):
     """
     Input:
@@ -208,6 +208,7 @@ def preprocess_externalized_lfp(
         if patient in subjects_no_bids:
             mne_data = load_data.load_externalized_Poly5_files(sub=patient)
 
+            ### Move renaming to function ###
             # rename channels, first check which channel_mapping is correct
             found = False
             for name in mne_data.info["ch_names"]:
@@ -221,8 +222,8 @@ def preprocess_externalized_lfp(
                     channel_mapping = channel_mapping_2
                     break
             
-            if found == False:
-                print(f"Channel names of sub-{patient} are not in channel_mapping_1 or channel_mapping_2.")
+            if not found:
+                raise ValueError(f"Channel names of sub-{patient} are not in channel_mapping_1 or channel_mapping_2.")
 
             mne_data.rename_channels(channel_mapping)
 
@@ -257,6 +258,7 @@ def preprocess_externalized_lfp(
         # pick LFP channels of both hemispheres
         mne_data.pick_channels(ch_names_LFP) 
 
+        # Clean up creation of dataframe
         recording_info["original_information"] = [subject, bids_ID, ch_names, bads, sfreq, subject_info, n_times, rec_duration]
         originial_rec_info = pd.DataFrame(recording_info)
         originial_rec_info.rename(index={
@@ -328,6 +330,11 @@ def preprocess_externalized_lfp(
 
             elif "_08_" in chan:
                 monopol_chan_name = "3"
+            else:
+                raise ValueError(
+                    f"Channel name {chan} is not in the channel mapping."
+                    "Could not determine the corresponding channel number."
+                    )
 
             # hemisphere
             if "_L_" in chan:
@@ -335,6 +342,11 @@ def preprocess_externalized_lfp(
             
             elif "_R_" in chan:
                 hemisphere = "Right"
+            else:
+                raise ValueError(
+                    f"Channel name {chan} is not in the channel mapping."
+                    "Could not determine the corresponding hemisphere."
+                    )
             
             # subject_hemisphere
             subject_hemisphere = f"{subject}_{hemisphere}"
@@ -626,9 +638,7 @@ def clean_artefacts(
                 # lfp_2_min = contact_data.lfp_2_min.values[0]
                 # filtered_lfp_4000Hz = contact_data.filtered_lfp_4000Hz.values[0]
 
-                loop_over_data = [1, 2, 3, 4]
-
-                for data in loop_over_data:
+                for data in range(1, 5):
 
                     if data == 1:
                         lfp_data = filtered_lfp_250
