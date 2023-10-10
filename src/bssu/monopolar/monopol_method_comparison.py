@@ -23,112 +23,151 @@ segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
 
 ################## beta ranks of directional contacts from externalized LFP ##################
 ################## FOOOF ##################
-# only directional contacts
-# FOOOF version: only 1 Hz high-pass filtered
-externalized_fooof_beta_ranks = load_data.load_externalized_pickle(
-    filename="fooof_externalized_beta_ranks_directional_contacts_only_high_pass_filtered"
-)
-
-# add column with method name
-externalized_fooof_beta_ranks_copy = externalized_fooof_beta_ranks.copy()
-externalized_fooof_beta_ranks_copy["method"] = "externalized_fooof"
-externalized_fooof_beta_ranks_copy["session"] = "postop"
-externalized_fooof_beta_ranks_copy["estimated_monopolar_beta_psd"] = externalized_fooof_beta_ranks_copy["beta_average"]
-
-# drop columns
-externalized_fooof_beta_ranks_copy.drop(
-    columns=[
-        'subject',
-        'hemisphere',
-        "fooof_error",
-        "fooof_r_sq",
-        "fooof_exponent",
-        "fooof_offset",
-        "fooof_power_spectrum",
-        "periodic_plus_aperiodic_power_log",
-        'fooof_periodic_flat',
-        'fooof_number_peaks',
-        'alpha_peak_CF_power_bandWidth',
-        'low_beta_peak_CF_power_bandWidth',
-        'high_beta_peak_CF_power_bandWidth',
-        'beta_peak_CF_power_bandWidth',
-        'gamma_peak_CF_power_bandWidth',
-        'beta_average',
-    ],
-    inplace=True,
-)
-
-# drop rows of subject 052 Right, because directional contact 2C was used as common reference, so there is no data for contact 2C
-externalized_fooof_beta_ranks_copy.reset_index(drop=True, inplace=True)
-externalized_fooof_beta_ranks_copy.drop(
-    externalized_fooof_beta_ranks_copy[externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "052_Right"].index,
-    inplace=True,
-)
-externalized_fooof_beta_ranks_copy.drop(
-    externalized_fooof_beta_ranks_copy[externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "048_Right"].index,
-    inplace=True,
-)
-
-################## SSD ##################
-externalized_SSD_beta_ranks = load_data.load_externalized_pickle(filename="SSD_directional_externalized_channels")
-
-# add column with method name
-externalized_SSD_beta_ranks_copy = externalized_SSD_beta_ranks.copy()
-externalized_SSD_beta_ranks_copy["method"] = "externalized_ssd"
-externalized_SSD_beta_ranks_copy["session"] = "postop"
-externalized_SSD_beta_ranks_copy["estimated_monopolar_beta_psd"] = externalized_SSD_beta_ranks_copy["ssd_pattern"]
-
-# drop columns
-externalized_SSD_beta_ranks_copy.drop(
-    columns=[
-        'ssd_filtered_timedomain',
-    ],
-    inplace=True,
-)
 
 
-################## method weighted by euclidean coordinates ##################
-# only directional contacts
-monopolar_fooof_euclidean_segmental = loadResults.load_fooof_monopolar_weighted_psd(
-    fooof_spectrum="periodic_spectrum", segmental="yes", similarity_calculation="inverse_distance"
-)
+def load_externalized_fooof_data(reference=None):
+    """
+    Input:
+        - reference: str "bipolar_to_lowermost" or "no"
 
-monopolar_fooof_euclidean_segmental = pd.concat(
-    [
-        monopolar_fooof_euclidean_segmental["postop_monopolar_Dataframe"],
-        monopolar_fooof_euclidean_segmental["fu3m_monopolar_Dataframe"],
-        monopolar_fooof_euclidean_segmental["fu12m_monopolar_Dataframe"],
-        monopolar_fooof_euclidean_segmental["fu18or24m_monopolar_Dataframe"],
+    """
+    # only directional contacts
+    # FOOOF version: only 1 Hz high-pass filtered
+    externalized_fooof_beta_ranks = load_data.load_externalized_pickle(
+        filename="fooof_externalized_beta_ranks_directional_contacts_only_high_pass_filtered", reference=reference
+    )
+
+    # add column with method name
+    externalized_fooof_beta_ranks_copy = externalized_fooof_beta_ranks.copy()
+    externalized_fooof_beta_ranks_copy["method"] = "externalized_fooof"
+    externalized_fooof_beta_ranks_copy["session"] = "postop"
+    externalized_fooof_beta_ranks_copy["estimated_monopolar_beta_psd"] = externalized_fooof_beta_ranks_copy[
+        "beta_average"
     ]
-)
 
-# add column with method name
-monopolar_fooof_euclidean_segmental_copy = monopolar_fooof_euclidean_segmental.copy()
-monopolar_fooof_euclidean_segmental_copy["method"] = "euclidean_directional"
-monopolar_fooof_euclidean_segmental_copy["beta_rank"] = monopolar_fooof_euclidean_segmental_copy["rank"]
-monopolar_fooof_euclidean_segmental_copy.drop(columns=["rank"], inplace=True)
+    # drop columns
+    externalized_fooof_beta_ranks_copy.drop(
+        columns=[
+            'subject',
+            'hemisphere',
+            "fooof_error",
+            "fooof_r_sq",
+            "fooof_exponent",
+            "fooof_offset",
+            "fooof_power_spectrum",
+            "periodic_plus_aperiodic_power_log",
+            'fooof_periodic_flat',
+            'fooof_number_peaks',
+            'alpha_peak_CF_power_bandWidth',
+            'low_beta_peak_CF_power_bandWidth',
+            'high_beta_peak_CF_power_bandWidth',
+            'beta_peak_CF_power_bandWidth',
+            'gamma_peak_CF_power_bandWidth',
+            'beta_average',
+        ],
+        inplace=True,
+    )
 
-# columns: coord_z, coord_xy, session, subject_hemisphere, estimated_monopolar_beta_psd, contact, rank
+    # drop rows of subject 052 Right, because directional contact 2C was used as common reference, so there is no data for contact 2C
+    externalized_fooof_beta_ranks_copy.reset_index(drop=True, inplace=True)
+    externalized_fooof_beta_ranks_copy.drop(
+        externalized_fooof_beta_ranks_copy[
+            externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "052_Right"
+        ].index,
+        inplace=True,
+    )
+    externalized_fooof_beta_ranks_copy.drop(
+        externalized_fooof_beta_ranks_copy[
+            externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "048_Right"
+        ].index,
+        inplace=True,
+    )
+
+    return externalized_fooof_beta_ranks_copy
 
 
-################## method by JLB ##################
-# only directional contacts
-monopolar_fooof_JLB = loadResults.load_pickle_group_result(filename="MonoRef_JLB_fooof_beta")
-# columns: session, subject_hemisphere, estimated_monopolar_beta_psd, contact, rank
+def load_externalized_ssd_data(reference=None):
+    """
+    Input:
+        - reference: str "bipolar_to_lowermost" or "no"
 
-# add column with method name
-monopolar_fooof_JLB_copy = monopolar_fooof_JLB.copy()
-monopolar_fooof_JLB_copy["method"] = "JLB_directional"
-monopolar_fooof_JLB_copy["beta_rank"] = monopolar_fooof_JLB_copy["rank"]
-monopolar_fooof_JLB_copy.drop(columns=["rank"], inplace=True)
+    """
+    ################## SSD ##################
+    externalized_SSD_beta_ranks = load_data.load_externalized_pickle(
+        filename="SSD_directional_externalized_channels", reference=reference
+    )
+
+    # add column with method name
+    externalized_SSD_beta_ranks_copy = externalized_SSD_beta_ranks.copy()
+    externalized_SSD_beta_ranks_copy["method"] = "externalized_ssd"
+    externalized_SSD_beta_ranks_copy["session"] = "postop"
+    externalized_SSD_beta_ranks_copy["estimated_monopolar_beta_psd"] = externalized_SSD_beta_ranks_copy["ssd_pattern"]
+
+    # drop columns
+    externalized_SSD_beta_ranks_copy.drop(
+        columns=[
+            'ssd_filtered_timedomain',
+        ],
+        inplace=True,
+    )
+
+    return externalized_SSD_beta_ranks_copy
 
 
-################## method by Binder et al. - best directional Survey contact pair ##################
-best_bssu_contacts = loadResults.load_pickle_group_result(filename="best_2_contacts_from_directional_bssu")
+def load_euclidean_method():
+    """ """
+    ################## method weighted by euclidean coordinates ##################
+    # only directional contacts
+    monopolar_fooof_euclidean_segmental = loadResults.load_fooof_monopolar_weighted_psd(
+        fooof_spectrum="periodic_spectrum", segmental="yes", similarity_calculation="inverse_distance"
+    )
 
-# add column with method name
-best_bssu_contacts_copy = best_bssu_contacts.copy()
-best_bssu_contacts_copy["method"] = "best_bssu_contacts"
+    monopolar_fooof_euclidean_segmental = pd.concat(
+        [
+            monopolar_fooof_euclidean_segmental["postop_monopolar_Dataframe"],
+            monopolar_fooof_euclidean_segmental["fu3m_monopolar_Dataframe"],
+            monopolar_fooof_euclidean_segmental["fu12m_monopolar_Dataframe"],
+            monopolar_fooof_euclidean_segmental["fu18or24m_monopolar_Dataframe"],
+        ]
+    )
+
+    # add column with method name
+    monopolar_fooof_euclidean_segmental_copy = monopolar_fooof_euclidean_segmental.copy()
+    monopolar_fooof_euclidean_segmental_copy["method"] = "euclidean_directional"
+    monopolar_fooof_euclidean_segmental_copy["beta_rank"] = monopolar_fooof_euclidean_segmental_copy["rank"]
+    monopolar_fooof_euclidean_segmental_copy.drop(columns=["rank"], inplace=True)
+
+    # columns: coord_z, coord_xy, session, subject_hemisphere, estimated_monopolar_beta_psd, contact, rank
+
+    return monopolar_fooof_euclidean_segmental_copy
+
+
+def load_JLB_method():
+    """ """
+    ################## method by JLB ##################
+    # only directional contacts
+    monopolar_fooof_JLB = loadResults.load_pickle_group_result(filename="MonoRef_JLB_fooof_beta")
+    # columns: session, subject_hemisphere, estimated_monopolar_beta_psd, contact, rank
+
+    # add column with method name
+    monopolar_fooof_JLB_copy = monopolar_fooof_JLB.copy()
+    monopolar_fooof_JLB_copy["method"] = "JLB_directional"
+    monopolar_fooof_JLB_copy["beta_rank"] = monopolar_fooof_JLB_copy["rank"]
+    monopolar_fooof_JLB_copy.drop(columns=["rank"], inplace=True)
+
+    return monopolar_fooof_JLB_copy
+
+
+def load_best_bssu_method():
+    """ """
+    ################## method by Binder et al. - best directional Survey contact pair ##################
+    best_bssu_contacts = loadResults.load_pickle_group_result(filename="best_2_contacts_from_directional_bssu")
+
+    # add column with method name
+    best_bssu_contacts_copy = best_bssu_contacts.copy()
+    best_bssu_contacts_copy["method"] = "best_bssu_contacts"
+
+    return best_bssu_contacts_copy
 
 
 def spearman_monopol_fooof_beta_methods(method_1: str, method_2: str):
@@ -147,20 +186,20 @@ def spearman_monopol_fooof_beta_methods(method_1: str, method_2: str):
 
     # get data from method 1
     if method_1 == "JLB_directional":
-        method_1_data = monopolar_fooof_JLB_copy
+        method_1_data = load_JLB_method()
 
     elif method_1 == "euclidean_directional":
-        method_1_data = monopolar_fooof_euclidean_segmental_copy
+        method_1_data = load_euclidean_method()
 
     elif method_1 == "Strelow":
         print("Strelow method only gives optimal contacts with beta ranks 1-3")
 
     # get data from method 2
     if method_2 == "JLB_directional":
-        method_2_data = monopolar_fooof_JLB_copy
+        method_2_data = load_JLB_method()
 
     elif method_2 == "euclidean_directional":
-        method_2_data = monopolar_fooof_euclidean_segmental_copy
+        method_2_data = load_euclidean_method()
 
     elif method_2 == "Strelow":
         print("Strelow method only gives optimal contacts with beta ranks 1-3")
@@ -363,10 +402,10 @@ def compare_method_to_best_bssu_contact_pair():
     sample_size_df = pd.DataFrame()
 
     # get data
-    JLB_method = monopolar_fooof_JLB_copy
-    Euclidean_method = monopolar_fooof_euclidean_segmental_copy
+    JLB_method = load_JLB_method()
+    Euclidean_method = load_euclidean_method()
 
-    best_bssu_contact_data = best_bssu_contacts_copy
+    best_bssu_contact_data = load_best_bssu_method()
 
     two_methods = [1, 2]
 
@@ -522,7 +561,7 @@ def compare_method_to_best_bssu_contact_pair():
     return sample_size_df, results_DF_copy
 
 
-def percept_vs_externalized(method: str, externalized_version: str):
+def percept_vs_externalized(method: str, externalized_version: str, reference=None):
     """
     Spearman correlation between monopolar beta power estimations between 2 methods
     only of directional contacts
@@ -530,7 +569,13 @@ def percept_vs_externalized(method: str, externalized_version: str):
     Input: define methods to compare
         - method: "JLB_directional", "euclidean_directional", "Strelow", "best_bssu_contacts"
         - externalized_version: "externalized_fooof", "externalized_ssd"
+        - reference: str "bipolar_to_lowermost" or "no"
     """
+    if reference == "bipolar_to_lowermost":
+        reference_name = "_bipolar_to_lowermost"
+
+    else:
+        reference_name = ""
 
     # results
     spearman_result = {}
@@ -542,26 +587,26 @@ def percept_vs_externalized(method: str, externalized_version: str):
 
     # get only postop data from method
     if method == "JLB_directional":
-        method_data = monopolar_fooof_JLB_copy
+        method_data = load_JLB_method()
         method_data = method_data.loc[method_data.session == "postop"]
 
     elif method == "euclidean_directional":
-        method_data = monopolar_fooof_euclidean_segmental_copy
+        method_data = load_euclidean_method()
         method_data = method_data.loc[method_data.session == "postop"]
 
     elif method == "Strelow":
         print("Strelow method only gives optimal contacts with beta ranks 1-3")
 
     elif method == "best_bssu_contacts":
-        method_data = best_bssu_contacts_copy
+        method_data = load_best_bssu_method()
         method_data = method_data.loc[method_data.session == "postop"]
 
     # get data from externalized LFP
     if externalized_version == "externalized_fooof":
-        externalized_data = externalized_fooof_beta_ranks_copy
+        externalized_data = load_externalized_fooof_data(reference=reference)
 
     elif externalized_version == "externalized_ssd":
-        externalized_data = externalized_SSD_beta_ranks_copy
+        externalized_data = load_externalized_ssd_data(reference=reference)
 
     # Perform spearman correlation for every session separately and within each STN
 
@@ -678,6 +723,7 @@ def percept_vs_externalized(method: str, externalized_version: str):
             compare_rank_1_contact,
             compare_rank_1_and_2_contacts,
             both_contacts_matching,
+            reference,
         ]
 
     # save result
@@ -697,6 +743,7 @@ def percept_vs_externalized(method: str, externalized_version: str):
             10: "compare_rank_1_contact",
             11: "compare_rank_1_and_2_contacts",
             12: "both_contacts_match",
+            13: "reference",
         },
         inplace=True,
     )
@@ -713,14 +760,15 @@ def percept_vs_externalized(method: str, externalized_version: str):
     # save as Excel
     results_DF_copy.to_excel(
         os.path.join(
-            group_results_path, f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}.xlsx"
+            group_results_path,
+            f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}.xlsx",
         ),
         sheet_name="monopolar_beta_correlations",
         index=False,
     )
     print(
         "file: ",
-        f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}.xlsx",
+        f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}.xlsx",
         "\nwritten in: ",
         group_results_path,
     )
@@ -798,7 +846,7 @@ def percept_vs_externalized(method: str, externalized_version: str):
     return results_DF_copy, sample_size_df, stn_comparison
 
 
-def externalized_versions_comparison(externalized_version_1: str, externalized_version_2: str):
+def externalized_versions_comparison(externalized_version_1: str, externalized_version_2: str, reference=None):
     """
     Spearman correlation between monopolar beta power estimations between 2 methods
     only of directional contacts
@@ -806,7 +854,14 @@ def externalized_versions_comparison(externalized_version_1: str, externalized_v
     Input: define methods to compare
         - externalized_version_1: "externalized_ssd", "externalized_fooof"
         - externalized_version_2: "externalized_ssd", "externalized_fooof"
+        - reference: "bipolar_to_lowermost" or "no"
     """
+
+    if reference == "bipolar_to_lowermost":
+        reference_name = "_bipolar_to_lowermost"
+
+    else:
+        reference_name = ""
 
     # results
     spearman_result = {}
@@ -815,17 +870,17 @@ def externalized_versions_comparison(externalized_version_1: str, externalized_v
 
     # get data from externalized LFP version 1
     if externalized_version_1 == "externalized_fooof":
-        externalized_data_1 = externalized_fooof_beta_ranks_copy
+        externalized_data_1 = load_externalized_fooof_data(reference=reference)
 
     elif externalized_version_1 == "externalized_ssd":
-        externalized_data_1 = externalized_SSD_beta_ranks_copy
+        externalized_data_1 = load_externalized_ssd_data(reference=reference)
 
     # get data from externalized LFP version 2
     if externalized_version_2 == "externalized_fooof":
-        externalized_data_2 = externalized_fooof_beta_ranks_copy
+        externalized_data_2 = load_externalized_fooof_data(reference=reference)
 
     elif externalized_version_2 == "externalized_ssd":
-        externalized_data_2 = externalized_SSD_beta_ranks_copy
+        externalized_data_2 = load_externalized_ssd_data(reference=reference)
 
     # Perform spearman correlation for every session separately and within each STN
 
@@ -969,6 +1024,7 @@ def externalized_versions_comparison(externalized_version_1: str, externalized_v
             compare_rank_1_contact,
             compare_rank_1_and_2_contacts,
             both_contacts_matching,
+            reference,
         ]
 
     # save result
@@ -985,6 +1041,7 @@ def externalized_versions_comparison(externalized_version_1: str, externalized_v
         "compare_rank_1_contact",
         "compare_rank_1_and_2_contacts",
         "both_contacts_match",
+        "reference",
     ]
 
     results_DF = pd.DataFrame.from_dict(spearman_result, orient="index", columns=results_DF_columns)
@@ -1000,14 +1057,14 @@ def externalized_versions_comparison(externalized_version_1: str, externalized_v
     results_DF_copy.to_excel(
         os.path.join(
             group_results_path,
-            f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}.xlsx",
+            f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}.xlsx",
         ),
         sheet_name="monopolar_beta_correlations",
         index=False,
     )
     print(
         "file: ",
-        f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}.xlsx",
+        f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}.xlsx",
         "\nwritten in: ",
         group_results_path,
     )
