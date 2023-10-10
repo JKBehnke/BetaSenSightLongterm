@@ -22,18 +22,16 @@ segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
 
 
 ################## beta ranks of directional contacts from externalized LFP ##################
+################## FOOOF ##################
 # only directional contacts
-# FOOOF version: 1 Hz high-pass-filtered, but otherwise unfiltered
-# externalized_fooof_beta_ranks = load_data.load_externalized_pickle(filename = "fooof_externalized_beta_ranks_directional_contacts")
-
-# FOOOF version: notch-filtered and 1 Hz high-pass filtered
+# FOOOF version: only 1 Hz high-pass filtered
 externalized_fooof_beta_ranks = load_data.load_externalized_pickle(
     filename="fooof_externalized_beta_ranks_directional_contacts_only_high_pass_filtered"
 )
 
 # add column with method name
 externalized_fooof_beta_ranks_copy = externalized_fooof_beta_ranks.copy()
-externalized_fooof_beta_ranks_copy["method"] = "externalized"
+externalized_fooof_beta_ranks_copy["method"] = "externalized_fooof"
 externalized_fooof_beta_ranks_copy["session"] = "postop"
 externalized_fooof_beta_ranks_copy["estimated_monopolar_beta_psd"] = externalized_fooof_beta_ranks_copy["beta_average"]
 
@@ -70,6 +68,24 @@ externalized_fooof_beta_ranks_copy.drop(
     externalized_fooof_beta_ranks_copy[externalized_fooof_beta_ranks_copy["subject_hemisphere"] == "048_Right"].index,
     inplace=True,
 )
+
+################## SSD ##################
+externalized_SSD_beta_ranks = load_data.load_externalized_pickle(filename="SSD_directional_externalized_channels")
+
+# add column with method name
+externalized_SSD_beta_ranks_copy = externalized_SSD_beta_ranks.copy()
+externalized_SSD_beta_ranks_copy["method"] = "externalized_ssd"
+externalized_SSD_beta_ranks_copy["session"] = "postop"
+externalized_SSD_beta_ranks_copy["estimated_monopolar_beta_psd"] = externalized_SSD_beta_ranks_copy["ssd_pattern"]
+
+# drop columns
+externalized_SSD_beta_ranks_copy.drop(
+    columns=[
+        'ssd_filtered_timedomain',
+    ],
+    inplace=True,
+)
+
 
 ################## method weighted by euclidean coordinates ##################
 # only directional contacts
@@ -506,13 +522,14 @@ def compare_method_to_best_bssu_contact_pair():
     return sample_size_df, results_DF_copy
 
 
-def spearman_validation_monopol_fooof(method: str):
+def percept_vs_externalized(method: str, externalized_version: str):
     """
     Spearman correlation between monopolar beta power estimations between 2 methods
     only of directional contacts
 
     Input: define methods to compare
         - method: "JLB_directional", "euclidean_directional", "Strelow", "best_bssu_contacts"
+        - externalized_version: "externalized_fooof", "externalized_ssd"
     """
 
     # results
@@ -540,7 +557,11 @@ def spearman_validation_monopol_fooof(method: str):
         method_data = method_data.loc[method_data.session == "postop"]
 
     # get data from externalized LFP
-    externalized_data = externalized_fooof_beta_ranks_copy
+    if externalized_version == "externalized_fooof":
+        externalized_data = externalized_fooof_beta_ranks_copy
+
+    elif externalized_version == "externalized_ssd":
+        externalized_data = externalized_SSD_beta_ranks_copy
 
     # Perform spearman correlation for every session separately and within each STN
 
@@ -568,7 +589,7 @@ def spearman_validation_monopol_fooof(method: str):
         stn_comparison = comparison_df.loc[comparison_df["subject_hemisphere"] == sub_hem]
 
         stn_method = stn_comparison.loc[stn_comparison.method == method]
-        stn_externalized = stn_comparison.loc[stn_comparison.method == "externalized"]
+        stn_externalized = stn_comparison.loc[stn_comparison.method == externalized_version]
 
         ############## externalized rank contacts: ##############
         rank1_externalized = stn_externalized.loc[stn_externalized.beta_rank == 1.0]
@@ -645,7 +666,7 @@ def spearman_validation_monopol_fooof(method: str):
         # store values in a dictionary
         spearman_result[f"{sub_hem}"] = [
             method,
-            "externalized",
+            externalized_version,
             "postop",
             sub_hem,
             spearman_statistic,
@@ -691,13 +712,15 @@ def spearman_validation_monopol_fooof(method: str):
 
     # save as Excel
     results_DF_copy.to_excel(
-        os.path.join(group_results_path, f"fooof_monopol_beta_correlations_per_stn_{method}_externalized.xlsx"),
+        os.path.join(
+            group_results_path, f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}.xlsx"
+        ),
         sheet_name="monopolar_beta_correlations",
         index=False,
     )
     print(
         "file: ",
-        f"fooof_monopol_beta_correlations_per_stn_{method}_externalized.xlsx",
+        f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}.xlsx",
         "\nwritten in: ",
         group_results_path,
     )
@@ -771,5 +794,268 @@ def spearman_validation_monopol_fooof(method: str):
         }
 
         sample_size_df = pd.DataFrame(sample_size_dict)
+
+    return results_DF_copy, sample_size_df, stn_comparison
+
+
+def externalized_versions_comparison(externalized_version_1: str, externalized_version_2: str):
+    """
+    Spearman correlation between monopolar beta power estimations between 2 methods
+    only of directional contacts
+
+    Input: define methods to compare
+        - externalized_version_1: "externalized_ssd", "externalized_fooof"
+        - externalized_version_2: "externalized_ssd", "externalized_fooof"
+    """
+
+    # results
+    spearman_result = {}
+
+    sample_size_dict = {}
+
+    # get data from externalized LFP version 1
+    if externalized_version_1 == "externalized_fooof":
+        externalized_data_1 = externalized_fooof_beta_ranks_copy
+
+    elif externalized_version_1 == "externalized_ssd":
+        externalized_data_1 = externalized_SSD_beta_ranks_copy
+
+    # get data from externalized LFP version 2
+    if externalized_version_2 == "externalized_fooof":
+        externalized_data_2 = externalized_fooof_beta_ranks_copy
+
+    elif externalized_version_2 == "externalized_ssd":
+        externalized_data_2 = externalized_SSD_beta_ranks_copy
+
+    # Perform spearman correlation for every session separately and within each STN
+
+    # find STNs with data from both methods
+    stn_unique_method = list(externalized_data_1.subject_hemisphere.unique())
+    stn_unique_externalized = list(externalized_data_2.subject_hemisphere.unique())
+
+    stn_comparison_list = list(set(stn_unique_method) & set(stn_unique_externalized))
+    stn_comparison_list.sort()
+
+    comparison_df_externalized_1 = externalized_data_1.loc[
+        externalized_data_1["subject_hemisphere"].isin(stn_comparison_list)
+    ]
+    comparison_df_externalized_2 = externalized_data_2.loc[
+        externalized_data_2["subject_hemisphere"].isin(stn_comparison_list)
+    ]
+
+    comparison_df = pd.concat([comparison_df_externalized_1, comparison_df_externalized_2], axis=0)
+
+    for sub_hem in stn_comparison_list:
+        # only run, if sub_hem STN exists in both session Dataframes
+        if sub_hem not in comparison_df.subject_hemisphere.values:
+            print(f"{sub_hem} is not in the comparison Dataframe.")
+            continue
+
+        # only take one electrode at both sessions and get spearman correlation
+        stn_comparison = comparison_df.loc[comparison_df["subject_hemisphere"] == sub_hem]
+
+        ############## externalized rank contacts: ##############
+        two_versions = ["externalized_1", "externalized_2"]
+        column_name_version = [externalized_version_1, externalized_version_2]
+
+        externalized_sub_hem_dict = {}
+        sub_hem_with_no_rank_1_or_2 = (
+            []
+        )  # capture subject hemispheres that don't have rank 1 or rank 2, take them out of the analysis
+
+        for m, method in enumerate(two_versions):
+            version = column_name_version[m]
+            stn_data = stn_comparison.loc[stn_comparison.method == version]
+            stn_estimated_monopolar_beta_psd = stn_data.estimated_monopolar_beta_psd.values
+
+            rank_1 = stn_data.loc[stn_data.beta_rank == 1.0]
+
+            # check if externalized has a rank 1 contact (sometimes there is so little beta activity, so there is only rank 1 and 5x rank 4)
+            if len(rank_1.contact.values) == 0:
+                sub_hem_with_no_rank_1_or_2.append(sub_hem)
+                print(f"Sub-{sub_hem} has no rank 1 contact in the {version}.")
+                continue
+
+            rank_1 = rank_1.contact.values[0]
+
+            rank_2 = stn_data.loc[stn_data.beta_rank == 2.0]
+            # check if externalized has a rank 2 contact (sometimes there is so little beta activity, so there is only rank 1 and 5x rank 4)
+            if len(rank_2.contact.values) == 0:
+                sub_hem_with_no_rank_1_or_2.append(sub_hem)
+                print(f"Sub-{sub_hem} has no rank 2 contact in the {version}.")
+                continue
+
+            rank_2 = rank_2.contact.values[0]
+
+            rank_1_and_2 = [rank_1, rank_2]
+
+            # save for each method
+            externalized_sub_hem_dict[m] = [
+                method,
+                version,
+                stn_estimated_monopolar_beta_psd,
+                rank_1,
+                rank_2,
+                rank_1_and_2,
+            ]
+
+        externalized_sub_hem_columns = [
+            "externalized_1_or_2",
+            "ssd_or_fooof",
+            "estimated_monopolar_beta_psd",
+            "rank_1",
+            "rank_2",
+            "rank_1_and_2",
+        ]
+        externalized_sub_hem_dataframe = pd.DataFrame.from_dict(
+            externalized_sub_hem_dict, orient="index", columns=externalized_sub_hem_columns
+        )
+
+        # check if subject hemisphere does not have rank 1 or rank 2, take this one out!
+        if sub_hem in sub_hem_with_no_rank_1_or_2:
+            continue
+
+        ############## rank contacts from method ##############
+        # Spearman correlation between beta average only for the 2 monopolar methods
+        data_from_externalized_1 = externalized_sub_hem_dataframe.loc[
+            externalized_sub_hem_dataframe.externalized_1_or_2 == "externalized_1"
+        ]
+        data_from_externalized_2 = externalized_sub_hem_dataframe.loc[
+            externalized_sub_hem_dataframe.externalized_1_or_2 == "externalized_2"
+        ]
+
+        spearman_beta_stn = stats.spearmanr(
+            data_from_externalized_1.estimated_monopolar_beta_psd.values[0],
+            data_from_externalized_2.estimated_monopolar_beta_psd.values[0],
+        )
+        spearman_statistic = spearman_beta_stn.statistic
+        spearman_pval = spearman_beta_stn.pvalue
+
+        # contacts with beta rank 1 and 2
+        # yes if contact with rank 1 is the same
+        if data_from_externalized_1.rank_1.values[0] == data_from_externalized_2.rank_1.values[0]:
+            compare_rank_1_contact = "same"
+
+        else:
+            compare_rank_1_contact = "different"
+
+        # yes if 2 contacts with rank 1 or 2 are the same (independent of which one is rank 1 or 2)
+        if set(data_from_externalized_1.rank_1_and_2.values[0]) == set(data_from_externalized_2.rank_1_and_2.values[0]):
+            both_contacts_matching = "yes"
+
+        else:
+            both_contacts_matching = "no"
+
+        # check if at least one contact selected as beta rank 1 or 2 match for both methods
+        if set(data_from_externalized_1.rank_1_and_2.values[0]).intersection(
+            set(data_from_externalized_2.rank_1_and_2.values[0])
+        ):
+            compare_rank_1_and_2_contacts = "at_least_one_contact_match"
+
+        else:
+            compare_rank_1_and_2_contacts = "no_contacts_match"
+
+        # store values in a dictionary
+        spearman_result[f"{sub_hem}"] = [
+            externalized_version_1,
+            externalized_version_2,
+            sub_hem,
+            spearman_statistic,
+            spearman_pval,
+            data_from_externalized_1.rank_1.values[0],
+            data_from_externalized_2.rank_1.values[0],
+            data_from_externalized_1.rank_1_and_2.values[0],
+            data_from_externalized_2.rank_1_and_2.values[0],
+            compare_rank_1_contact,
+            compare_rank_1_and_2_contacts,
+            both_contacts_matching,
+        ]
+
+    # save result
+    results_DF_columns = [
+        "externalized_version_1",
+        "externalized_version_2",
+        "subject_hemisphere",
+        "spearman_r",
+        "pval",
+        "contact_rank_1_externalized_1",
+        "contact_rank_1_externalized_2",
+        "contacts_rank_1_2_externalized_1",
+        "contacts_rank_1_2_externalized_2",
+        "compare_rank_1_contact",
+        "compare_rank_1_and_2_contacts",
+        "both_contacts_match",
+    ]
+
+    results_DF = pd.DataFrame.from_dict(spearman_result, orient="index", columns=results_DF_columns)
+
+    # save Dataframe to Excel
+    results_DF_copy = results_DF.copy()
+
+    # add new column: significant yes, no
+    significant_correlation = results_DF_copy["pval"] < 0.05
+    results_DF_copy["significant_correlation"] = ["yes" if cond else "no" for cond in significant_correlation]
+
+    # save as Excel
+    results_DF_copy.to_excel(
+        os.path.join(
+            group_results_path,
+            f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}.xlsx",
+        ),
+        sheet_name="monopolar_beta_correlations",
+        index=False,
+    )
+    print(
+        "file: ",
+        f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}.xlsx",
+        "\nwritten in: ",
+        group_results_path,
+    )
+
+    # get sample size
+    result_count = results_DF_copy["subject_hemisphere"].count()
+
+    spearman_mean = results_DF_copy.spearman_r.mean()
+    spearman_median = results_DF_copy.spearman_r.median()
+    spearman_std = np.std(results_DF_copy.spearman_r)
+
+    # calculate how often significant?
+    significant_count = results_DF_copy.loc[results_DF_copy.significant_correlation == "yes"]
+    significant_count = significant_count["subject_hemisphere"].count()
+    percentage_significant = significant_count / result_count
+
+    # count how often compare_rank_1_contact same
+    same_rank_1 = results_DF_copy.loc[results_DF_copy.compare_rank_1_contact == "same"]
+    same_rank_1 = same_rank_1["subject_hemisphere"].count()
+    precentage_same_rank_1 = same_rank_1 / result_count
+
+    # count how often there is at least one matching contact in compare_rank_1_and_2_contact
+    at_least_one_contact_match = results_DF_copy.loc[
+        results_DF_copy.compare_rank_1_and_2_contacts == "at_least_one_contact_match"
+    ]
+    at_least_one_contact_match = at_least_one_contact_match["subject_hemisphere"].count()
+    precentage_at_least_one_contact_match = at_least_one_contact_match / result_count
+
+    # count how often both contacts match in compare_rank_1_and_2_contact
+    both_contacts_matching_count = results_DF_copy.loc[results_DF_copy.both_contacts_match == "yes"]
+    both_contacts_matching_count = both_contacts_matching_count["subject_hemisphere"].count()
+    precentage_both_contacts_match = both_contacts_matching_count / result_count
+
+    sample_size_dict = {
+        "sample_size": [result_count],
+        "spearman_mean": [spearman_mean],
+        "spearman_median": [spearman_median],
+        "spearman_std": [spearman_std],
+        "significant_count": [significant_count],
+        "percentage_significant": [percentage_significant],
+        "same_rank_1_count": [same_rank_1],
+        "percentage_same_rank_1": [precentage_same_rank_1],
+        "at_least_one_contact_match": [at_least_one_contact_match],
+        "percentage_at_least_one_contact_match": [precentage_at_least_one_contact_match],
+        "both_contacts_matching_count": [both_contacts_matching_count],
+        "precentage_both_contacts_match": [precentage_both_contacts_match],
+    }
+
+    sample_size_df = pd.DataFrame(sample_size_dict)
 
     return results_DF_copy, sample_size_df, stn_comparison
