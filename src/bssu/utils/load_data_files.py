@@ -212,7 +212,7 @@ def load_BIDS_externalized_vhdr_files(sub: str):
         return data
 
 
-def load_externalized_pickle(filename: str, reference=None):
+def load_externalized_pickle(filename: str, fooof_version=None, reference=None):
     """
     Pickle files in the group results folder of the monopolar estimation project
     Input:
@@ -225,6 +225,7 @@ def load_externalized_pickle(filename: str, reference=None):
             "externalized_contacts_common_reference",
             "fooof_externalized_group",
             "fooof_externalized_group_notch-filtered",
+            "fooof_externalized_group_only_high_pass_filtered"
             "fooof_externalized_beta_ranks_all_contacts",
             "fooof_externalized_beta_ranks_directional_contacts",
             "SSD_directional_externalized_channels"
@@ -243,6 +244,10 @@ def load_externalized_pickle(filename: str, reference=None):
 
     # create filename and filepath
     pickle_filename = f"{filename}{reference_name}.pickle"
+
+    if fooof_version in ["v1", "v2"]:
+        pickle_filename = f"{filename}{reference_name}_{fooof_version}.pickle"
+
     filepath = os.path.join(group_results_path, pickle_filename)
 
     # load the file

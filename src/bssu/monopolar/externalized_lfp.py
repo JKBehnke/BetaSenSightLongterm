@@ -17,6 +17,7 @@ from scipy.signal import butter, filtfilt, freqz, hann, spectrogram
 from ..utils import find_folders as find_folders
 from ..utils import load_data_files as load_data
 from ..utils import loadResults as loadResults
+from ..utils import externalized_helpers as helpers
 from ..tfr import feats_ssd as feats_ssd
 
 GROUP_RESULTS_PATH = find_folders.get_monopolar_project_path(folder="GroupResults")
@@ -29,355 +30,6 @@ DIRECTIONAL_CONTACTS = ["1A", "1B", "1C", "2A", "2B", "2C"]
 
 # list of subjects with no BIDS transformation yet -> load these via poly5reader instead of BIDS
 SUBJECTS_NO_BIDS = ["24", "28", "29", "48", "49", "56"]
-
-
-# get index of each channel and get the corresponding LFP data
-# plot filtered channels 1-8 [0]-[7] Right and 9-16 [8]-[15]
-# butterworth filter: band pass -> filter order = 5, high pass 5 Hz, low-pass 95 Hz
-def band_pass_filter_externalized(fs: int, signal: np.array):
-    """
-    Input:
-        - fs: sampling frequency of the signal
-        - signal: array of the signal
-
-    Applying a band pass filter to the signal
-        - 5 Hz high pass
-        - 95 Hz low pass
-        - filter order: 3
-
-    """
-    # parameters
-    filter_order = 3  # in MATLAB spm_eeg_filter default=5 Butterworth
-    frequency_cutoff_low = 5  # 5Hz high-pass filter
-    frequency_cutoff_high = 95  # 95 Hz low-pass filter
-
-    # create and apply the filter
-    b, a = scipy.signal.butter(
-        filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs
-    )
-    band_pass_filtered = scipy.signal.filtfilt(b, a, signal)
-
-    return band_pass_filtered
-
-
-def high_pass_filter_externalized(fs: int, signal: np.array):
-    """
-    Input:
-        - fs: sampling frequency of the signal
-        - signal: array of the signal
-
-    Applying a band pass filter to the signal
-        - 1 Hz high pass
-        - filter order: 3
-    """
-    # parameters
-    filter_order = 5  # in MATLAB spm_eeg_filter default=5 Butterworth
-    frequency_cutoff_low = 1  # 1Hz high-pass filter
-
-    # create and apply the filter
-    b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low), btype='highpass', output='ba', fs=fs)
-    band_pass_filtered = scipy.signal.filtfilt(b, a, signal)
-
-    return band_pass_filtered
-
-
-# notch filter: 50 Hz
-def notch_filter_externalized(fs: int, signal: np.array):
-    """
-    Input:
-        - fs: sampling frequency of the signal
-        - signal: array of the signal
-
-    Applying a notch filter to the signal
-
-
-    """
-
-    # parameters
-    notch_freq = 50  # 50 Hz line noise in Europe
-    Q = 30  # Q factor for notch filter
-
-    # apply notch filter
-    b, a = scipy.signal.iirnotch(w0=notch_freq, Q=Q, fs=fs)
-    filtered_signal = scipy.signal.filtfilt(b, a, signal)
-
-    return filtered_signal
-
-
-def SSD_filter_externalized(bids_id: str, sub: str, hemisphere: str, fs: int, directional_signals=None):
-    """
-    Input:
-        - fs: sampling frequency of the signal
-        - directional_signals: must be a 2D array with 6 signals of the directional channels
-            e.g. of one hemisphere:
-            directional_channels = [f"LFP_{hem[0]}_02_STN_MT",
-                                f"LFP_{hem[0]}_03_STN_MT",
-                                f"LFP_{hem[0]}_04_STN_MT",
-                                f"LFP_{hem[0]}_05_STN_MT",
-                                f"LFP_{hem[0]}_06_STN_MT",
-                                f"LFP_{hem[0]}_07_STN_MT"]
-
-    This function will follow these steps:
-
-        - filter SSD in the beta range (13-35 Hz)
-        - plot a figure with a plot of the Raw Power Spectra of all channels and a plot with the first component Power spectrum
-        - return the results: ssd_filt_data, ssd_pattern, ssd_eigvals
-
-    """
-
-    SSD_result = {}
-
-    figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
-
-    f_range = 13, 35
-
-    (ssd_filt_data, ssd_pattern, ssd_eigvals) = feats_ssd.get_SSD_component(
-        data_2d=directional_signals,
-        fband_interest=f_range,
-        s_rate=fs,
-        use_freqBand_filtered=True,
-        return_comp_n=0,
-    )
-
-    # check if length of ssd pattern and ssd eigenvalues is 6, if not, break
-    if len(ssd_eigvals) < 6:
-        print(f"Sub-{sub}, {hemisphere} hemisphere, only has {len(ssd_pattern)} Eigenvalues.")
-
-    # Figure with 2 subplots (2 rows, 1 column)
-    fig, axes = plt.subplots(2, 1, figsize=(10, 15))
-
-    ########### PLOT 1: Power Spectra of all directional channels without SSD ###########
-    for c, chan in enumerate(DIRECTIONAL_CONTACTS):
-        if c == 5 and len(ssd_eigvals) < 6:
-            ssd_pattern_chan = -1.0
-            ssd_eigvals_chan = -1.0
-
-        else:
-            ssd_pattern_chan = ssd_pattern[0][c]
-            ssd_eigvals_chan = ssd_eigvals[c]
-
-        # filter to plot
-        notch_filtered = notch_filter_externalized(fs=fs, signal=directional_signals[c])
-        band_pass_and_notch = band_pass_filter_externalized(fs=fs, signal=notch_filtered)
-
-        ######### short time fourier transform to calculate PSD #########
-        window_length = int(fs)  # 1 second window length
-        overlap = window_length // 4  # 25% overlap
-
-        # Calculate the short-time Fourier transform (STFT) using Hann window
-        window = hann(window_length, sym=False)
-
-        frequencies, times, Zxx = scipy.signal.spectrogram(
-            band_pass_and_notch, fs=fs, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0
-        )
-
-        # average PSD across duration of the recording
-        average_Zxx = np.mean(Zxx, axis=1)
-        std_Zxx = np.std(Zxx, axis=1)
-        sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
-
-        axes[0].plot(frequencies, average_Zxx, label=f"Contact{chan}_ssd_pattern_{ssd_pattern_chan}")
-        axes[0].fill_between(frequencies, average_Zxx - sem_Zxx, average_Zxx + sem_Zxx, color='lightgray', alpha=0.5)
-        axes[0].set_title(f'Power Spectra: sub{bids_id} {hemisphere} hemisphere', fontsize=20)
-        axes[0].set_xlim(0, 100)
-        axes[0].set_xlabel("Frequency [Hz]", fontsize=20)
-        axes[0].set_ylabel("PSD [uV^2/Hz]", fontsize=20)
-        # axes[0].set_xticks([0, 20, 40, 60, 80, 100], fontsize=15)
-        # axes[1].set_xticklabels([0, 20, 40, 60, 80, 100], fontsize=15)
-        # axes[0].set_yticks([], fontsize=15)
-        axes[0].axvline(x=13, color='black', linestyle='--')
-        axes[0].axvline(x=35, color='black', linestyle='--')
-        axes[0].legend()
-
-        # save result for each contact
-        sub_hem = f"{sub}_{hemisphere}"
-        SSD_result[chan] = [bids_id, sub, hemisphere, sub_hem, chan, ssd_filt_data, ssd_pattern_chan, ssd_eigvals_chan]
-
-    ########### PLOT 2: Power Spectrum of the first SSD component ###########
-    # use Welch to transform the time domain data to frequency domain data
-    f, psd = signal.welch(
-        ssd_filt_data, axis=-1, nperseg=fs, fs=fs
-    )  # ssd_filt_data is only one array with the PSD of the FIRST component
-
-    # plot the first component Power spectrum of each recording group
-    axes[1].plot(f, psd)
-
-    axes[1].set_xlim(0, 100)
-    axes[1].set_xlabel("Frequency", fontsize=20)
-    axes[1].set_ylim(-0.005, 0.12)
-    axes[1].set_title(f'Power Spectrum beta first component (13-35 Hz)', fontsize=20)
-    # axes[1].set_xticks([0, 20, 40, 60, 80, 100], fontsize=15)
-    # axes[1].set_xticklabels([0, 20, 40, 60, 80, 100], fontsize=15)
-    # axes[1].set_yticks(fontsize=15)
-    axes[1].axvline(x=13, color='black', linestyle='--')
-    axes[1].axvline(x=35, color='black', linestyle='--')
-
-    fig.tight_layout()
-
-    fig.savefig(
-        os.path.join(
-            figures_path,
-            f"sub-{bids_id}_{hemisphere}_externalized_directional_SSD_beta_first_component_Power_spectrum.png",
-        ),
-        bbox_inches="tight",
-    )
-
-    plt.close()
-
-    # save the dataframe
-    SSD_result_columns = [
-        "BIDS_id",
-        "subject",
-        "hemisphere",
-        "subject_hemisphere",
-        "contact",
-        "ssd_filtered_timedomain",
-        "ssd_pattern",
-        "ssd_eigvals",
-    ]
-
-    SSD_result_dataframe = pd.DataFrame.from_dict(SSD_result, orient="index", columns=SSD_result_columns)
-
-    # add a column with beta_ranks
-    # TODO: what does negative mean? sometimes -1.0 ssd_pattern.
-    SSD_result_dataframe_copy = SSD_result_dataframe.copy()
-    SSD_result_dataframe_copy["beta_rank"] = SSD_result_dataframe["ssd_pattern"].rank(ascending=False)  # rank 1-6
-
-    return {
-        "ssd_filt_data": ssd_filt_data,
-        "ssd_pattern": ssd_pattern,
-        "ssd_eigvals": ssd_eigvals,
-        "SSD_result_dataframe_copy": SSD_result_dataframe_copy,
-    }
-
-
-def load_patient_data(patient: str):
-    """
-    Input:
-        - patient: str, e.g. "25"
-
-    First check, if the patient is in the list with no BIDS data yet.
-    If no BIDS data exists:
-        - load data with Poly5Reader
-        - rename the channels, so that they match to the BIDS channel names
-
-    If BIDS data exists:
-        - load data with mne bids
-
-
-    return:
-        - mne_data as an MNE raw object
-        - subject info (empty if not loaded with bids)
-        - bids_ID
-
-    """
-
-    # rename channel names, if files were loaded via Poly5reader
-    channel_mapping_1 = {
-        'LFPR1STNM': 'LFP_R_01_STN_MT',
-        'LFPR2STNM': 'LFP_R_02_STN_MT',
-        'LFPR3STNM': 'LFP_R_03_STN_MT',
-        'LFPR4STNM': 'LFP_R_04_STN_MT',
-        'LFPR5STNM': 'LFP_R_05_STN_MT',
-        'LFPR6STNM': 'LFP_R_06_STN_MT',
-        'LFPR7STNM': 'LFP_R_07_STN_MT',
-        'LFPR8STNM': 'LFP_R_08_STN_MT',
-        'LFPL1STNM': 'LFP_L_01_STN_MT',
-        'LFPL2STNM': 'LFP_L_02_STN_MT',
-        'LFPL3STNM': 'LFP_L_03_STN_MT',
-        'LFPL4STNM': 'LFP_L_04_STN_MT',
-        'LFPL5STNM': 'LFP_L_05_STN_MT',
-        'LFPL6STNM': 'LFP_L_06_STN_MT',
-        'LFPL7STNM': 'LFP_L_07_STN_MT',
-        'LFPL8STNM': 'LFP_L_08_STN_MT',
-    }
-
-    channel_mapping_2 = {
-        'LFP_0_R_S': 'LFP_R_01_STN_MT',
-        'LFP_1_R_S': 'LFP_R_02_STN_MT',
-        'LFP_2_R_S': 'LFP_R_03_STN_MT',
-        'LFP_3_R_S': 'LFP_R_04_STN_MT',
-        'LFP_4_R_S': 'LFP_R_05_STN_MT',
-        'LFP_5_R_S': 'LFP_R_06_STN_MT',
-        'LFP_6_R_S': 'LFP_R_07_STN_MT',
-        'LFP_7_R_S': 'LFP_R_08_STN_MT',
-        'LFP_0_L_S': 'LFP_L_01_STN_MT',
-        'LFP_1_L_S': 'LFP_L_02_STN_MT',
-        'LFP_2_L_S': 'LFP_L_03_STN_MT',
-        'LFP_3_L_S': 'LFP_L_04_STN_MT',
-        'LFP_4_L_S': 'LFP_L_05_STN_MT',
-        'LFP_5_L_S': 'LFP_L_06_STN_MT',
-        'LFP_6_L_S': 'LFP_L_07_STN_MT',
-        'LFP_7_L_S': 'LFP_L_08_STN_MT',
-    }
-
-    # check if patient is in the list with no BIDS yet
-    if patient in SUBJECTS_NO_BIDS:
-        mne_data = load_data.load_externalized_Poly5_files(sub=patient)
-
-        # rename channels, first check which channel_mapping is correct
-        found = False
-        for name in mne_data.info["ch_names"]:
-            if name in channel_mapping_1:
-                found = True
-                channel_mapping = channel_mapping_1
-                break
-
-            elif name in channel_mapping_2:
-                found = True
-                channel_mapping = channel_mapping_2
-                break
-
-        if found == False:
-            print(f"Channel names of sub-{patient} are not in channel_mapping_1 or channel_mapping_2.")
-
-        mne_data.rename_channels(channel_mapping)
-
-        subject_info = "no_bids"
-
-        # bids_ID
-        bids_ID = f"sub-noBIDS{patient}"
-        print(f"subject {patient} with bids ID {bids_ID} was loaded.")
-
-    else:
-        mne_data = load_data.load_BIDS_externalized_vhdr_files(sub=patient)
-
-        subject_info = mne_data.info["subject_info"]
-        bids_ID = mne_data.info["subject_info"]["his_id"]
-        print(f"subject {patient} with bids ID {bids_ID} was loaded.")
-
-    return {"mne_data": mne_data, "subject_info": subject_info, "bids_ID": bids_ID}
-
-
-def save_result_dataframe_as_pickle(data: pd.DataFrame, filename: str):
-    """
-    Input:
-        - data: must be a pd.DataFrame()
-        - filename: str, e.g."externalized_preprocessed_data"
-
-    picklefile will be written in the group_results_path:
-
-    """
-
-    group_data_path = os.path.join(GROUP_RESULTS_PATH, f"{filename}.pickle")
-    with open(group_data_path, "wb") as file:
-        pickle.dump(data, file)
-
-    print(f"{filename}.pickle", f"\nwritten in: {GROUP_RESULTS_PATH}")
-
-
-# detect artefacts
-# remove artefacts (cut out)
-
-# save the cleaned data unfiltered
-
-####### plot all channels and check for any artefacts ####### TF and raw data plots
-
-####### Fourier Transform, plot averaged Power Spectra
-
-####### FOOOF unfiltered power spectra
-
-# perform FOOOF to extract only periodic component
 
 
 def preprocess_externalized_lfp_referenced(sub: list, reference: str):
@@ -418,7 +70,7 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
     mne_objects = {}
 
     for patient in sub:
-        loaded_patient = load_patient_data(patient=patient)
+        loaded_patient = helpers.load_patient_data(patient=patient)
 
         mne_data = loaded_patient["mne_data"]
         subject_info = loaded_patient["subject_info"]
@@ -519,29 +171,10 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
 
             ########## save processed LFP data in dataframe ##########
             for idx, chan in enumerate(ch_names_hemisphere):  # 8 channels per hemisphere
-                # reference each channel to the lowermost ipsilateral channel
-                # if reference == "bipolar_to_lowermost":
-
-                #     # unfortunately .set_bipolar_reference doesn't work with data type mne.io.array.array.RawArray
-                #     # reference_channel = f"LFP_{hem[0]}_01_STN_MT"
-                #     # bipolar_pairs = [(chan, reference_channel)]
-
-                #     # rereferenced_mne_data = mne_data.copy()
-                #     # rereferenced_mne_data.set_bipolar_reference(bipolar_pairs)
-
-                #     reference_name = "bipolar_to_lowermost"
-
-                #     print("All channels referenced to the lowermost ipsilateral channel.")
-
-                # elif reference == "no":
-                #     rereferenced_mne_data = mne_data.copy()
-                #     reference_name = "original_reference"
-                #     print("Original common reference")
-
-                lfp_data = mne_copy.get_data(picks=chan)[0]
+                lfp_chan_data = mne_copy.get_data(picks=chan)[0]
                 time_stamps = mne_copy[idx][1]
 
-                lfp_data_250 = resampled_250.get_data(picks=chan)[0]
+                lfp_chan_data_250 = resampled_250.get_data(picks=chan)[0]
                 time_stamps_250 = resampled_250[idx][1]
 
                 # ch_name corresponding to Percept -> TODO: is the order always correct???? 02 = 1A? could it also be 1B?
@@ -580,20 +213,16 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
                 subject_hemisphere = f"{subject}_{hemisphere}"
 
                 # only high-pass filter 1 Hz
-                only_high_pass_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=lfp_data)
-                only_high_pass_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=lfp_data_250)
+                only_high_pass_lfp_4000 = helpers.high_pass_filter_externalized(fs=sfreq, signal=lfp_chan_data)
+                only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=sfreq, signal=lfp_chan_data_250)
 
                 # notch filter 50 Hz
-                notch_filtered_lfp_4000 = notch_filter_externalized(fs=sfreq, signal=lfp_data)
-                notch_filtered_lfp_250 = notch_filter_externalized(fs=sfreq_250, signal=lfp_data_250)
+                notch_filtered_lfp_4000 = helpers.notch_filter_externalized(fs=sfreq, signal=lfp_chan_data)
+                notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=sfreq_250, signal=lfp_chan_data_250)
 
                 # band pass filter 5-95 Hz, Butter worth filter order 3
-                filtered_lfp_4000 = band_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
-                filtered_lfp_250 = band_pass_filter_externalized(fs=sfreq_250, signal=notch_filtered_lfp_250)
-
-                # high-pass filter 1 Hz, Butter worth filter order 5
-                # high_pass_notch_filtered_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
-                # high_pass_notch_filtered_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_250)
+                filtered_lfp_4000 = helpers.band_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
+                filtered_lfp_250 = helpers.band_pass_filter_externalized(fs=sfreq_250, signal=notch_filtered_lfp_250)
 
                 # number of samples
                 n_samples_250 = len(filtered_lfp_250)
@@ -606,11 +235,11 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
                     subject_hemisphere,
                     chan,
                     monopol_chan_name,
-                    lfp_data,
+                    lfp_chan_data,
                     time_stamps,
                     sfreq,
                     sfreq_250,
-                    lfp_data_250,
+                    lfp_chan_data_250,
                     time_stamps_250,
                     filtered_lfp_4000,
                     filtered_lfp_250,
@@ -648,232 +277,13 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
         group_originial_rec_info = pd.concat([group_originial_rec_info, originial_rec_info])
 
     # save dataframes
-    save_result_dataframe_as_pickle(data=group_data, filename=f"externalized_preprocessed_data{reference_name}")
-    save_result_dataframe_as_pickle(
+    helpers.save_result_dataframe_as_pickle(data=group_data, filename=f"externalized_preprocessed_data{reference_name}")
+    helpers.save_result_dataframe_as_pickle(
         data=group_originial_rec_info, filename=f"externalized_recording_info_original{reference_name}"
     )
-    save_result_dataframe_as_pickle(data=mne_objects, filename=f"mne_objects_cropped_2_min{reference_name}")
+    helpers.save_result_dataframe_as_pickle(data=mne_objects, filename=f"mne_objects_cropped_2_min{reference_name}")
 
     return {"group_originial_rec_info": group_originial_rec_info, "group_data": group_data, "mne_objects": mne_objects}
-
-
-# def preprocess_externalized_lfp(sub: list):
-#     """
-#     Input:
-#         - sub: str e.g. [
-#             "25", "30", "32", "47", "52", "59",
-#             "61", "64", "67", "69", "71",
-#             "72", "75", "77", "79", "80"]
-
-#     Load the BIDS .vhdr files with mne_bids.read_raw_bids(bids_path=bids_path)
-
-#     if subject doesn't have a BIDS file yet -> load via Poly5reader
-
-#     - crop the data to only 2 minutes: 1min - 3min
-#     - downsample the data to
-#         1) sfreq=4000 Hz (if it was 4096Hz originally)
-#         2) sfreq=250 Hz
-
-#     - Filter 2 versions:
-#         1) notch filter 50 Hz
-#         2) notch filter 50 Hz + band-pass filter 5-95 Hz (filterorder 2)
-
-#     - save the data of all contacts into Dataframe:
-#         1) externalized_preprocessed_data -> all versions of the data filtered, unfiltered, 250 Hz, 4000 Hz
-#         2) externalized_recording_info_original -> information about the original recording
-#         3) mne_objects_cropped_2_min -> MNE objects of the 4000 Hz and 250 Hz data, unfiltered
-
-
-#     """
-
-#     group_data = pd.DataFrame()
-#     group_originial_rec_info = pd.DataFrame()
-#     mne_objects = {}
-
-#     for patient in sub:
-#         loaded_patient = load_patient_data(patient=patient)
-
-#         mne_data = loaded_patient["mne_data"]
-#         subject_info = loaded_patient["subject_info"]
-#         bids_ID = loaded_patient["bids_ID"]
-
-#         recording_info = {}
-#         processed_recording = {}
-
-#         # get info
-#         ch_names = mne_data.info["ch_names"]
-#         ch_names_LFP = [chan for chan in ch_names if "LFP" in chan]
-#         bads = mne_data.info["bads"]  # channel L_01 is mostly used as reference, "bad" channel is the reference
-#         chs = mne_data.info["chs"]  # list, [0] is dict
-#         sfreq = mne_data.info["sfreq"]
-#         n_times = mne_data.n_times  # number of timestamps
-#         rec_duration = (n_times / sfreq) / 60  # duration in minutes
-
-#         subject = f"0{patient}"
-
-#         # pick LFP channels of both hemispheres
-#         mne_data.pick_channels(ch_names_LFP)
-
-#         recording_info["original_information"] = [
-#             subject,
-#             bids_ID,
-#             ch_names,
-#             bads,
-#             sfreq,
-#             subject_info,
-#             n_times,
-#             rec_duration,
-#         ]
-
-#         originial_rec_info_columns = [
-#             "subject",
-#             "BIDS_id",
-#             "ch_names",
-#             "bads",
-#             "sfreq",
-#             "subject_info",
-#             "number_time_stamps",
-#             "recording_duration",
-#         ]
-
-#         originial_rec_info = pd.DataFrame.from_dict(recording_info, orient="index", columns=originial_rec_info_columns)
-
-#         # select a period of 2 minutes with no aratefacts, default start at 1 min until 3 min
-#         mne_data.crop(60, 180)
-
-#         # downsample all to 4000 Hz
-#         if int(sfreq) != 4000:
-#             mne_data = mne_data.copy().resample(sfreq=4000)
-#             sfreq = mne_data.info["sfreq"]
-
-#         # downsample from TMSi sampling frequency to 250 sfreq (like Percept)
-#         resampled_250 = mne_data.copy().resample(sfreq=250)
-#         sfreq_250 = resampled_250.info["sfreq"]
-#         # cropped data should have 30000 samples (2 min of sfreq 250)
-
-#         # save the mne object
-#         mne_objects[f"{patient}_4000Hz_2min"] = mne_data
-#         mne_objects[f"{patient}_resampled_250Hz"] = resampled_250
-
-#         # from bids_id only keep the part after sub-
-#         bids_ID = bids_ID.split('-')
-#         bids_ID = bids_ID[1]
-
-#         ########## save processed LFP data in dataframe ##########
-#         for idx, chan in enumerate(ch_names_LFP):
-#             lfp_data = mne_data.get_data(picks=chan)[0]
-#             time_stamps = mne_data[idx][1]
-
-#             lfp_data_250 = resampled_250.get_data(picks=chan)[0]
-#             time_stamps_250 = resampled_250[idx][1]
-
-#             # ch_name corresponding to Percept -> TODO: is the order always correct???? 02 = 1A? could it also be 1B?
-#             if "_01_" in chan:
-#                 monopol_chan_name = "0"
-
-#             elif "_02_" in chan:
-#                 monopol_chan_name = "1A"
-
-#             elif "_03_" in chan:
-#                 monopol_chan_name = "1B"
-
-#             elif "_04_" in chan:
-#                 monopol_chan_name = "1C"
-
-#             elif "_05_" in chan:
-#                 monopol_chan_name = "2A"
-
-#             elif "_06_" in chan:
-#                 monopol_chan_name = "2B"
-
-#             elif "_07_" in chan:
-#                 monopol_chan_name = "2C"
-
-#             elif "_08_" in chan:
-#                 monopol_chan_name = "3"
-
-#             # hemisphere
-#             if "_L_" in chan:
-#                 hemisphere = "Left"
-
-#             elif "_R_" in chan:
-#                 hemisphere = "Right"
-
-#             # subject_hemisphere
-#             subject_hemisphere = f"{subject}_{hemisphere}"
-
-#             # only high-pass filter 1 Hz
-#             only_high_pass_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=lfp_data)
-#             only_high_pass_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=lfp_data_250)
-
-#             # notch filter 50 Hz
-#             notch_filtered_lfp_4000 = notch_filter_externalized(fs=sfreq, signal=lfp_data)
-#             notch_filtered_lfp_250 = notch_filter_externalized(fs=sfreq_250, signal=lfp_data_250)
-
-#             # band pass filter 5-95 Hz, Butter worth filter order 3
-#             filtered_lfp_4000 = band_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
-#             filtered_lfp_250 = band_pass_filter_externalized(fs=sfreq_250, signal=notch_filtered_lfp_250)
-
-#             # high-pass filter 1 Hz, Butter worth filter order 5
-#             # high_pass_notch_filtered_lfp_4000 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
-#             # high_pass_notch_filtered_lfp_250 = high_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_250)
-
-#             # number of samples
-#             n_samples_250 = len(filtered_lfp_250)
-
-#             processed_recording[chan] = [
-#                 bids_ID,
-#                 subject,
-#                 hemisphere,
-#                 subject_hemisphere,
-#                 chan,
-#                 monopol_chan_name,
-#                 lfp_data,
-#                 time_stamps,
-#                 sfreq,
-#                 sfreq_250,
-#                 lfp_data_250,
-#                 time_stamps_250,
-#                 filtered_lfp_4000,
-#                 filtered_lfp_250,
-#                 only_high_pass_lfp_4000,
-#                 only_high_pass_lfp_250,
-#                 n_samples_250,
-#             ]
-
-#         preprocessed_dataframe_columns = [
-#             "BIDS_id",
-#             "subject",
-#             "hemisphere",
-#             "subject_hemisphere",
-#             "original_ch_name",
-#             "contact",
-#             "lfp_2_min",
-#             "time_stamps",
-#             "sfreq",
-#             "sfreq_250Hz",
-#             "lfp_resampled_250Hz",
-#             "time_stamps_250Hz",
-#             "filtered_lfp_4000Hz",
-#             "filtered_lfp_250Hz",
-#             "only_high_pass_lfp_4000Hz",
-#             "only_high_pass_lfp_250Hz",
-#             "n_samples_250Hz",
-#         ]
-
-#         preprocessed_dataframe = pd.DataFrame.from_dict(
-#             processed_recording, orient="index", columns=preprocessed_dataframe_columns
-#         )
-
-#         group_data = pd.concat([group_data, preprocessed_dataframe])
-#         group_originial_rec_info = pd.concat([group_originial_rec_info, originial_rec_info])
-
-#     # save dataframes
-#     save_result_dataframe_as_pickle(data=group_data, filename="externalized_preprocessed_data")
-#     save_result_dataframe_as_pickle(data=group_originial_rec_info, filename="externalized_recording_info_original")
-#     save_result_dataframe_as_pickle(data=mne_objects, filename="mne_objects_cropped_2_min")
-
-#     return {"group_originial_rec_info": group_originial_rec_info, "group_data": group_data, "mne_objects": mne_objects}
 
 
 def fourier_transform_time_frequency_plots(incl_bids_id: list, reference=None):
@@ -1005,17 +415,6 @@ def clean_artefacts(reference=None):
 
     BIDS_id_artefacts = list(artefacts_excel.BIDS_key.unique())
 
-    # if "all" not in incl_bids_id:
-
-    #     bids_id_from_input = []
-
-    #     for id in incl_bids_id:
-
-    #         if id in BIDS_id_artefacts:
-    #             bids_id_from_input.append(id)
-
-    #     BIDS_id_artefacts = bids_id_from_input
-
     for bids_id in BIDS_id_artefacts:
         figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
 
@@ -1091,8 +490,6 @@ def clean_artefacts(reference=None):
                 lfp_to_clean = [
                     "filtered_lfp_250Hz",
                     "lfp_resampled_250Hz",
-                    # "notch_filtered_lfp_250Hz",
-                    # "high_pass_notch_filtered_lfp_250Hz",
                     "only_high_pass_lfp_250Hz",
                 ]
 
@@ -1175,7 +572,7 @@ def clean_artefacts(reference=None):
             )
 
     # save dataframe
-    save_result_dataframe_as_pickle(
+    helpers.save_result_dataframe_as_pickle(
         data=artefact_free_dataframe, filename=f"externalized_preprocessed_data_artefact_free{reference_name}"
     )
 
@@ -1346,16 +743,81 @@ def fourier_transform_to_psd(reference=None):
     else:
         reference_name = ""
 
-    save_result_dataframe_as_pickle(
+    helpers.save_result_dataframe_as_pickle(
         data=power_spectra_df, filename=f"externalized_power_spectra_250Hz_artefact_free{reference_name}"
     )
 
     return power_spectra_df
 
 
-def fooof_model_settings(bids_id: str, power_spectra_data: pd.DataFrame, filtered: str, reference=None):
+def fooof_model_predefined(fooof_version: str):
+    """
+    Choose between version 1 and 2: "v1" or "v2"
+
+    FOOOF settings v1:
+        freq_range = [1, 95]  # frequency range to fit FOOOF model
+
+        model = fooof.FOOOF(
+            peak_width_limits=[2, 15.0],
+            max_n_peaks=6,
+            min_peak_height=0.2,
+            peak_threshold=2.0,
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    FOOOF settings v2: -> this is Moritz setting, that he used for externalized recordings
+        freq_range = [2, 45]
+            - above 45 Hz is not of interest in this study (we only look at beta currently) and there is a lot of noise above 50 Hz,
+            - especially amplification noise visible as a plateau in the high frequencies that overtakes the signal
+
+        model = fooof.FOOOF(
+            peak_width_limits=[1, 20.0],
+            max_n_peaks=5,
+            min_peak_height=0.1
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    """
+
+    allowed = ["v1", "v2"]
+
+    if fooof_version not in allowed:
+        print(f"fooof_version input must be in {allowed}.")
+
+    if fooof_version == "v1":
+        freq_range = [1, 95]  # frequency range to fit FOOOF model
+
+        model = fooof.FOOOF(
+            peak_width_limits=[2, 15.0],
+            max_n_peaks=6,
+            min_peak_height=0.2,
+            peak_threshold=2.0,
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    elif fooof_version == "v2":
+        freq_range = [2, 45]  # frequency range to fit FOOOF model
+
+        model = fooof.FOOOF(
+            peak_width_limits=[3, 20.0],
+            max_n_peaks=5,
+            min_peak_height=0.1,
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    return {"freq_range": freq_range, "model": model}
+
+
+def fooof_model_settings(
+    fooof_version: str, bids_id: str, power_spectra_data: pd.DataFrame, filtered: str, reference=None
+):
     """
     Input:
+        - fooof_version: str, "v1", "v2"
         - bids_id: str, e.g. "L001"
         - power_spectra_data: Dataframe with power spectra
         - filtered: str, e.g. "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
@@ -1370,6 +832,7 @@ def fooof_model_settings(bids_id: str, power_spectra_data: pd.DataFrame, filtere
 
         - if you want to run multiple subjects: loop over a list
         e.g. BIDS_id_unique = list(power_spectra_data.BIDS_id.unique())
+
 
     For a single subject, for each hemisphere seperately
         - run the FOOOF model, plot the raw Power spectra and the FOOOFed periodic power spectra
@@ -1420,16 +883,10 @@ def fooof_model_settings(bids_id: str, power_spectra_data: pd.DataFrame, filtere
             ax[0].grid(False)
 
             ############ SET FOOOF MODEL ############
-            freq_range = [1, 95]  # frequency range to fit FOOOF model
 
-            model = fooof.FOOOF(
-                peak_width_limits=[2, 15.0],
-                max_n_peaks=6,
-                min_peak_height=0.2,
-                peak_threshold=2.0,
-                aperiodic_mode="fixed",  # fitting without knee component
-                verbose=True,
-            )
+            model_version = fooof_model_predefined(fooof_version=fooof_version)
+            freq_range = model_version["freq_range"]
+            model = model_version["model"]
 
             # always fit a large Frequency band, later you can select Peaks within specific freq bands
             model.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
@@ -1475,20 +932,11 @@ def fooof_model_settings(bids_id: str, power_spectra_data: pd.DataFrame, filtere
 
             fig.tight_layout()
 
-            fig.savefig(
-                os.path.join(
-                    figures_path,
-                    f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}.svg",
-                ),
-                bbox_inches="tight",
-                format="svg",
-            )
-            fig.savefig(
-                os.path.join(
-                    figures_path,
-                    f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}.png",
-                ),
-                bbox_inches="tight",
+            # save figures
+            helpers.save_fig_png_and_svg(
+                path=figures_path,
+                filename=f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}_{fooof_version}",
+                figure=fig,
             )
 
             ############ SAVE APERIODIC PARAMETERS ############
@@ -1580,9 +1028,10 @@ def fooof_model_settings(bids_id: str, power_spectra_data: pd.DataFrame, filtere
     return {"fooof_results_df": fooof_results_df, "common_reference_contacts_df": common_reference_contacts_df}
 
 
-def externalized_fooof_fit(filtered: str, reference=None):
+def externalized_fooof_fit(fooof_version: str, filtered: str, reference=None):
     """
     Input:
+        - fooof_version: str "v1" or "v2"
         - filtered: str, "unfiltered", "only_high_pass_filtered"
         - reference: str "bipolar_to_lowermost" or "no"
 
@@ -1658,7 +1107,11 @@ def externalized_fooof_fit(filtered: str, reference=None):
     for bids_id in BIDS_id_unique:
         # fit a FOOOF model, plot the spectra and save the results
         bids_id_fooof_result = fooof_model_settings(
-            bids_id=bids_id, power_spectra_data=power_spectra_data, filtered=filtered, reference=reference
+            fooof_version=fooof_version,
+            bids_id=bids_id,
+            power_spectra_data=power_spectra_data,
+            filtered=filtered,
+            reference=reference,
         )
 
         fooof_results_bids_id_df = bids_id_fooof_result["fooof_results_df"]
@@ -1670,19 +1123,21 @@ def externalized_fooof_fit(filtered: str, reference=None):
         )
 
     # save DF as pickle
-    save_result_dataframe_as_pickle(
-        data=fooof_results_df, filename=f"fooof_externalized_group_{filtered}{reference_name}"
+    helpers.save_result_dataframe_as_pickle(
+        data=fooof_results_df, filename=f"fooof_externalized_group_{filtered}{reference_name}_{fooof_version}"
     )
-    save_result_dataframe_as_pickle(
-        data=common_reference_group_DF, filename=f"externalized_contacts_common_reference{reference_name}"
+    helpers.save_result_dataframe_as_pickle(
+        data=common_reference_group_DF,
+        filename=f"externalized_contacts_common_reference{reference_name}_{fooof_version}",
     )
 
     return fooof_results_df
 
 
-def calculate_periodic_beta_power(filtered: str, reference=None):
+def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=None):
     """
     Input:
+        - fooof_version: str "v1" or "v2"
         - filtered: str, "unfiltered", "only_high_pass_filtered"
         - reference: str "bipolar_to_lowermost" or "no"
 
@@ -1691,12 +1146,14 @@ def calculate_periodic_beta_power(filtered: str, reference=None):
 
     1) Add a column with the average beta power 13-35 Hz from the fooof_power_spectrum
 
-    2) Create 2 versions of data with beta ranks
+    2) Create 2 versions of data with beta ranks and normalized beta values relative to the maximum per lead
         - directional contacts (rank 1-6)
         - all contacts (rank 1-8)
 
+
     Save both dataframes as pickle files:
-        -
+        - fooof_externalized_beta_ranks_all_contacts_{filtered}{reference_name}_{fooof_version}.pickle
+        - fooof_externalized_beta_ranks_directional_contacts_{filtered}{reference_name}_{fooof_version}.pickle
 
 
     """
@@ -1712,7 +1169,7 @@ def calculate_periodic_beta_power(filtered: str, reference=None):
     beta_rank_directional_contacts = pd.DataFrame()
 
     group_fooof_data = load_data.load_externalized_pickle(
-        filename=f"fooof_externalized_group_{filtered}", reference=reference
+        filename=f"fooof_externalized_group_{filtered}", fooof_version=fooof_version, reference=reference
     )
 
     # new column beta_average
@@ -1729,12 +1186,17 @@ def calculate_periodic_beta_power(filtered: str, reference=None):
         stn_data_copy = stn_data.copy()
         stn_data_copy["beta_rank"] = stn_data_copy["beta_average"].rank(ascending=False)  # rank 1-8
 
+        # relative to maximum value
+        max_value = stn_data_copy["beta_average"].max()
+        stn_data_copy["beta_relative_to_max"] = stn_data_copy["beta_average"] / max_value
+
         # save to the beta rank dataframe
         beta_rank_all_contacts = pd.concat([beta_rank_all_contacts, stn_data_copy])
 
     # save DF
-    save_result_dataframe_as_pickle(
-        data=beta_rank_all_contacts, filename=f"fooof_externalized_beta_ranks_all_contacts_{filtered}{reference_name}"
+    helpers.save_result_dataframe_as_pickle(
+        data=beta_rank_all_contacts,
+        filename=f"fooof_externalized_beta_ranks_all_contacts_{filtered}{reference_name}_{fooof_version}",
     )
 
     ########## RANK DIRECTIONAL CONTACTS ONLY ##########
@@ -1745,18 +1207,168 @@ def calculate_periodic_beta_power(filtered: str, reference=None):
         stn_directional_copy = stn_directional.copy()
         stn_directional_copy["beta_rank"] = stn_directional_copy["beta_average"].rank(ascending=False)  # rank 1-6
 
+        # relative to maximum value
+        max_value_dir = stn_directional_copy["beta_average"].max()
+        stn_directional_copy["beta_relative_to_max"] = stn_directional_copy["beta_average"] / max_value_dir
+
         # save to the beta rank dataframe
         beta_rank_directional_contacts = pd.concat([beta_rank_directional_contacts, stn_directional_copy])
 
     # save DF
-    save_result_dataframe_as_pickle(
+    helpers.save_result_dataframe_as_pickle(
         data=beta_rank_directional_contacts,
-        filename=f"fooof_externalized_beta_ranks_directional_contacts_{filtered}{reference_name}",
+        filename=f"fooof_externalized_beta_ranks_directional_contacts_{filtered}{reference_name}_{fooof_version}",
     )
 
     return {
         "beta_rank_all_contacts": beta_rank_all_contacts,
         "beta_rank_directional_contacts": beta_rank_directional_contacts,
+    }
+
+
+def SSD_filter_externalized(bids_id: str, sub: str, hemisphere: str, fs: int, directional_signals=None):
+    """
+    Input:
+        - fs: sampling frequency of the signal
+        - directional_signals: must be a 2D array with 6 signals of the directional channels
+            e.g. of one hemisphere:
+            directional_channels = [f"LFP_{hem[0]}_02_STN_MT",
+                                f"LFP_{hem[0]}_03_STN_MT",
+                                f"LFP_{hem[0]}_04_STN_MT",
+                                f"LFP_{hem[0]}_05_STN_MT",
+                                f"LFP_{hem[0]}_06_STN_MT",
+                                f"LFP_{hem[0]}_07_STN_MT"]
+
+    This function will follow these steps:
+
+        - filter SSD in the beta range (13-35 Hz)
+        - plot a figure with a plot of the Raw Power Spectra of all channels and a plot with the first component Power spectrum
+        - return the results: ssd_filt_data, ssd_pattern, ssd_eigvals
+        - save a dataframe with all relevant values + beta_ranks (ssd_pattern ranked) + beta_relative_to_max (relative to ssd_pattern maximum)
+
+    """
+
+    SSD_result = {}
+
+    figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+
+    f_range = 13, 35
+
+    (ssd_filt_data, ssd_pattern, ssd_eigvals) = feats_ssd.get_SSD_component(
+        data_2d=directional_signals,
+        fband_interest=f_range,
+        s_rate=fs,
+        use_freqBand_filtered=True,
+        return_comp_n=0,
+    )
+
+    # check if length of ssd pattern and ssd eigenvalues is 6, if  < 6, a directional contact was used as common reference, exclude that patient.
+    if len(ssd_eigvals) < 6:
+        print(f"Sub-{sub}, {hemisphere} hemisphere, only has {len(ssd_pattern)} Eigenvalues.")
+
+    # Figure with 2 subplots (2 rows, 1 column)
+    fig, axes = plt.subplots(2, 1, figsize=(10, 15))
+
+    ########### PLOT 1: Power Spectra of all directional channels without SSD ###########
+    for c, chan in enumerate(DIRECTIONAL_CONTACTS):
+        if c == 5 and len(ssd_eigvals) < 6:
+            ssd_pattern_chan = -1.0
+            ssd_eigvals_chan = -1.0
+
+        else:
+            ssd_pattern_chan = ssd_pattern[0][c]
+            ssd_eigvals_chan = ssd_eigvals[c]
+
+        # filter to plot
+        notch_filtered = helpers.notch_filter_externalized(fs=fs, signal=directional_signals[c])
+        band_pass_and_notch = helpers.band_pass_filter_externalized(fs=fs, signal=notch_filtered)
+
+        ######### short time fourier transform to calculate PSD #########
+        window_length = int(fs)  # 1 second window length
+        overlap = window_length // 4  # 25% overlap
+
+        # Calculate the short-time Fourier transform (STFT) using Hann window
+        window = hann(window_length, sym=False)
+
+        frequencies, times, Zxx = scipy.signal.spectrogram(
+            band_pass_and_notch, fs=fs, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0
+        )
+
+        # average PSD across duration of the recording
+        average_Zxx = np.mean(Zxx, axis=1)
+        std_Zxx = np.std(Zxx, axis=1)
+        sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
+
+        axes[0].plot(frequencies, average_Zxx, label=f"Contact{chan}_ssd_pattern_{ssd_pattern_chan}")
+        axes[0].fill_between(frequencies, average_Zxx - sem_Zxx, average_Zxx + sem_Zxx, color='lightgray', alpha=0.5)
+        axes[0].set_title(f'Power Spectra: sub{bids_id} {hemisphere} hemisphere', fontsize=20)
+        axes[0].set_xlim(0, 100)
+        axes[0].set_xlabel("Frequency [Hz]", fontsize=20)
+        axes[0].set_ylabel("PSD [uV^2/Hz]", fontsize=20)
+        axes[0].axvline(x=13, color='black', linestyle='--')
+        axes[0].axvline(x=35, color='black', linestyle='--')
+        axes[0].legend()
+
+        # save result for each contact
+        sub_hem = f"{sub}_{hemisphere}"
+        SSD_result[chan] = [bids_id, sub, hemisphere, sub_hem, chan, ssd_filt_data, ssd_pattern_chan, ssd_eigvals_chan]
+
+    ########### PLOT 2: Power Spectrum of the first SSD component ###########
+    # use Welch to transform the time domain data to frequency domain data
+    f, psd = signal.welch(
+        ssd_filt_data, axis=-1, nperseg=fs, fs=fs
+    )  # ssd_filt_data is only one array with the PSD of the FIRST component
+
+    # plot the first component Power spectrum of each recording group
+    axes[1].plot(f, psd)
+
+    axes[1].set_xlim(0, 100)
+    axes[1].set_xlabel("Frequency", fontsize=20)
+    axes[1].set_ylim(-0.005, 0.12)
+    axes[1].set_title(f'Power Spectrum beta first component (13-35 Hz)', fontsize=20)
+    axes[1].axvline(x=13, color='black', linestyle='--')
+    axes[1].axvline(x=35, color='black', linestyle='--')
+
+    fig.tight_layout()
+
+    fig.savefig(
+        os.path.join(
+            figures_path,
+            f"sub-{bids_id}_{hemisphere}_externalized_directional_SSD_beta_first_component_Power_spectrum.png",
+        ),
+        bbox_inches="tight",
+    )
+
+    plt.close()
+
+    # save the dataframe
+    SSD_result_columns = [
+        "BIDS_id",
+        "subject",
+        "hemisphere",
+        "subject_hemisphere",
+        "contact",
+        "ssd_filtered_timedomain",
+        "ssd_pattern",
+        "ssd_eigvals",
+    ]
+
+    SSD_result_dataframe = pd.DataFrame.from_dict(SSD_result, orient="index", columns=SSD_result_columns)
+
+    # add a column with beta_ranks and normalized beta values relative to max
+    # TODO: what does negative mean? sometimes -1.0 ssd_pattern.
+    SSD_result_dataframe_copy = SSD_result_dataframe.copy()
+    SSD_result_dataframe_copy["beta_rank"] = SSD_result_dataframe["ssd_pattern"].rank(ascending=False)  # rank 1-6
+
+    # normalize to maximum value
+    max_value_dir = SSD_result_dataframe_copy["ssd_pattern"].max()
+    SSD_result_dataframe_copy["beta_relative_to_max"] = SSD_result_dataframe_copy["ssd_pattern"] / max_value_dir
+
+    return {
+        "ssd_filt_data": ssd_filt_data,
+        "ssd_pattern": ssd_pattern,
+        "ssd_eigvals": ssd_eigvals,
+        "SSD_result_dataframe_copy": SSD_result_dataframe_copy,
     }
 
 
@@ -1768,6 +1380,9 @@ def directional_SSD_externalized(reference=None):
     STEPS:
         - Load the preprocessed data (cropped 2 min, downsampled 259 Hz, artefact-free)
         - for each subject and each hemisphere apply the SSD
+        - concatenate all Dataframes to one: SSD_group_result
+        - save the results Dataframe:
+            SSD_directional_externalized_channels{reference_name}.pickle
 
 
     """
@@ -1821,7 +1436,7 @@ def directional_SSD_externalized(reference=None):
             SSD_group_result = pd.concat([SSD_group_result, SSD_result_dataframe_single], ignore_index=True)
 
     # save the results dataframe
-    save_result_dataframe_as_pickle(
+    helpers.save_result_dataframe_as_pickle(
         data=SSD_group_result, filename=f"SSD_directional_externalized_channels{reference_name}"
     )
 
