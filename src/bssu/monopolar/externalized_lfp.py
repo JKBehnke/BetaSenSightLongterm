@@ -803,7 +803,7 @@ def fooof_model_predefined(fooof_version: str):
 
         model = fooof.FOOOF(
             peak_width_limits=[3, 20.0],
-            max_n_peaks=5,
+            max_n_peaks=3,
             min_peak_height=0.1,
             aperiodic_mode="fixed",  # fitting without knee component
             verbose=True,
@@ -1276,7 +1276,7 @@ def SSD_filter_externalized(bids_id: str, sub: str, hemisphere: str, fs: int, di
             ssd_eigvals_chan = -1.0
 
         else:
-            ssd_pattern_chan = ssd_pattern[0][c]
+            ssd_pattern_chan = ssd_pattern[0][c]  # first component only
             ssd_eigvals_chan = ssd_eigvals[c]
 
         # filter to plot
@@ -1378,7 +1378,7 @@ def directional_SSD_externalized(reference=None):
         - reference: str "bipolar_to_lowermost" or "no"
 
     STEPS:
-        - Load the preprocessed data (cropped 2 min, downsampled 259 Hz, artefact-free)
+        - Load the preprocessed data (cropped 2 min, downsampled 250 Hz, artefact-free)
         - for each subject and each hemisphere apply the SSD
         - concatenate all Dataframes to one: SSD_group_result
         - save the results Dataframe:

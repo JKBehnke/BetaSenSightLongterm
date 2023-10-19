@@ -22,6 +22,8 @@ from fooof.plts.spectra import plot_spectrum
 from ..classes import mainAnalysis_class
 from ..utils import find_folders as findfolders
 from ..utils import loadResults as loadResults
+from ..tfr import bssu_from_source_JSON as bssu_json
+from ..utils import percept_helpers as helpers
 
 
 def get_input_y_n(message: str) -> str:
@@ -44,316 +46,531 @@ def get_input_w_wo_knee(message: str) -> str:
     return user_input
 
 
-# def fooof_fit_tfr(incl_sub: list):
-#     """
-#     FIRST ATTEMPT VERSION 1.0 -> plotting version without and with knee in aperiodic component!
-
-#     Input:
-#         - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038"]
-
-#     1) Load the Power Spectrum from main Class:
-#         - unfiltered
-#         - rawPSD (not normalized)
-#         - all channels: Ring: ['03', '13', '02', '12', '01', '23']
-#                         SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
-#                         SegmInter: ['1A2A', '1B2B', '1C2C']
-#         - condition: only ran m0s0 so far, if you also want to run m1s0, make sure you analyze data seperately!
-#         - save the features Power Spectrum and Frequencies as variable for each subject, hemisphere, session, channel combination
-
-
-#     2) First set and fit a FOOOF model without a knee -> within a frequency range from 5-95 Hz
-#         - peak_width_limits=(2, 20.0),
-#         - max_n_peaks=4,
-#         - min_peak_height=0.0,
-#         - peak_threshold=1.0,
-#         - aperiodic_mode="fixed", # fitting without knee component
-#         - verbose=True,
-
-#         plot a figure with the raw Power spectrum and the fitted model
-
-#         POPUP: input asked (y/n) -> "Try new fit with knee?"
-
-#     3) if you choose "y":
-#         - a new FOOOF model with aperiodic_mode="knee" will be fitted and plotted
-
-#         POPUP: input asked (w/wo) -> "Use fit with or without knee?"
-
-#         depending on your input the model with or without knee will be used
-#         and the chosen figure will be saved into figure folder of each subject:
-#         figure filename: fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_wo_knee.png
-
-
-#         if you choose "n":
-#         - the model without knee will be used
-
-
-#     4) Extract following parameters and save as columns into DF
-#         - 0: "subject_hemisphere",
-#         - 1: "session",
-#         - 2: "bipolar_channel",
-#         - 3: "fooof_error",
-#         - 4: "fooof_r_sq",
-#         - 5: "fooof_exponent",
-#         - 6: "fooof_offset",
-#         - 7: "fooof_knee",
-#         - 8: "fooof_number_peaks",
-#         - 9: "alpha_peak_CF_power_bandWidth",
-#         - 10: "low_beta_peak_CF_power_bandWidth",
-#         - 11: "high_beta_peak_CF_power_bandWidth",
-#         - 12: "beta_peak_CF_power_bandWidth",
-#         - 13: "gamma_peak_CF_power_bandWidth",
-
-#     5) save Dataframe into results folder of each subject
-#         - filename: "fooof_model_sub{subject}.json"
-
-#     """
-
-#     # define variables
-#     hemispheres = ["Right", "Left"]
-#     sessions = ['postop', 'fu3m', 'fu12m', 'fu18m']
-#     channels = ['03', '13', '02', '12', '01', '23',
-#                 '1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C',
-#                 '1A2A', '1B2B', '1C2C']
-
-#     freq_range = [5, 95] # frequency range to fit FOOOF model
-
-
-#     ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
-
-#     fooof_results = {}
-
-#     for subject in incl_sub:
-
-#         # get path to results folder of each subject
-#         local_figures_path = findfolders.get_local_path(folder="figures", sub=subject)
-#         local_results_path = findfolders.get_local_path(folder="results", sub=subject)
-
-
-#         for hemisphere in hemispheres:
-
-#             # get power spectrum and frequencies from each STN
-#             data_power_spectrum = mainAnalysis_class.MainClass(
-#                 sub=subject,
-#                 hemisphere=hemisphere,
-#                 filter="unfiltered",
-#                 result="PowerSpectrum",
-#                 incl_session=sessions,
-#                 pickChannels=channels,
-#                 normalization=["rawPsd"],
-#                 feature=["frequency", "time_sectors", "rawPsd", "SEM_rawPsd"]
-#             )
-
-#             for ses in sessions:
-
-#                 try:
-#                     getattr(data_power_spectrum, ses)
-
-#                 except AttributeError:
-#                     continue
-
-#                 for chan in channels:
-
-#                     # get the power spectra and frequencies from each channel
-#                     chan_data = getattr(data_power_spectrum, ses)
-#                     chan_data = getattr(chan_data, f"BIP_{chan}")
-
-#                     power_spectrum = np.array(chan_data.rawPsd.data)
-#                     freqs = np.array(chan_data.frequency.data)
-
-#                     ############ SET PLOT LAYOUT ############
-#                     fig_wo_knee, ax_wo_knee = plt.subplots(2,1, figsize=(10,15))
-
-#                     # Plot the unfiltered Power spectrum in first ax
-#                     plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False,
-#                                     ax=ax_wo_knee[0])
-
-
-#                     ############ SET FOOOF MODEL ############
-
-#                     model_without_knee = fooof.FOOOF(
-#                             peak_width_limits=(2, 20.0),
-#                             max_n_peaks=4,
-#                             min_peak_height=0.0,
-#                             peak_threshold=1.0,
-#                             aperiodic_mode="fixed", # fitting without knee component
-#                             verbose=True,
-#                         )
-
-#                     # always fit a large Frequency band, later you can select Peaks within specific freq bands
-#                     model_without_knee.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
-
-#                     # Plot an example power spectrum, with a model fit in second ax
-#                     # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
-#                     model_without_knee.plot(ax=ax_wo_knee[1])
-
-#                     fig_wo_knee.suptitle(f"FOOOF model (w/o knee): \nsub {subject}, {hemisphere} hemisphere, {ses}, bipolar channel: {chan}",
-#                                          ha="center", fontsize=20)
-
-#                     fig_wo_knee.tight_layout()
-
-
-#                     # show the model fit without knee
-#                     plt.show(fig_wo_knee)
-
-#                     # input options: "y" or "n"
-#                     input_y_or_n = get_input_y_n("Try new fit with knee?") # interrups run and asks for input
-
-#                     plt.close(fig_wo_knee)
-
-#                     # model with knee if input == y
-#                     if input_y_or_n == "y":
-
-#                         fig_with_knee, ax_with_knee = plt.subplots(2,1, figsize=(10,15))
-
-#                         # Plot the unfiltered Power spectrum in first ax
-#                         plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False,
-#                                         ax=ax_with_knee[0])
-
-#                         model_with_knee = fooof.FOOOF(
-#                             peak_width_limits=(2, 20.0),
-#                             max_n_peaks=4,
-#                             min_peak_height=0.0,
-#                             peak_threshold=1.0,
-#                             aperiodic_mode="knee", # fitting with knee component
-#                             verbose=True,
-#                         )
-
-#                         # always fit a large Frequency band, later you can select Peaks within specific freq bands
-#                         model_with_knee.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
-
-#                         # Plot an example power spectrum, with a model fit in second ax
-#                         # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
-#                         model_with_knee.plot(ax=ax_with_knee[1])
-
-#                         fig_with_knee.suptitle(f"FOOOF model (with knee): \nsub {subject}, {hemisphere} hemisphere, {ses}, bipolar channel: {chan}",
-#                                                ha="center", fontsize=20)
-
-#                         fig_with_knee.tight_layout()
-
-
-#                         # show the model fit with knee
-#                         plt.show(fig_with_knee)
-
-#                         # input options: "w" or "wo"
-#                         input_w_or_wo_knee = get_input_w_wo_knee("Use fit with or without knee?")
-
-#                         plt.close(fig_with_knee)
-
-#                         # decide which model to use depending on the input
-#                         if input_w_or_wo_knee == "w":
-
-#                             model = model_with_knee
-#                             fig_with_knee.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{input_w_or_wo_knee}_knee.png")
-#                             knee_parameter = model.get_params('aperiodic_params', 'knee')
-
-#                         elif input_w_or_wo_knee == "wo":
-
-#                             model = model_without_knee
-#                             fig_wo_knee.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{input_w_or_wo_knee}_knee.png")
-#                             knee_parameter = "wo_knee"
-
-#                     # "n" as input of the first question will directly continue with model_without_knee
-#                     elif input_y_or_n == "n":
-
-#                         model = model_without_knee
-#                         knee_parameter = "wo_knee"
-#                         fig_wo_knee.savefig(local_figures_path + f"\\fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_wo_knee.png")
-
-
-#                     # extract parameters from the chosen model
-#                     # model.print_results()
-
-#                     ############ SAVE APERIODIC PARAMETERS ############
-#                     # goodness of fit
-#                     err = model.get_params('error')
-#                     r_sq = model.r_squared_
-
-#                     # aperiodic components
-#                     exp = model.get_params('aperiodic_params', 'exponent')
-#                     offset = model.get_params('aperiodic_params', 'offset')
-
-#                     ############ SAVE ALL PEAKS IN ALPHA; HIGH AND LOW BETA ############
-
-#                     number_peaks = model.n_peaks_
-
-#                     # get the highest Peak of each frequency band as an array: CF center frequency, Power, BandWidth
-#                     alpha_peak = fooof.analysis.get_band_peak_fm(
-#                         model,
-#                         band=(8.0, 12.0),
-#                         select_highest=True,
-#                         attribute="peak_params"
-#                         )
-
-#                     low_beta_peak = fooof.analysis.get_band_peak_fm(
-#                         model,
-#                         band=(13.0, 20.0),
-#                         select_highest=True,
-#                         attribute="peak_params",
-#                         )
-
-#                     high_beta_peak = fooof.analysis.get_band_peak_fm(
-#                         model,
-#                         band=(21.0, 35.0),
-#                         select_highest=True,
-#                         attribute="peak_params",
-#                         )
-
-#                     beta_peak = fooof.analysis.get_band_peak_fm(
-#                         model,
-#                         band=(13.0, 35.0),
-#                         select_highest=True,
-#                         attribute="peak_params",
-#                         )
-
-#                     gamma_peak = fooof.analysis.get_band_peak_fm(
-#                         model,
-#                         band=(60.0, 90.0),
-#                         select_highest=True,
-#                         attribute="peak_params",
-#                         )
-
-#                     # save all results in dictionary
-#                     STN = "_".join([subject, hemisphere])
-
-#                     fooof_results[f"{subject}_{hemisphere}_{ses}_{chan}"] = [STN, ses, chan,
-#                                                         err, r_sq, exp, offset, knee_parameter,
-#                                                         number_peaks, alpha_peak, low_beta_peak, high_beta_peak, beta_peak, gamma_peak]
-#         # store results in a DataFrame
-#         fooof_results_df = pd.DataFrame(fooof_results)
-#         fooof_results_df.rename(index={0: "subject_hemisphere",
-#                                     1: "session",
-#                                     2: "bipolar_channel",
-#                                     3: "fooof_error",
-#                                     4: "fooof_r_sq",
-#                                     5: "fooof_exponent",
-#                                     6: "fooof_offset",
-#                                     7: "fooof_knee",
-#                                     8: "fooof_number_peaks",
-#                                     9: "alpha_peak_CF_power_bandWidth",
-#                                     10: "low_beta_peak_CF_power_bandWidth",
-#                                     11: "high_beta_peak_CF_power_bandWidth",
-#                                     12: "beta_peak_CF_power_bandWidth",
-#                                     13: "gamma_peak_CF_power_bandWidth",
-#                                     },
-#                                 inplace=True)
-
-#         fooof_results_df = fooof_results_df.transpose()
-
-#         # save DF in subject results folder
-#         fooof_results_df.to_json(os.path.join(local_results_path, f"fooof_model_sub{subject}.json"))
-
-
-#     return {
-#         "fooof_results_df": fooof_results_df,
-#         }
-
-
-def fooof_fit_power_spectra(incl_sub: list):
+def fooof_model_predefined(fooof_version: str):
     """
-    NEW VERSION ONLY MODELING WITHOUT KNEE BECAUSE NOT NEEDED IN THE STN
+    Choose between version 1 and 2: "v1" or "v2"
+
+    FOOOF settings v1:
+        freq_range = [1, 95]  # frequency range to fit FOOOF model
+
+        model = fooof.FOOOF(
+            peak_width_limits=[2, 15.0],
+            max_n_peaks=6,
+            min_peak_height=0.2,
+            peak_threshold=2.0,
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    FOOOF settings v2: -> this is Moritz setting, that he used for externalized recordings
+        freq_range = [2, 45]
+            - above 45 Hz is not of interest in this study (we only look at beta currently) and there is a lot of noise above 50 Hz,
+            - especially amplification noise visible as a plateau in the high frequencies that overtakes the signal
+
+        model = fooof.FOOOF(
+            peak_width_limits=[1, 20.0],
+            max_n_peaks=5,
+            min_peak_height=0.1
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    """
+
+    allowed = ["v1", "v2"]
+
+    if fooof_version not in allowed:
+        print(f"fooof_version input must be in {allowed}.")
+
+    if fooof_version == "v1":
+        freq_range = [1, 95]  # frequency range to fit FOOOF model
+
+        model = fooof.FOOOF(
+            peak_width_limits=[2, 15.0],  # TODO: 3, 15
+            max_n_peaks=6,  # TODO 3 oder 4
+            min_peak_height=0.2,
+            peak_threshold=2.0,
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    elif fooof_version == "v2":
+        freq_range = [2, 95]  # frequency range to fit FOOOF model
+
+        model = fooof.FOOOF(
+            peak_width_limits=[3, 20.0],
+            max_n_peaks=4,
+            min_peak_height=0.1,
+            aperiodic_mode="fixed",  # fitting without knee component
+            verbose=True,
+        )
+
+    return {"freq_range": freq_range, "model": model}
+
+
+def fooof_fit_single_subject(subject: str, fooof_version: str):
+    """
+    Input:
+        - subject: "024"
+        - fooof_version: "v1" or "v2"
+
+    """
+
+    # define variables
+    hemispheres = ["Right", "Left"]
+    sessions = ['postop', 'fu3m', 'fu12m', 'fu18m', 'fu24m']
+    channels = [
+        '03',
+        '13',
+        '02',
+        '12',
+        '01',
+        '23',
+        '1A1B',
+        '1B1C',
+        '1A1C',
+        '2A2B',
+        '2B2C',
+        '2A2C',
+        '1A2A',
+        '1B2B',
+        '1C2C',
+    ]
+
+    ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
+
+    fooof_results = {}
+
+    # get path to results folder of each subject
+    local_figures_path = findfolders.get_local_path(folder="figures", sub=subject)
+    local_results_path = findfolders.get_local_path(folder="results", sub=subject)
+
+    for hemisphere in hemispheres:
+        # get power spectrum and frequencies from each STN
+        data_power_spectrum = mainAnalysis_class.MainClass(
+            sub=subject,
+            hemisphere=hemisphere,
+            filter="unfiltered",
+            result="PowerSpectrum",
+            incl_session=sessions,
+            pickChannels=channels,
+            normalization=["rawPsd"],
+            feature=["frequency", "time_sectors", "rawPsd", "SEM_rawPsd"],
+        )
+
+        for ses in sessions:
+            try:
+                getattr(data_power_spectrum, ses)
+
+            except AttributeError:
+                continue
+
+            for chan in channels:
+                # get the power spectra and frequencies from each channel
+                chan_data = getattr(data_power_spectrum, ses)
+                chan_data = getattr(chan_data, f"BIP_{chan}")
+
+                power_spectrum = np.array(chan_data.rawPsd.data)
+                freqs = np.array(chan_data.frequency.data)
+
+                ############ SET PLOT LAYOUT ############
+                fig, ax = plt.subplots(4, 1, figsize=(7, 20))
+
+                # Plot the unfiltered Power spectrum in first ax
+                plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False, ax=ax[0])
+                ax[0].grid(False)
+
+                ############ SET FOOOF MODEL ############
+
+                model_version = fooof_model_predefined(fooof_version=fooof_version)
+                freq_range = model_version["freq_range"]
+                model = model_version["model"]
+
+                # always fit a large Frequency band, later you can select Peaks within specific freq bands
+                model.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
+
+                # Plot an example power spectrum, with a model fit in second ax
+                # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
+                model.plot(ax=ax[1], plt_log=True)  # to evaluate the aperiodic component
+                model.plot(
+                    ax=ax[2], plt_log=False
+                )  # To see the periodic component better without log in frequency axis
+                ax[1].grid(False)
+                ax[2].grid(False)
+
+                # check if fooof attributes are None:
+                if model._peak_fit is None:
+                    print(f"subject {subject}, session {ses}, {chan}: model peak fit is None.")
+                    continue
+
+                if model._ap_fit is None:
+                    print(f"subject {subject}, session {ses}, {chan}: model aperiodic fit is None.")
+                    continue
+
+                # plot only the fooof spectrum of the periodic component
+                fooof_power_spectrum = 10 ** (model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+                plot_spectrum(
+                    np.arange(1, (len(fooof_power_spectrum) + 1)),
+                    fooof_power_spectrum,
+                    log_freqs=False,
+                    log_powers=False,
+                    ax=ax[3],
+                )
+                # frequencies: 1-95 Hz with 1 Hz resolution
+
+                # titles
+                fig.suptitle(f"sub {subject}, {hemisphere} hemisphere, {ses}, bipolar channel: {chan}", fontsize=25)
+
+                ax[0].set_title("unfiltered, raw power spectrum", fontsize=20, y=0.97, pad=-20)
+                ax[3].set_title("power spectrum of periodic component", fontsize=20)
+
+                # mark beta band
+                x1 = 13
+                x2 = 35
+                ax[3].axvspan(x1, x2, color="whitesmoke")
+                ax[3].grid(False)
+
+                fig.tight_layout()
+                fig.savefig(
+                    os.path.join(
+                        local_figures_path,
+                        f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{fooof_version}.svg",
+                    ),
+                    bbox_inches="tight",
+                    format="svg",
+                )
+                fig.savefig(
+                    os.path.join(
+                        local_figures_path,
+                        f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{fooof_version}.png",
+                    ),
+                    bbox_inches="tight",
+                )
+
+                # extract parameters from the chosen model
+                # model.print_results()
+
+                ############ SAVE APERIODIC PARAMETERS ############
+                # goodness of fit
+                err = model.get_params('error')
+                r_sq = model.r_squared_
+
+                # aperiodic components
+                exp = model.get_params('aperiodic_params', 'exponent')
+                offset = model.get_params('aperiodic_params', 'offset')
+
+                # periodic component
+                log_power_fooof_periodic_plus_aperiodic = (
+                    model._peak_fit + model._ap_fit
+                )  # periodic+aperiodic component in log Power axis
+                fooof_periodic_component = model._peak_fit  # just periodic component, flattened spectrum
+
+                ############ SAVE ALL PEAKS IN ALPHA; HIGH AND LOW BETA ############
+
+                number_peaks = model.n_peaks_
+
+                # get the highest Peak of each frequency band as an array: CF center frequency, Power, BandWidth
+                alpha_peak = fooof.analysis.get_band_peak_fm(
+                    model, band=(8.0, 12.0), select_highest=True, attribute="peak_params"
+                )
+
+                low_beta_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(13.0, 20.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                high_beta_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(21.0, 35.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                beta_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(13.0, 35.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                gamma_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(60.0, 90.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                # save all results in dictionary
+                STN = "_".join([subject, hemisphere])
+
+                fooof_results[f"{subject}_{hemisphere}_{ses}_{chan}"] = [
+                    STN,
+                    ses,
+                    chan,
+                    err,
+                    r_sq,
+                    exp,
+                    offset,
+                    fooof_power_spectrum,
+                    log_power_fooof_periodic_plus_aperiodic,
+                    fooof_periodic_component,
+                    number_peaks,
+                    alpha_peak,
+                    low_beta_peak,
+                    high_beta_peak,
+                    beta_peak,
+                    gamma_peak,
+                ]
+    # store results in a DataFrame
+    fooof_results_df = pd.DataFrame(fooof_results)
+    fooof_results_df.rename(
+        index={
+            0: "subject_hemisphere",
+            1: "session",
+            2: "bipolar_channel",
+            3: "fooof_error",
+            4: "fooof_r_sq",
+            5: "fooof_exponent",
+            6: "fooof_offset",
+            7: "fooof_power_spectrum",
+            8: "periodic_plus_aperiodic_power_log",
+            9: "fooof_periodic_flat",
+            10: "fooof_number_peaks",
+            11: "alpha_peak_CF_power_bandWidth",
+            12: "low_beta_peak_CF_power_bandWidth",
+            13: "high_beta_peak_CF_power_bandWidth",
+            14: "beta_peak_CF_power_bandWidth",
+            15: "gamma_peak_CF_power_bandWidth",
+        },
+        inplace=True,
+    )
+
+    fooof_results_df = fooof_results_df.transpose()  # just one subject
+
+    return fooof_results_df
+
+
+def fooof_fit_percept(incl_sub: list, fooof_version: str):
+    """
+    FOOOF Percept, all included
 
     Input:
-        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "038", "041", "060"]
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029",
+        "030", "031", "032", "033", "038", "041",
+        "045", "047", "050", "059", "060", "061", "062", "063", "065"]
+        - fooof_version: str "v1", "v2"
+
+    1) Load the Power Spectrum from main Class:
+        - unfiltered
+        - rawPSD (not normalized)
+        - all channels: Ring: ['03', '13', '02', '12', '01', '23']
+                        SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+                        SegmInter: ['1A2A', '1B2B', '1C2C']
+        - condition: only ran m0s0 so far, if you also want to run m1s0, make sure you analyze data seperately!
+        - save the features Power Spectrum and Frequencies as variable for each subject, hemisphere, session, channel combination
+
+
+    2) First set and fit a FOOOF model without a knee -> within a frequency range from 1-95 Hz (broad frequency range for fitting the aperiodic component)
+        - peak_width_limits=[2, 15.0],  # must be a list, low limit should be more than twice as frequency resolution, usually not more than 15Hz bw
+        - max_n_peaks=6,                # 4, 5 sometimes misses important peaks, 6 better even though there might be more false positives in high frequencies
+        - min_peak_height=0.2,          # 0.2 detects false positives in gamma but better than 0.35 missing relevant peaks in low frequencies
+        - peak_threshold=2.0,           # default 2.0, lower if necessary to detect peaks more sensitively
+        - aperiodic_mode="fixed",       # fitting without knee component, because there are no knees found so far in the STN
+        - verbose=True,
+
+        frequency range for parameterization: 1-95 Hz
+
+        plot a figure with the raw Power spectrum and the fitted model
+
+    3) save figure into figure folder of each subject:
+        figure filename: fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_wo_knee.png
+
+
+
+    4) Extract following parameters and save as columns into DF
+        - 0: "subject_hemisphere",
+        - 1: "session",
+        - 2: "bipolar_channel",
+        - 3: "fooof_error",
+        - 4: "fooof_r_sq",
+        - 5: "fooof_exponent",
+        - 6: "fooof_offset",
+        - 7: "fooof_power_spectrum", # with 95 values, 1 Hz frequency resolution, so 1-95 Hz
+        - 8: "periodic_plus_aperiodic_power_log",
+        - 9: "fooof_periodic_flat",
+        - 10: "fooof_number_peaks",
+        - 11: "alpha_peak_CF_power_bandWidth",
+        - 12: "low_beta_peak_CF_power_bandWidth",
+        - 13: "high_beta_peak_CF_power_bandWidth",
+        - 14: "beta_peak_CF_power_bandWidth",
+        - 15: "gamma_peak_CF_power_bandWidth",
+
+
+    5) save Dataframe into results folder of each subject
+        - filename: "fooof_model_sub{subject}.json"
+
+    """
+
+    fooof_group_results_df = pd.DataFrame()
+
+    ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
+
+    for subject in incl_sub:
+        fooof_single_subject_result = fooof_fit_single_subject(subject=subject, fooof_version=fooof_version)
+
+        fooof_group_results_df = pd.concat([fooof_group_results_df, fooof_single_subject_result], ignore_index=True)
+
+    # one exception: sub-030 fu24m, no Perceive, so run extra FOOOF from JSON
+    sub_030_fooof_from_json = bssu_json.write_missing_FOOOF_data_add_to_old_FOOOF(
+        sub="030",
+        session="fu24m",
+        condition="m0s0",
+        json_filename="Report_Json_Session_Report_20230830T100130.json",
+        fooof_version="v2",
+    )
+
+    # add sub_030 fu24m to group dataframe
+    fooof_group_results_df = pd.concat([fooof_group_results_df, sub_030_fooof_from_json], ignore_index=True)
+
+    helpers.save_result_dataframe_as_pickle(
+        data=fooof_group_results_df, filename=f"fooof_group_data_percept_{fooof_version}"
+    )
+
+    return fooof_group_results_df
+
+
+def highest_beta_channels_fooof_percept(fooof_spectrum: str, fooof_version: str):
+    """
+    Load the file "fooof_group_data_percept_{fooof_version}.pickle"
+    from the group result folder
+
+    Input:
+        - fooof_spectrum:
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+        - fooof_version:
+            "v1" or "v2"
+
+    1) calculate beta average for each channel and rank within 1 stn, 1 session and 1 channel group
+
+    2) rank beta averages and only select the channels with rank 1.0
+
+    Output highest_beta_df
+        - containing all stns, all sessions, all channels with rank 1.0 within their channel group
+
+    """
+
+    # load the group dataframe
+    fooof_group_result = loadResults.load_pickle_group_result(
+        filename="fooof_group_data_percept", fooof_version=fooof_version
+    )
+
+    # fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version)
+
+    # frequency_range = ["beta", "low_beta", "high_beta"]
+
+    # create new column: first duplicate column fooof power spectrum, then apply calculation to each row -> average of indices [13:36] so averaging the beta range
+    fooof_group_result_copy = fooof_group_result.copy()
+
+    if fooof_spectrum == "periodic_spectrum":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_power_spectrum"]
+
+    elif fooof_spectrum == "periodic_plus_aperiodic":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["periodic_plus_aperiodic_power_log"]
+
+    elif fooof_spectrum == "periodic_flat":
+        fooof_group_result_copy["beta_average"] = fooof_group_result_copy["fooof_periodic_flat"]
+
+    fooof_group_result_copy["beta_average"] = fooof_group_result_copy["beta_average"].apply(
+        lambda row: np.mean(row[13:36])
+    )
+
+    ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
+    channel_group = ["ring", "segm_inter", "segm_intra"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
+
+    stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
+
+    highest_beta_df = pd.DataFrame()
+    beta_ranks_all_channels = pd.DataFrame()
+    beta_ranks_all_and_all_channels = pd.DataFrame()
+
+    for stn in stn_unique:
+        stn_df = fooof_group_result_copy.loc[fooof_group_result_copy.subject_hemisphere == stn]
+
+        for ses in sessions:
+            # check if session exists
+            if ses not in stn_df.session.values:
+                continue
+
+            else:
+                stn_ses_df = stn_df.loc[stn_df.session == ses]  # df of only 1 stn and 1 session
+
+            # save data for all channels, no ranks
+            beta_ranks_all_and_all_channels = pd.concat([beta_ranks_all_and_all_channels, stn_ses_df])
+
+            for group in channel_group:
+                if group == "ring":
+                    channels = ['01', '12', '23']
+
+                elif group == "segm_inter":
+                    channels = ["1A2A", "1B2B", "1C2C"]
+
+                elif group == "segm_intra":
+                    channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+
+                group_comp_df = stn_ses_df.loc[
+                    stn_ses_df["bipolar_channel"].isin(channels)
+                ].reset_index()  # df of only 1 stn, 1 session and 1 channel group
+
+                # rank beta average of channels within one channel group
+                group_comp_df_copy = group_comp_df.copy()
+                group_comp_df_copy["beta_rank"] = group_comp_df_copy["beta_average"].rank(ascending=False)
+
+                beta_ranks = group_comp_df_copy.copy()
+
+                # only keep the row with beta rank 1.0
+                group_comp_df_copy = group_comp_df_copy.loc[group_comp_df_copy.beta_rank == 1.0]
+
+                # save to ranked_beta_df
+                beta_ranks_all_channels = pd.concat([beta_ranks_all_channels, beta_ranks])
+                highest_beta_df = pd.concat([highest_beta_df, group_comp_df_copy])
+
+    # this dataframe contains only the highest beta channel per session and lfp group
+    helpers.save_result_dataframe_as_pickle(
+        data=highest_beta_df, filename=f"highest_beta_channels_fooof_{fooof_spectrum}_{fooof_version}"
+    )
+
+    # this dataframe contains 12 lfp channels and beta ranks per lfp group
+    helpers.save_result_dataframe_as_pickle(
+        data=beta_ranks_all_channels, filename=f"beta_ranks_all_channels_fooof_{fooof_spectrum}_{fooof_version}"
+    )
+
+    # this dataframe contains all 15 LFP channels and no ranks
+    helpers.save_result_dataframe_as_pickle(
+        data=beta_ranks_all_and_all_channels, filename=f"beta_all_channels_fooof_{fooof_spectrum}_{fooof_version}"
+    )
+
+    return {
+        "highest_beta_df": highest_beta_df,
+        "beta_ranks_all_channels": beta_ranks_all_channels,
+        "beta_ranks_all_and_all_channels": beta_ranks_all_and_all_channels,
+    }
+
+
+def fooof_fit_power_spectra(incl_sub: list, fooof_version: str):
+    """
+    OLD VERSION ONLY MODELING WITHOUT KNEE BECAUSE NOT NEEDED IN THE STN
+
+    Input:
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029",
+        "030", "031", "032", "033", "038", "041",
+        "045", "047", "050", "059", "060", "061", "062", "063", "065"]
+        - fooof_version: str "v1", "v2"
 
     1) Load the Power Spectrum from main Class:
         - unfiltered
@@ -427,8 +644,6 @@ def fooof_fit_power_spectra(incl_sub: list):
         '1C2C',
     ]
 
-    freq_range = [1, 95]  # frequency range to fit FOOOF model # TODO: try 2-95 Hz, oder 2-60 Hz
-
     ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
 
     for subject in incl_sub:
@@ -475,14 +690,9 @@ def fooof_fit_power_spectra(incl_sub: list):
 
                     ############ SET FOOOF MODEL ############
 
-                    model = fooof.FOOOF(
-                        peak_width_limits=[2, 15.0],  # TODO: 3, 15
-                        max_n_peaks=6,  # TODO 3 oder 4
-                        min_peak_height=0.2,
-                        peak_threshold=2.0,
-                        aperiodic_mode="fixed",  # fitting without knee component
-                        verbose=True,
-                    )
+                    model_version = fooof_model_predefined(fooof_version=fooof_version)
+                    freq_range = model_version["freq_range"]
+                    model = model_version["model"]
 
                     # always fit a large Frequency band, later you can select Peaks within specific freq bands
                     model.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
@@ -530,12 +740,18 @@ def fooof_fit_power_spectra(incl_sub: list):
 
                     fig.tight_layout()
                     fig.savefig(
-                        os.path.join(local_figures_path, f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.svg"),
+                        os.path.join(
+                            local_figures_path,
+                            f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{fooof_version}.svg",
+                        ),
                         bbox_inches="tight",
                         format="svg",
                     )
                     fig.savefig(
-                        os.path.join(local_figures_path, f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}.png"),
+                        os.path.join(
+                            local_figures_path,
+                            f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{fooof_version}.png",
+                        ),
                         bbox_inches="tight",
                     )
 
@@ -642,7 +858,7 @@ def fooof_fit_power_spectra(incl_sub: list):
         fooof_results_df = fooof_results_df.transpose()
 
         # save DF in subject results folder
-        fooof_results_df.to_json(os.path.join(local_results_path, f"fooof_model_sub{subject}.json"))
+        fooof_results_df.to_json(os.path.join(local_results_path, f"fooof_model_sub{subject}_{fooof_version}.json"))
 
     return {
         "fooof_results_df": fooof_results_df,

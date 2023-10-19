@@ -917,9 +917,10 @@ def monoRef_only_segmental_weight_psd_by_distance(
 
 
 def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
-    fooof_spectrum:str,
-    only_segmental:str,
-    similarity_calculation:str
+    fooof_spectrum: str,
+    fooof_version: str,
+    only_segmental: str,
+    similarity_calculation: str,
 ):
 
     """
@@ -1088,6 +1089,7 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
     #####################  Loading the Data #####################
     beta_average_DF = loadResults.load_fooof_beta_ranks(
         fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
         all_or_one_chan="beta_ranks_all",
         all_or_one_longterm_ses="one_longterm_session"
     )
@@ -1239,11 +1241,11 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
         
 
     # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
-    session_data_filepath = os.path.join(results_paths, f"fooof_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}.pickle")
+    session_data_filepath = os.path.join(results_paths, f"fooof_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}_{fooof_version}.pickle")
     with open(session_data_filepath, "wb") as file:
         pickle.dump(session_data, file)
 
-    print(f"New file: fooof_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}.pickle",
+    print(f"New file: fooof_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}_{fooof_version}.pickle",
             f"\nwritten in: {results_paths}" )
     
 
@@ -1254,13 +1256,15 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
 
 
 def fooof_monoRef_weight_psd_by_distance_all_contacts(
-        similarity_calculation:str
+        similarity_calculation:str,
+        fooof_version: str
 ):
     """
 
     Input: 
 
         - similarity_calculation: "inverse_distance", "exp_neg_distance"
+        - fooof_version: "v1" or "v2"
 
     merging the monopolar estimated beta power from segmented contacts only from segmental channels 
     and the ring contacts (0 and 3) from all 13 bipolar channels 
@@ -1274,12 +1278,14 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(
     # load the dataframes from segmented and ring contacts
     segmented_data = fooof_monoRef_weight_psd_by_distance_segm_or_ring(
         fooof_spectrum = "periodic_spectrum",
+        fooof_version= fooof_version,
         only_segmental="yes",
         similarity_calculation=similarity_calculation
     )
 
     ring_data = fooof_monoRef_weight_psd_by_distance_segm_or_ring(
         fooof_spectrum = "periodic_spectrum",
+        fooof_version= fooof_version,
         only_segmental="no",
         similarity_calculation=similarity_calculation
     )
@@ -1342,11 +1348,11 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(
             all_ranked_data = pd.concat([all_ranked_data, electrode_session_copy], ignore_index=True)
 
     # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
-    all_ranked_datapath = os.path.join(results_paths, f"fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}.pickle")
+    all_ranked_datapath = os.path.join(results_paths, f"fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}_{fooof_version}.pickle")
     with open(all_ranked_datapath, "wb") as file:
         pickle.dump(all_ranked_data, file)
 
-    print(f"New file: fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}.pickle",
+    print(f"New file: fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}_{fooof_version}.pickle",
             f"\nwritten in: {results_paths}" )
         
 

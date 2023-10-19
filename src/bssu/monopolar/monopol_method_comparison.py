@@ -25,16 +25,19 @@ segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
 ################## FOOOF ##################
 
 
-def load_externalized_fooof_data(reference=None):
+def load_externalized_fooof_data(fooof_version: str, reference=None):
     """
     Input:
+        - fooof_version: str "v1" or "v2"
         - reference: str "bipolar_to_lowermost" or "no"
 
     """
     # only directional contacts
     # FOOOF version: only 1 Hz high-pass filtered
     externalized_fooof_beta_ranks = load_data.load_externalized_pickle(
-        filename="fooof_externalized_beta_ranks_directional_contacts_only_high_pass_filtered", reference=reference
+        filename="fooof_externalized_beta_ranks_directional_contacts_only_high_pass_filtered",
+        fooof_version=fooof_version,
+        reference=reference,
     )
 
     # add column with method name

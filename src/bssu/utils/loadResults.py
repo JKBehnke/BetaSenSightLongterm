@@ -774,10 +774,11 @@ def load_SSD_results_pickle(f_band: str):
     return data
 
 
-def load_fooof_json(subject: str):
+def load_fooof_json(subject: str, fooof_version: str):
     """
     Load the file: "fooof_model_sub{subject}.json"
     from each subject result folder
+    - fooof_version: "v1" or "v2"
 
     """
 
@@ -785,7 +786,7 @@ def load_fooof_json(subject: str):
     results_path_sub = find_folders.get_local_path(folder="results", sub=subject)
 
     # create filename
-    filename = f"fooof_model_sub{subject}.json"
+    filename = f"fooof_model_sub{subject}_{fooof_version}.json"
 
     # load the json file
     with open(os.path.join(results_path_sub, filename)) as file:
@@ -796,10 +797,12 @@ def load_fooof_json(subject: str):
     return fooof_result_df
 
 
-def load_group_fooof_result():
+def load_group_fooof_result(fooof_version: str):
     """
     Load the file: "fooof_model_group_data.json"
     from the group result folder
+
+    - fooof_version: "v1" or "v2"
 
     """
 
@@ -807,7 +810,7 @@ def load_group_fooof_result():
     results_path = find_folders.get_local_path(folder="GroupResults")
 
     # create filename
-    filename = f"fooof_model_group_data.json"
+    filename = f"fooof_model_group_data_{fooof_version}.json"
 
     # load the json file
     with open(os.path.join(results_path, filename)) as file:
@@ -861,13 +864,15 @@ def load_fooof_rank_beta_peak_power():
     return data
 
 
-def load_fooof_beta_ranks(fooof_spectrum: str, all_or_one_chan: str, all_or_one_longterm_ses: str):
+def load_fooof_beta_ranks(fooof_spectrum: str, fooof_version: str, all_or_one_chan: str, all_or_one_longterm_ses: str):
     """
     Input:
         - fooof_spectrum:
             "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
             "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
             "periodic_flat"             -> model._peak_fit
+
+        - fooof_version: str "v1" or "v2"
 
         - all_or_one_chan: str "highest_beta" or "beta_ranks_all" (12 LFP channels, with ranks) or "beta_all" (all 15 channels, no ranks)
 
@@ -882,12 +887,10 @@ def load_fooof_beta_ranks(fooof_spectrum: str, all_or_one_chan: str, all_or_one_
     from the group result folder
 
     """
-
-    # find the path to the results folder
     results_path = find_folders.get_local_path(folder="GroupResults")
 
     # create filename
-    filename = f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}.pickle"
+    filename = f"{all_or_one_chan}_channels_fooof_{fooof_spectrum}_{fooof_version}.pickle"
 
     filepath = os.path.join(results_path, filename)
 
@@ -1152,7 +1155,7 @@ def load_preprocessing_files(table: str):
     return data
 
 
-def load_pickle_group_result(filename: str):
+def load_pickle_group_result(filename: str, fooof_version: str):
     """
     Loading pickle file. Filename must be in:
     allowed_filenames:
@@ -1161,6 +1164,7 @@ def load_pickle_group_result(filename: str):
         "MonoRef_JLB_fooof_beta",
         "permutation_beta_ranks_fooof_spectra",
         "best_2_contacts_from_directional_bssu",
+        "fooof_group_data_percept" -> {fooof_version}
 
 
     The pickle file: "{filename}.pickle"
@@ -1171,8 +1175,11 @@ def load_pickle_group_result(filename: str):
     # find the path to the results folder
     results_path = find_folders.get_local_path(folder="GroupResults")
 
-    # create filename
-    filename = f"{filename}.pickle"
+    if filename == "fooof_group_data_percept":
+        filename = f"{filename}_{fooof_version}.pickle"
+
+    else:  # create filename without fooof_version
+        filename = f"{filename}.pickle"
 
     filepath = os.path.join(results_path, filename)
 
