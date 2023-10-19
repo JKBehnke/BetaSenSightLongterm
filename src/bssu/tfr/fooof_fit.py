@@ -62,14 +62,12 @@ def fooof_model_predefined(fooof_version: str):
             verbose=True,
         )
 
-    FOOOF settings v2: -> this is Moritz setting, that he used for externalized recordings
-        freq_range = [2, 45]
-            - above 45 Hz is not of interest in this study (we only look at beta currently) and there is a lot of noise above 50 Hz,
-            - especially amplification noise visible as a plateau in the high frequencies that overtakes the signal
+    FOOOF settings v2:
+        freq_range = [2, 95]
 
         model = fooof.FOOOF(
-            peak_width_limits=[1, 20.0],
-            max_n_peaks=5,
+            peak_width_limits=[3, 20.0],
+            max_n_peaks=4,
             min_peak_height=0.1
             aperiodic_mode="fixed",  # fitting without knee component
             verbose=True,

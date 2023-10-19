@@ -653,6 +653,10 @@ def fooof_monoRef_JLB(fooof_version: str):
                 ascending=False
             )  # rank monopolar estimates per stn and session
 
+            # normalize to maximal beta
+            max_value_dir = stn_data_2_copy["estimated_monopolar_beta_psd"].max()
+            stn_data_2_copy["beta_relative_to_max"] = stn_data_2_copy["estimated_monopolar_beta_psd"] / max_value_dir
+
             # merge all dataframes (per session per STN)
             monopolar_results_all = pd.concat([monopolar_results_all, stn_data_2_copy])
 

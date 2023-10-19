@@ -959,7 +959,9 @@ def load_power_spectra_session_comparison(incl_channels: str, signalFilter: str,
     return data
 
 
-def load_fooof_monopolar_weighted_psd(fooof_spectrum: str, segmental: str, similarity_calculation: str):
+def load_fooof_monopolar_weighted_psd(
+    fooof_spectrum: str, fooof_version: str, segmental: str, similarity_calculation: str
+):
     """
     The loaded dataframe only consists of one longterm session (fu18m or fu24m).
     So if a STN was recorded at the fu18m and fu24m, the fu24m session was deleted
@@ -970,6 +972,7 @@ def load_fooof_monopolar_weighted_psd(fooof_spectrum: str, segmental: str, simil
             "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
             "periodic_flat"             -> model._peak_fit
 
+        - fooof_version: "v1", "v2"
         - segmental: "yes"              -> only using segmental channels to weight monopolar psd
 
         - similarity_calculation: "inverse_distance", "exp_neg_distance"
@@ -991,7 +994,7 @@ def load_fooof_monopolar_weighted_psd(fooof_spectrum: str, segmental: str, simil
         bipolar_chans = "segments_and_rings_"
 
     # create filename
-    filename = f"fooof_monoRef_{bipolar_chans}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}.pickle"
+    filename = f"fooof_monoRef_{bipolar_chans}weight_beta_psd_by_{similarity_calculation}_{fooof_spectrum}_{fooof_version}.pickle"
 
     filepath = os.path.join(results_path, filename)
 
@@ -1164,7 +1167,9 @@ def load_pickle_group_result(filename: str, fooof_version: str):
         "MonoRef_JLB_fooof_beta",
         "permutation_beta_ranks_fooof_spectra",
         "best_2_contacts_from_directional_bssu",
-        "fooof_group_data_percept" -> {fooof_version}
+        "fooof_group_data_percept" -> {fooof_version},
+        "permutation_beta_ranks_fooof_spectra"
+        "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance"
 
 
     The pickle file: "{filename}.pickle"
@@ -1172,10 +1177,18 @@ def load_pickle_group_result(filename: str, fooof_version: str):
 
 
     """
+
+    filenames_with_fooof_version = [
+        "fooof_group_data_percept",
+        "MonoRef_JLB_fooof_beta",
+        "permutation_beta_ranks_fooof_spectra",
+        "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance",
+    ]
+
     # find the path to the results folder
     results_path = find_folders.get_local_path(folder="GroupResults")
 
-    if filename == "fooof_group_data_percept":
+    if filename in filenames_with_fooof_version:
         filename = f"{filename}_{fooof_version}.pickle"
 
     else:  # create filename without fooof_version
