@@ -200,10 +200,35 @@ def save_result_excel(result_df: pd.DataFrame, filename: str, sheet_name: str):
     )
 
 
+def save_fig_png_and_svg(filename: str, figure=None):
+    """
+    Input:
+        - path: str
+        - filename: str
+        - figure: must be a plt figure
+
+    """
+
+    figure.savefig(
+        os.path.join(GROUP_FIGURES_PATH, f"{filename}.svg"),
+        bbox_inches="tight",
+        format="svg",
+    )
+
+    figure.savefig(
+        os.path.join(GROUP_FIGURES_PATH, f"{filename}.png"),
+        bbox_inches="tight",
+    )
+
+    print(f"Figures {filename}.svg and {filename}.png", f"\nwere written in: {GROUP_FIGURES_PATH}.")
+
+
 def correlation_tests_percept_methods(
     method_1: str, method_2: str, method_1_df: pd.DataFrame, method_2_df: pd.DataFrame, ses: str
 ):
     """
+    Requirement for methods: must have beta values for all directional contacts (n=6), so don't use best_bssu method here!
+
     For each session:
     for each subject hemisphere:
 
@@ -344,6 +369,8 @@ def rank_comparison_percept_methods(
     method_1: str, method_2: str, method_1_df: pd.DataFrame, method_2_df: pd.DataFrame, ses: str
 ):
     """
+    Requirement: best_bssu method must be one of the methods
+
     For each session:
     for each subject hemisphere:
 
@@ -393,10 +420,10 @@ def rank_comparison_percept_methods(
 
         # yes if 2 contacts with rank 1 or 2 are the same (independent of which one is rank 1 or 2)
         if set(rank_1_and_2_method) == set(best_contact_pair):
-            both_contacts_matching = "both_contacts_same"
+            both_contacts_matching = "yes"
 
         else:
-            both_contacts_matching = "one_at_least_different"
+            both_contacts_matching = "no"
 
         # check if at least one contact selected as beta rank 1 or 2 match for both methods
         if set(rank_1_and_2_method).intersection(set(best_contact_pair)):
@@ -424,7 +451,13 @@ def rank_comparison_percept_methods(
     return comparison_result
 
 
-def get_sample_size_percept_methods(ses: str, ses_df: pd.DataFrame, rank_1_exists: str, method_vs_best_bssu=None):
+def get_sample_size_percept_methods(
+    ses: str,
+    ses_df: pd.DataFrame,
+    method_1: str,
+    method_2: str,
+    rank_1_exists: str,
+):
     """
     Input:
         - rank_1_exists: "yes" if you compare both monopolar estimation methods
@@ -442,42 +475,52 @@ def get_sample_size_percept_methods(ses: str, ses_df: pd.DataFrame, rank_1_exist
         # count how often compare_rank_1_contact same
         same_rank_1 = ses_df.loc[ses_df.compare_rank_1_contact == "same"]
         same_rank_1 = same_rank_1["session"].count()
-        precentage_same_rank_1 = same_rank_1 / ses_count
+        percentage_same_rank_1 = same_rank_1 / ses_count
+
+        # count how often compare_rank_1_contact same
+        both_contacts_matching = ses_df.loc[ses_df.both_contacts_matching == "yes"]
+        both_contacts_matching = both_contacts_matching["session"].count()
+        percentage_both_contacts_matching = both_contacts_matching / ses_count
 
         # count how often there is at least one matching contact in compare_rank_1_and_2_contact
-        same_rank_1_and_2 = ses_df.loc[ses_df.compare_rank_1_and_2_contacts == "at_least_one_contact_match"]
-        same_rank_1_and_2 = same_rank_1_and_2["session"].count()
-        precentage_same_rank_1_and_2 = same_rank_1_and_2 / ses_count
+        at_least_1_same = ses_df.loc[ses_df.compare_rank_1_and_2_contacts == "at_least_one_contact_match"]
+        at_least_1_same = at_least_1_same["session"].count()
+        percentage_at_least_1_same = at_least_1_same / ses_count
 
         sample_size_dict = {
             "session": [ses],
+            "method_1": [method_1],
+            "method_2": [method_2],
             "sample_size": [ses_count],
             "same_rank_1": [same_rank_1],
-            "precentage_same_rank_1": [precentage_same_rank_1],
-            "at_least_one_same_contact_rank_1_and_2": [same_rank_1_and_2],
-            "precentage_at_least_one_same_contact_rank_1_and_2": [precentage_same_rank_1_and_2],
+            "percentage_same_rank_1": [percentage_same_rank_1],
+            "at_least_1_contact_same": [at_least_1_same],
+            "percentage_at_least_one_same_contact_rank_1_and_2": [percentage_at_least_1_same],
+            "both_contacts_matching": [both_contacts_matching],
+            "percentage_both_contacts_matching": [percentage_both_contacts_matching],
         }
         sample_size_single_df = pd.DataFrame(sample_size_dict)
 
     elif rank_1_exists == "no":
         # count how often compare_rank_1_contact same
-        same_rank_1_and_2 = ses_df.loc[ses_df.both_contacts_matching == "both_contacts_same"]
-        same_rank_1_and_2 = same_rank_1_and_2["subject_hemisphere"].count()
-        precentage_same = same_rank_1_and_2 / ses_count
+        both_contacts_matching = ses_df.loc[ses_df.both_contacts_matching == "yes"]
+        both_contacts_matching = both_contacts_matching["subject_hemisphere"].count()
+        percentage_both_contacts_matching = both_contacts_matching / ses_count
 
         # count how often there is at least one matching contact in compare_rank_1_and_2_contact
         at_least_1_same = ses_df.loc[ses_df.at_least_1_contact_matching == "at_least_one_contact_match"]
         at_least_1_same = at_least_1_same["subject_hemisphere"].count()
-        precentage_at_least_1_same = at_least_1_same / ses_count
+        percentage_at_least_1_same = at_least_1_same / ses_count
 
         sample_size_dict = {
-            "method": [method_vs_best_bssu],
+            "method_1": [method_1],
+            "method_2": [method_2],
             "session": [ses],
             "sample_size": [ses_count],
-            "same_rank_1_and_2_count": [same_rank_1_and_2],
-            "precentage_same": [precentage_same],
+            "both_contacts_matching": [both_contacts_matching],
+            "percentage_both_contacts_matching": [percentage_both_contacts_matching],
             "at_least_1_contact_same": [at_least_1_same],
-            "precentage_at_least_1_same": [precentage_at_least_1_same],
+            "percentage_at_least_one_same_contact_rank_1_and_2": [percentage_at_least_1_same],
         }
 
         sample_size_single_df = pd.DataFrame(sample_size_dict)
@@ -485,5 +528,151 @@ def get_sample_size_percept_methods(ses: str, ses_df: pd.DataFrame, rank_1_exist
     return sample_size_single_df
 
 
-def best_bssu_contact_pair_vs_monopol_beta():
-    """ """
+def load_method_comparison_result(method_comparison: str, comparison_file: str):
+    """
+    Input:
+        - method_comparison: str e.g. "euclidean_directional_JLB_directional" watch out! MUST be the correct order of the filename
+        - comparison_file: str e.g.
+            "sample_size" for comparing "percentage_at_least_one_same_contact_rank_1_and_2" and "percentage_both_contacts_matching"
+            "correlation" for comparing "estimated_beta_spearman", "normalized_beta_pearson"
+    """
+    externalized_versions = ["externalized_ssd", "externalized_fooof"]
+
+    # check if externalized is in the method comparison
+    externalized = []
+    for substr in externalized_versions:
+        if substr in method_comparison:
+            externalized.append(substr)
+
+    if len(externalized) != 0:
+        method_comparison = f"{method_comparison}_bipolar_to_lowermost"
+
+    if comparison_file == "sample_size":
+        filename = f"fooof_monopol_beta_correlations_sample_size_df_{method_comparison}_v2.xlsx"
+
+    elif comparison_file == "correlation":
+        filename = f"fooof_monopol_beta_correlations_corr_ses_df_{method_comparison}_v2.xlsx"
+
+    sheet_name = "fooof_monopol_beta_correlations"
+
+    filepath = os.path.join(GROUP_RESULTS_PATH, filename)
+
+    # read the excel file
+    excel_file = pd.read_excel(filepath, sheet_name=sheet_name)
+
+    return excel_file
+
+
+def get_comparison_matrix_for_heatmap(value_to_plot: str):
+    """
+
+    Creates a 5x5 comparison matrix of the input value
+    value_to_plot must be a column name in the Excel sample size file loaded with load_sample_size_result()
+
+    Input:
+        - value_to_plot: e.g. "percentage_at_least_one_same_contact_rank_1_and_2", "percentage_both_contacts_matching"
+        - comparison_file: str e.g.
+            "sample_size" for comparing "percentage_at_least_one_same_contact_rank_1_and_2" and "percentage_both_contacts_matching"
+            "correlation" for comparing "estimated_beta_spearman", "normalized_beta_pearson"
+
+
+    """
+    comparison_dict = {}
+    sample_size = {}
+
+    sample_size_file = ["percentage_at_least_one_same_contact_rank_1_and_2", "percentage_both_contacts_matching"]
+    correlation_file = ["estimated_beta_spearman", "normalized_beta_pearson"]
+
+    if value_to_plot in sample_size_file:
+        comparison_file = "sample_size"
+
+        method_comparisons = [
+            "euclidean_directional_JLB_directional",
+            "euclidean_directional_best_bssu_contacts",
+            "JLB_directional_best_bssu_contacts",
+            "JLB_directional_externalized_fooof",
+            "euclidean_directional_externalized_fooof",
+            "best_bssu_contacts_externalized_fooof",
+            "JLB_directional_externalized_ssd",
+            "euclidean_directional_externalized_ssd",
+            "best_bssu_contacts_externalized_ssd",
+            "externalized_fooof_externalized_ssd",
+        ]
+
+        list_of_methods = [
+            "externalized_ssd",
+            "externalized_fooof",
+            "JLB_directional",
+            "euclidean_directional",
+            "best_bssu_contacts",
+        ]
+
+        # Initialize an empty 5x5 matrix
+        comparison_matrix = np.zeros((5, 5))
+
+    elif value_to_plot in correlation_file:
+        comparison_file = "correlation"
+
+        method_comparisons = [
+            "euclidean_directional_JLB_directional",
+            "JLB_directional_externalized_fooof",
+            "euclidean_directional_externalized_fooof",
+            "JLB_directional_externalized_ssd",
+            "euclidean_directional_externalized_ssd",
+            "externalized_fooof_externalized_ssd",
+        ]
+
+        list_of_methods = [
+            "externalized_ssd",
+            "externalized_fooof",
+            "JLB_directional",
+            "euclidean_directional",
+        ]
+
+        # Initialize an empty 4x4 matrix
+        comparison_matrix = np.zeros((4, 4))
+
+    # create dictionary with method comparisons as keys and the percentage of at least 1 same rank 1 or 2 contact as value
+    for comp in method_comparisons:
+        # load the percentage_at_least_one_same_contact_rank_1_and_2
+        # from each comparison of methods
+        comparison_excel = load_method_comparison_result(method_comparison=comp, comparison_file=comparison_file)
+
+        comparison_excel = comparison_excel.loc[comparison_excel.session == "postop"]
+
+        if comparison_file == "correlation":
+            comparison_excel = comparison_excel.loc[comparison_excel.correlation == value_to_plot]
+            column_name = "percentage_significant"
+
+        elif comparison_file == "sample_size":
+            column_name = value_to_plot
+
+        comparison_dict[comp] = comparison_excel[column_name].values[0]
+        sample_size[comp] = comparison_excel.sample_size.values[0]
+
+    # Populate the matrix with comparison values
+    for i in range(len(list_of_methods)):
+        for j in range(i, len(list_of_methods)):
+            method1 = list_of_methods[i]
+            method2 = list_of_methods[j]
+            if i == j:
+                # Diagonal elements should be 1 since it's the comparison with itself
+                comparison_matrix[i, j] = 1.0
+            else:
+                # Set both directions in the matrix
+                key1 = f"{method1}_{method2}"
+                key2 = f"{method2}_{method1}"
+                if key1 in comparison_dict:
+                    comparison_matrix[i, j] = comparison_dict[key1]
+                    comparison_matrix[j, i] = comparison_dict[key1]
+                elif key2 in comparison_dict:
+                    comparison_matrix[i, j] = comparison_dict[key2]
+                    comparison_matrix[j, i] = comparison_dict[key2]
+
+    # Now, comparison_matrix contains the nicely structured comparison values
+    return {
+        "comparison_matrix": comparison_matrix,
+        "comparison_dict": comparison_dict,
+        "sample_size": sample_size,
+        "list_of_methods": list_of_methods,
+    }

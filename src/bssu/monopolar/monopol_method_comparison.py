@@ -90,7 +90,9 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
         ses_df = results_DF_copy.loc[results_DF_copy.session == ses]
         ses_count = ses_df["session"].count()
 
-        sample_size_single_df = helpers.get_sample_size_percept_methods(ses=ses, ses_df=ses_df, rank_1_exists="yes")
+        sample_size_single_df = helpers.get_sample_size_percept_methods(
+            ses=ses, ses_df=ses_df, method_1=method_1, method_2=method_2, rank_1_exists="yes"
+        )
         sample_size_df = pd.concat([sample_size_df, sample_size_single_df], ignore_index=True)
 
         # correlation results per correlation test
@@ -106,6 +108,8 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
 
             corr_ses_result = {
                 "session": [ses],
+                "method_1": [method_1],
+                "method_2": [method_2],
                 "sample_size": [ses_count],
                 "correlation": [corr],
                 "corr_mean": [corr_mean],
@@ -180,7 +184,7 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
         # save as Excel
         helpers.save_result_excel(
             result_df=comparison_result,
-            filename=f"fooof_monopol_best_contacts_per_stn_{method}_best_bssu_contact_pair_{fooof_version}",
+            filename=f"fooof_monopol_best_contacts_per_stn_{method}_best_bssu_contacts_{fooof_version}",
             sheet_name="fooof_monopol_best_contacts",
         )
 
@@ -191,7 +195,11 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
 
             # get sample size
             sample_size_single_df = helpers.get_sample_size_percept_methods(
-                ses=ses, ses_df=ses_result, rank_1_exists="no", method_vs_best_bssu=method
+                ses=ses,
+                ses_df=ses_result,
+                rank_1_exists="no",
+                method_1=method,
+                method_2="best_bssu_contacts",
             )
 
             # sample_size_single_df = pd.DataFrame(sample_size_dict)
@@ -200,7 +208,7 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
         # save session Dataframes as Excel files
         helpers.save_result_excel(
             result_df=sample_size_df,
-            filename=f"fooof_monopol_beta_correlations_sample_size_df_{method}_best_bssu_contact_pair_{fooof_version}",
+            filename=f"fooof_monopol_beta_correlations_sample_size_df_{method}_best_bssu_contacts_{fooof_version}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
@@ -567,7 +575,7 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
         count = results_DF_copy["subject_hemisphere"].count()
 
         sample_size_df = helpers.get_sample_size_percept_methods(
-            ses="postop", ses_df=results_DF_copy, rank_1_exists="yes"
+            ses="postop", ses_df=results_DF_copy, method_1=method, method_2=externalized_version, rank_1_exists="yes"
         )
 
         # correlation results per correlation test
@@ -585,6 +593,8 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
 
             corr_ses_result = {
                 "session": ["postop"],
+                "method_1": [method],
+                "method_2": [externalized_version],
                 "sample_size": [count],
                 "correlation": [corr],
                 "corr_mean": [corr_mean],
@@ -632,7 +642,11 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
 
         # get sample size
         sample_size_df = helpers.get_sample_size_percept_methods(
-            ses="postop", ses_df=results_DF_copy, rank_1_exists="no", method_vs_best_bssu=method
+            ses="postop",
+            ses_df=results_DF_copy,
+            rank_1_exists="no",
+            method_1=externalized_version,
+            method_2=method,
         )
 
         # save session Dataframes as Excel files
@@ -713,7 +727,13 @@ def externalized_versions_comparison(
     # get sample size
     count = results_DF_copy["subject_hemisphere"].count()
 
-    sample_size_df = helpers.get_sample_size_percept_methods(ses="postop", ses_df=results_DF_copy, rank_1_exists="yes")
+    sample_size_df = helpers.get_sample_size_percept_methods(
+        ses="postop",
+        ses_df=results_DF_copy,
+        rank_1_exists="yes",
+        method_1=externalized_version_1,
+        method_2=externalized_version_2,
+    )
 
     # correlation results per correlation test
     corr_ses_df = pd.DataFrame()
@@ -730,6 +750,8 @@ def externalized_versions_comparison(
 
         corr_ses_result = {
             "session": ["postop"],
+            "method_1": [externalized_version_1],
+            "method_2": [externalized_version_2],
             "sample_size": [count],
             "correlation": [corr],
             "corr_mean": [corr_mean],
@@ -987,3 +1009,60 @@ def externalized_versions_comparison(
     # }
 
     # sample_size_df = pd.DataFrame(sample_size_dict)
+
+
+def heatmap_method_comparison(value_to_plot: str):
+    """
+    methods: "externalized_ssd", "externalized_fooof", "JLB_directional", "euclidean_directional", "best_bssu_contacts"
+
+    Input:
+        - value_to_plot: str e.g.
+            "percentage_at_least_one_same_contact_rank_1_and_2" must be a column in the sample size result Excel file
+            "percentage_both_contacts_matching"
+            "estimated_beta_spearman",
+            "normalized_beta_pearson"
+
+    """
+
+    # load the comparison matrix for the value to plot
+    loaded_comparison_matrix = helpers.get_comparison_matrix_for_heatmap(value_to_plot=value_to_plot)
+
+    comparison_matrix = loaded_comparison_matrix["comparison_matrix"]
+    comparison_dict = loaded_comparison_matrix["comparison_dict"]
+    sample_size = loaded_comparison_matrix["sample_size"]
+    list_of_methods = loaded_comparison_matrix["list_of_methods"]
+
+    # Create a heatmap
+    fig, ax = plt.subplots()
+    heatmap = ax.imshow(comparison_matrix, cmap='coolwarm', interpolation='nearest')
+
+    cbar = fig.colorbar(heatmap)
+    # cbar.set_label(f"{value_to_plot}")
+
+    ax.set_xticks(range(len(list_of_methods)))
+    ax.set_yticks(range(len(list_of_methods)))
+    ax.set_xticklabels(list_of_methods, rotation=45)
+    ax.set_yticklabels(list_of_methods)
+    ax.grid(False)
+
+    title_str = {
+        "percentage_at_least_one_same_contact_rank_1_and_2": 'Selecting 2 contacts from 6 directional contacts:'
+        + '\nhow many hemispheres with at least 1 matching contact [%]?',
+        "percentage_both_contacts_matching": 'Selecting 2 contacts from 6 directional contacts:'
+        + '\nhow many hemispheres with with both contacts matching [%]?',
+        "estimated_beta_spearman": "Spearman correlation of 6 directional values per hemisphere"
+        + '\nhow many hemispheres with significant correlation [%]?',
+        "normalized_beta_pearson": "Pearson correlation of 6 directional normalized values per hemisphere"
+        + '\nhow many hemispheres with significant correlation [%]?',
+    }
+
+    ax.set_title(title_str[value_to_plot])
+
+    # Add the values to the heatmap cells
+    for i in range(len(list_of_methods)):
+        for j in range(len(list_of_methods)):
+            ax.text(j, i, f"{comparison_matrix[i][j]:.2f}", ha='center', va='center', color='black', fontsize=10)
+
+    helpers.save_fig_png_and_svg(filename=f"heatmap_method_comparison_{value_to_plot}", figure=fig)
+
+    return comparison_matrix, comparison_dict, sample_size
