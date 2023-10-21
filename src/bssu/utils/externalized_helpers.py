@@ -234,3 +234,23 @@ def save_fig_png_and_svg(path: str, filename: str, figure=None):
     )
 
     print(f"Figures {filename}.svg and {filename}.png", f"\nwere written in: {path}.")
+
+
+def assign_cluster(value):
+    """
+    This function takes an input float value and assigns a mathing cluster value between 1 and 3
+
+        - value <= 0.4:         cluster 3
+        - 0.4 < value <= 0.7:   cluster 2
+        - 0.7 < value:          cluster 1
+
+    """
+
+    if value <= 0.4:
+        return 3
+
+    elif 0.4 < value <= 0.7:
+        return 2
+
+    elif 0.7 < value:
+        return 1

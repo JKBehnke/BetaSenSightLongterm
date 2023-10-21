@@ -1190,6 +1190,9 @@ def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=N
         max_value = stn_data_copy["beta_average"].max()
         stn_data_copy["beta_relative_to_max"] = stn_data_copy["beta_average"] / max_value
 
+        # cluster values into 3 categories: <40%, 40-70% and >70%
+        stn_data_copy["beta_cluster"] = stn_data_copy["beta_relative_to_max"].apply(helpers.assign_cluster)
+
         # save to the beta rank dataframe
         beta_rank_all_contacts = pd.concat([beta_rank_all_contacts, stn_data_copy])
 
@@ -1210,6 +1213,9 @@ def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=N
         # relative to maximum value
         max_value_dir = stn_directional_copy["beta_average"].max()
         stn_directional_copy["beta_relative_to_max"] = stn_directional_copy["beta_average"] / max_value_dir
+
+        # cluster values into 3 categories: <40%, 40-70% and >70%
+        stn_directional_copy["beta_cluster"] = stn_directional_copy["beta_relative_to_max"].apply(assign_cluster)
 
         # save to the beta rank dataframe
         beta_rank_directional_contacts = pd.concat([beta_rank_directional_contacts, stn_directional_copy])
@@ -1272,11 +1278,13 @@ def SSD_filter_externalized(bids_id: str, sub: str, hemisphere: str, fs: int, di
     ########### PLOT 1: Power Spectra of all directional channels without SSD ###########
     for c, chan in enumerate(DIRECTIONAL_CONTACTS):
         if c == 5 and len(ssd_eigvals) < 6:
-            ssd_pattern_chan = -1.0
-            ssd_eigvals_chan = -1.0
+            ssd_pattern_chan = 0.0
+            ssd_eigvals_chan = 0.0
 
         else:
-            ssd_pattern_chan = ssd_pattern[0][c]  # first component only
+            ssd_pattern_chan = abs(
+                ssd_pattern[0][c]
+            )  # first component only, absolute values because the direction of the vector can be positive or negative
             ssd_eigvals_chan = ssd_eigvals[c]
 
         # filter to plot
@@ -1356,13 +1364,15 @@ def SSD_filter_externalized(bids_id: str, sub: str, hemisphere: str, fs: int, di
     SSD_result_dataframe = pd.DataFrame.from_dict(SSD_result, orient="index", columns=SSD_result_columns)
 
     # add a column with beta_ranks and normalized beta values relative to max
-    # TODO: what does negative mean? sometimes -1.0 ssd_pattern.
     SSD_result_dataframe_copy = SSD_result_dataframe.copy()
     SSD_result_dataframe_copy["beta_rank"] = SSD_result_dataframe["ssd_pattern"].rank(ascending=False)  # rank 1-6
 
     # normalize to maximum value
     max_value_dir = SSD_result_dataframe_copy["ssd_pattern"].max()
     SSD_result_dataframe_copy["beta_relative_to_max"] = SSD_result_dataframe_copy["ssd_pattern"] / max_value_dir
+
+    # cluster values into 3 categories: <40%, 40-70% and >70%
+    SSD_result_dataframe_copy["beta_cluster"] = SSD_result_dataframe_copy["ssd_pattern"].apply(helpers.assign_cluster)
 
     return {
         "ssd_filt_data": ssd_filt_data,

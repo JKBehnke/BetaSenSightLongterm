@@ -17,6 +17,7 @@ import pickle
 # utility functions
 from ..utils import loadResults as loadResults
 from ..utils import find_folders as find_folders
+from ..utils import percept_helpers as helpers
 
 
 def monoRef_weightPsdBetaAverageByCoordinateDistance(
@@ -1182,6 +1183,9 @@ def fooof_monoRef_weight_psd_by_distance_segm_or_ring(
             max_value = mono_data_copy["estimated_monopolar_beta_psd"].max()
             mono_data_copy["beta_relative_to_max"] = mono_data_copy["estimated_monopolar_beta_psd"] / max_value
 
+            # cluster values into 3 categories: <40%, 40-70% and >70%
+            mono_data_copy["beta_cluster"] = mono_data_copy["beta_relative_to_max"].apply(helpers.assign_cluster)
+
             session_data[f"{ses}_monopolar_Dataframe"] = pd.concat(
                 [session_data[f"{ses}_monopolar_Dataframe"], mono_data_copy]
             )
@@ -1299,6 +1303,11 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(similarity_calculation: st
             # in each row add in new column: (psd-beta_rank_8)/beta_rank1
             electrode_session_copy["beta_psd_rel_range_0_to_1"] = electrode_session_copy.apply(
                 lambda row: (row["estimated_monopolar_beta_psd"] - beta_rank_8) / beta_rank_1, axis=1
+            )
+
+            # cluster values into 3 categories: <40%, 40-70% and >70%
+            electrode_session_copy["beta_cluster"] = electrode_session_copy["beta_relative_to_max"].apply(
+                helpers.assign_cluster
             )
 
             # save

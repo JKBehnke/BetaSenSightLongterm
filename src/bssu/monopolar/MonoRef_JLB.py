@@ -13,6 +13,7 @@ import pickle
 # internal Imports
 from ..utils import find_folders as find_folders
 from ..utils import loadResults as loadResults
+from ..utils import percept_helpers as helpers
 
 
 # import analysis.loadResults as loadcsv
@@ -656,6 +657,9 @@ def fooof_monoRef_JLB(fooof_version: str):
             # normalize to maximal beta
             max_value_dir = stn_data_2_copy["estimated_monopolar_beta_psd"].max()
             stn_data_2_copy["beta_relative_to_max"] = stn_data_2_copy["estimated_monopolar_beta_psd"] / max_value_dir
+
+            # cluster values into 3 categories: <40%, 40-70% and >70%
+            stn_data_2_copy["beta_cluster"] = stn_data_2_copy["beta_relative_to_max"].apply(helpers.assign_cluster)
 
             # merge all dataframes (per session per STN)
             monopolar_results_all = pd.concat([monopolar_results_all, stn_data_2_copy])
