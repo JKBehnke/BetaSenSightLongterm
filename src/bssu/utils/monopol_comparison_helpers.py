@@ -177,6 +177,20 @@ def load_best_bssu_method(fooof_version: str):
     return best_bssu_contacts_copy
 
 
+def load_best_clinical_contacts():
+    """
+    Loading the Excel file BestClinicalStimulation.xlsx , sheet "BestContacts_one_longterm"
+    """
+    best_clinical_stimulation = loadResults.load_BestClinicalStimulation_excel()
+    best_clinical_contacts = best_clinical_stimulation["BestContacts_one_longterm"]
+
+    # add column with method name
+    best_clinical_contacts_copy = best_clinical_contacts.copy()
+    best_clinical_contacts_copy["method"] = "best_clinical_contacts"
+
+    return best_clinical_contacts_copy
+
+
 def save_result_excel(result_df: pd.DataFrame, filename: str, sheet_name: str):
     """
     Saves dataframe as Excel file
@@ -198,6 +212,23 @@ def save_result_excel(result_df: pd.DataFrame, filename: str, sheet_name: str):
         "\nwritten in: ",
         GROUP_RESULTS_PATH,
     )
+
+
+def save_result_as_pickle(filename: str, data=None):
+    """
+    Input:
+        - data: must be a pd.DataFrame() or dict
+        - filename: str, e.g."externalized_preprocessed_data"
+
+    picklefile will be written in the group_results_path:
+
+    """
+
+    group_data_path = os.path.join(GROUP_RESULTS_PATH, f"{filename}.pickle")
+    with open(group_data_path, "wb") as file:
+        pickle.dump(data, file)
+
+    print(f"{filename}.pickle", f"\nwritten in: {GROUP_RESULTS_PATH}")
 
 
 def save_fig_png_and_svg(filename: str, figure=None):
@@ -528,7 +559,9 @@ def get_sample_size_percept_methods(
     return sample_size_single_df
 
 
-def load_method_comparison_result(method_comparison: str, comparison_file: str):
+def load_method_comparison_result(
+    method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str
+):
     """
     Input:
         - method_comparison: str e.g. "euclidean_directional_JLB_directional" watch out! MUST be the correct order of the filename
@@ -537,6 +570,12 @@ def load_method_comparison_result(method_comparison: str, comparison_file: str):
             "correlation" for comparing "estimated_beta_spearman", "normalized_beta_pearson"
     """
     externalized_versions = ["externalized_ssd", "externalized_fooof"]
+    percept_methods = ["JLB_directional", "euclidean_directional", "best_bssu_contacts"]
+
+    if "best_clinical_contacts" in method_comparison:
+        clinical_ses = f"{clinical_session}_"
+    else:
+        clinical_ses = ""
 
     # check if externalized is in the method comparison
     externalized = []
@@ -548,10 +587,23 @@ def load_method_comparison_result(method_comparison: str, comparison_file: str):
         method_comparison = f"{method_comparison}_bipolar_to_lowermost"
 
     if comparison_file == "sample_size":
-        filename = f"fooof_monopol_beta_correlations_sample_size_df_{method_comparison}_v2.xlsx"
+        filename = f"fooof_monopol_beta_correlations_sample_size_df_{clinical_ses}{method_comparison}_v2"
 
     elif comparison_file == "correlation":
-        filename = f"fooof_monopol_beta_correlations_corr_ses_df_{method_comparison}_v2.xlsx"
+        filename = f"fooof_monopol_beta_correlations_corr_ses_df_{clinical_ses}{method_comparison}_v2"
+
+    # check if exactly 1 percept method is in the comparison, if yes, add percept_session at the end of the filename
+    percept_list = []
+    for m in percept_methods:
+        if m in method_comparison:
+            percept_list.append(m)
+            break
+
+    if len(percept_list) == 1:
+        filename = f"{filename}_{percept_session}.xlsx"
+
+    else:
+        filename = f"{filename}.xlsx"
 
     sheet_name = "fooof_monopol_beta_correlations"
 
@@ -563,7 +615,34 @@ def load_method_comparison_result(method_comparison: str, comparison_file: str):
     return excel_file
 
 
-def get_comparison_matrix_for_heatmap(value_to_plot: str):
+def load_comparison_result_dict(
+    method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str, rank_or_rel_above_70: str
+):
+    """
+    Input:
+        - method_comparison
+        - comparison_file: "sample_size" or "correlation"
+        - clinical_session:
+        - percept_session:
+        - rank_or_rel_above_70
+
+    """
+
+    filename = f"{comparison_file}_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{rank_or_rel_above_70}.pickle"
+    filepath = os.path.join(GROUP_RESULTS_PATH, filename)
+
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)  # data is a dictionary with method comparisons as keys
+
+    method_comparison_data = data[method_comparison]
+
+    return method_comparison_data
+
+
+def get_comparison_matrix_for_heatmap_from_dict(
+    value_to_plot: str, clinical_session: str, percept_session: str, rank_or_rel_above_70: str
+):
     """
 
     Creates a 5x5 comparison matrix of the input value
@@ -571,9 +650,8 @@ def get_comparison_matrix_for_heatmap(value_to_plot: str):
 
     Input:
         - value_to_plot: e.g. "percentage_at_least_one_same_contact_rank_1_and_2", "percentage_both_contacts_matching"
-        - comparison_file: str e.g.
-            "sample_size" for comparing "percentage_at_least_one_same_contact_rank_1_and_2" and "percentage_both_contacts_matching"
-            "correlation" for comparing "estimated_beta_spearman", "normalized_beta_pearson"
+        - clinical_session: "fu3m", "fu12m", "fu18or24m"
+        - percept_session: "fu3m", "fu12m", "fu18or24m"
 
 
     """
@@ -597,6 +675,11 @@ def get_comparison_matrix_for_heatmap(value_to_plot: str):
             "euclidean_directional_externalized_ssd",
             "best_bssu_contacts_externalized_ssd",
             "externalized_fooof_externalized_ssd",
+            "best_clinical_contacts_externalized_ssd",
+            "best_clinical_contacts_externalized_fooof",
+            "best_clinical_contacts_JLB_directional",
+            "best_clinical_contacts_euclidean_directional",
+            "best_clinical_contacts_best_bssu_contacts",
         ]
 
         list_of_methods = [
@@ -605,10 +688,11 @@ def get_comparison_matrix_for_heatmap(value_to_plot: str):
             "JLB_directional",
             "euclidean_directional",
             "best_bssu_contacts",
+            "best_clinical_contacts",
         ]
 
-        # Initialize an empty 5x5 matrix
-        comparison_matrix = np.zeros((5, 5))
+        # Initialize an empty 6x6 matrix
+        comparison_matrix = np.zeros((6, 6))
 
     elif value_to_plot in correlation_file:
         comparison_file = "correlation"
@@ -636,19 +720,23 @@ def get_comparison_matrix_for_heatmap(value_to_plot: str):
     for comp in method_comparisons:
         # load the percentage_at_least_one_same_contact_rank_1_and_2
         # from each comparison of methods
-        comparison_excel = load_method_comparison_result(method_comparison=comp, comparison_file=comparison_file)
-
-        comparison_excel = comparison_excel.loc[comparison_excel.session == "postop"]
+        comparison_df = load_comparison_result_dict(
+            method_comparison=comp,
+            comparison_file=comparison_file,
+            clinical_session=clinical_session,
+            percept_session=percept_session,
+            rank_or_rel_above_70=rank_or_rel_above_70,
+        )
 
         if comparison_file == "correlation":
-            comparison_excel = comparison_excel.loc[comparison_excel.correlation == value_to_plot]
+            comparison_df = comparison_df.loc[comparison_df.correlation == value_to_plot]
             column_name = "percentage_significant"
 
         elif comparison_file == "sample_size":
             column_name = value_to_plot
 
-        comparison_dict[comp] = comparison_excel[column_name].values[0]
-        sample_size[comp] = comparison_excel.sample_size.values[0]
+        comparison_dict[comp] = comparison_df[column_name].values[0]
+        sample_size[comp] = comparison_df.sample_size.values[0]
 
     # Populate the matrix with comparison values
     for i in range(len(list_of_methods)):

@@ -501,13 +501,16 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
 #     return results_DF_copy, sample_size_df, stn_comparison
 
 
-def percept_vs_externalized(method: str, fooof_version: str, externalized_version: str, reference=None):
+def percept_vs_externalized(
+    method: str, percept_session: str, fooof_version: str, externalized_version: str, reference=None
+):
     """
     Spearman correlation between monopolar beta power estimations between 2 methods
     only of directional contacts
 
     Input: define methods to compare
         - method: "JLB_directional", "euclidean_directional", "Strelow", "best_bssu_contacts"
+        - percept_session: "fu3m", "fu12m", "fu18or24m"
         - fooof_version: "v1", "v2"
         - externalized_version: "externalized_fooof", "externalized_ssd"
         - reference: str "bipolar_to_lowermost" or "no"
@@ -524,18 +527,18 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
     # get only postop data from method
     if method == "JLB_directional":
         method_data = helpers.load_JLB_method(fooof_version=fooof_version)
-        method_data = method_data.loc[method_data.session == "postop"]
+        method_data = method_data.loc[method_data.session == percept_session]
 
     elif method == "euclidean_directional":
         method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
-        method_data = method_data.loc[method_data.session == "postop"]
+        method_data = method_data.loc[method_data.session == percept_session]
 
     elif method == "Strelow":
         print("Strelow method only gives optimal contacts with beta ranks 1-3")
 
     elif method == "best_bssu_contacts":
         method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
-        method_data = method_data.loc[method_data.session == "postop"]
+        method_data = method_data.loc[method_data.session == percept_session]
 
     # get data from externalized LFP
     if externalized_version == "externalized_fooof":
@@ -567,7 +570,7 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
         # save as Excel
         helpers.save_result_excel(
             result_df=results_DF_copy,
-            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}",
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
@@ -575,7 +578,11 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
         count = results_DF_copy["subject_hemisphere"].count()
 
         sample_size_df = helpers.get_sample_size_percept_methods(
-            ses="postop", ses_df=results_DF_copy, method_1=method, method_2=externalized_version, rank_1_exists="yes"
+            ses="postop",
+            ses_df=results_DF_copy,
+            method_1=method,
+            method_2=externalized_version,
+            rank_1_exists="yes",
         )
 
         # correlation results per correlation test
@@ -593,6 +600,7 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
 
             corr_ses_result = {
                 "session": ["postop"],
+                "percept_session": [percept_session],
                 "method_1": [method],
                 "method_2": [externalized_version],
                 "sample_size": [count],
@@ -610,13 +618,13 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
         # save session Dataframes as Excel files
         helpers.save_result_excel(
             result_df=sample_size_df,
-            filename=f"fooof_monopol_beta_correlations_sample_size_df_{method}_{externalized_version}{reference_name}_{fooof_version}",
+            filename=f"fooof_monopol_beta_correlations_sample_size_df_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
         helpers.save_result_excel(
             result_df=corr_ses_df,
-            filename=f"fooof_monopol_beta_correlations_corr_ses_df_{method}_{externalized_version}{reference_name}_{fooof_version}",
+            filename=f"fooof_monopol_beta_correlations_corr_ses_df_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
@@ -634,7 +642,7 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
         # save as Excel
         helpers.save_result_excel(
             result_df=result_df,
-            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}",
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
             sheet_name="fooof_monopol_best_contacts",
         )
 
@@ -652,7 +660,7 @@ def percept_vs_externalized(method: str, fooof_version: str, externalized_versio
         # save session Dataframes as Excel files
         helpers.save_result_excel(
             result_df=sample_size_df,
-            filename=f"fooof_monopol_beta_correlations_sample_size_df_{method}_{externalized_version}{reference_name}_{fooof_version}",
+            filename=f"fooof_monopol_beta_correlations_sample_size_df_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
@@ -1011,9 +1019,344 @@ def externalized_versions_comparison(
     # sample_size_df = pd.DataFrame(sample_size_dict)
 
 
-def heatmap_method_comparison(value_to_plot: str):
+def methods_vs_best_clinical_contacts(
+    clinical_session: str,
+    percept_session: str,
+    method: str,
+    rank_or_rel_above_70: str,
+    fooof_version: str,
+    reference=None,
+):
     """
-    methods: "externalized_ssd", "externalized_fooof", "JLB_directional", "euclidean_directional", "best_bssu_contacts"
+    Comparing if the selected 2 best contacts of each method match with the best clinical contacts
+        - at least one of the 2 contacts is clinically used
+        - both selected contacts are clinically used
+
+    Input
+        - session_of_interest: "fu3m", "fu12m", fu18or24m"
+        - percept_session: "fu3m", "fu12m", fu18or24m"
+        - method: "externalized_ssd", "externalized_fooof", "JLB_directional", "euclidean_directional", "best_bssu_contacts"
+        - rank_or_rel_above_70: "rank" if you want to compare to ranked 1 and 2, OR "rel_above_70" if you want to compare to rel contacts above 70
+            "rank" does NOT work with best_bssu_contacts as method
+        - fooof_version: "v2"
+        - reference: "bipolar_to_lowermost"
+
+
+    """
+
+    if reference == "bipolar_to_lowermost":
+        reference_name = "_bipolar_to_lowermost"
+
+    else:
+        reference_name = ""
+
+    results_DF = pd.DataFrame()
+
+    best_clinical_contacts = helpers.load_best_clinical_contacts()
+    best_clinical_contacts_ses = best_clinical_contacts.loc[best_clinical_contacts.session == clinical_session]
+
+    # get data from the method
+    if method == "externalized_fooof":
+        method_data = helpers.load_externalized_fooof_data(fooof_version=fooof_version, reference=reference)
+
+    elif method == "externalized_ssd":
+        method_data = helpers.load_externalized_ssd_data(reference=reference)
+
+    elif method == "JLB_directional":
+        method_data = helpers.load_JLB_method(fooof_version=fooof_version)
+
+    elif method == "euclidean_directional":
+        method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+
+    elif method == "best_bssu_contacts":
+        method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+
+    # select the session of the method data
+    percept_methods = ["JLB_directional", "euclidean_directional", "best_bssu_contacts"]
+
+    if method in percept_methods:
+        method_session = percept_session
+        ses_add_filename = f"_{percept_session}"
+    else:
+        method_session = "postop"
+        ses_add_filename = ""
+
+    method_data = method_data.loc[method_data.session == method_session]
+
+    # check which subject_hemispheres are in both tables
+    stn_unique_clinical_contacts = list(best_clinical_contacts_ses.subject_hemisphere.unique())
+    stn_unique_method = list(method_data.subject_hemisphere.unique())
+
+    stn_comparison_list = list(set(stn_unique_clinical_contacts) & set(stn_unique_method))
+    stn_comparison_list.sort()
+
+    comparison_df_clinical_contacts = best_clinical_contacts_ses.loc[
+        best_clinical_contacts_ses["subject_hemisphere"].isin(stn_comparison_list)
+    ]
+    comparison_df_method = method_data.loc[method_data["subject_hemisphere"].isin(stn_comparison_list)]
+
+    comparison_df = pd.concat([comparison_df_clinical_contacts, comparison_df_method], axis=0)
+
+    # for each subject_hemisphere compare the clinically active contacts to the selected contacts with the methods
+    for sub_hem in stn_comparison_list:
+        # only run, if sub_hem STN exists in both session Dataframes
+        if sub_hem not in comparison_df.subject_hemisphere.values:
+            print(f"{sub_hem} is not in the comparison Dataframe.")
+            continue
+
+        # only take one electrode at both sessions and get spearman correlation
+        stn_comparison = comparison_df.loc[comparison_df["subject_hemisphere"] == sub_hem]
+
+        stn_clinical_contacts = stn_comparison.loc[stn_comparison.method == "best_clinical_contacts"]
+        stn_method = stn_comparison.loc[stn_comparison.method == method]
+
+        # clinical contacts
+        clinical_contact_selection = stn_clinical_contacts.CathodalContact.values[0]
+        clinical_contact_selection = str(clinical_contact_selection).split("_")  # list of clinical contacts
+        number_clinical_contacts = len(clinical_contact_selection)
+
+        # from method: get contact selection in 2 versions: beta_rank_1_and_2 OR beta relative_to_max_above_70
+        if method == "best_bssu_contacts":
+            method_rank_1_and_2 = stn_method["selected_2_contacts"].values[0]
+
+            method_rel_to_max_above_70 = "n.a."
+            number_contacts_rel_above_70 = "n.a."
+            compare_rel_above_70_contacts = "n.a."
+            common_rel_above_70_at_least_2 = "n.a."
+
+        else:
+            method_rank_1_and_2 = stn_method[stn_method["beta_rank"].isin([1.0, 2.0])]
+            if len(method_rank_1_and_2.contact.values) == 0:
+                print(f"Sub-{sub_hem} has no rank 1 or rank 2 contacts with method {method}.")
+                continue
+
+            method_rank_1_and_2 = method_rank_1_and_2["contact"].tolist()  # list of contacts ranked 1 or 2
+
+            method_rel_to_max_above_70 = stn_method[stn_method["beta_relative_to_max"] >= 0.7]
+            method_rel_to_max_above_70 = method_rel_to_max_above_70[
+                "contact"
+            ].tolist()  # list of contacts with rel. beta above 0.7
+            number_contacts_rel_above_70 = len(method_rel_to_max_above_70)
+
+            # check if at least one contact matches the clinical contacts: relative above 0.7 method
+            if set(clinical_contact_selection).intersection(set(method_rel_to_max_above_70)):
+                compare_rel_above_70_contacts = "at_least_one_contact_match"
+
+            else:
+                compare_rel_above_70_contacts = "no_contacts_match"
+
+            # check if at least 2 contacts match the clinical contacts: relative above 0.7 method
+            common_elements_rel_above_70 = set(clinical_contact_selection).intersection(set(method_rel_to_max_above_70))
+            if len(common_elements_rel_above_70) >= 2:
+                common_rel_above_70_at_least_2 = "yes"
+            else:
+                common_rel_above_70_at_least_2 = "no"
+
+        # check if at least one contact matches the clinical contacts: rank method
+        if set(clinical_contact_selection).intersection(set(method_rank_1_and_2)):
+            compare_rank_1_and_2_contacts = "at_least_one_contact_match"
+
+        else:
+            compare_rank_1_and_2_contacts = "no_contacts_match"
+
+        # check if at least 2 contacts match the clinical contacts: rank method
+        common_elements_rank_1_and_2 = set(clinical_contact_selection).intersection(set(method_rank_1_and_2))
+        if len(common_elements_rank_1_and_2) >= 2:
+            common_rank_1_and_2_at_least_2 = "yes"
+        else:
+            common_rank_1_and_2_at_least_2 = "no"
+
+        # store values in a dictionary
+        results_dict = {
+            "method_1": ["best_clinical_contacts"],
+            "method_2": [method],
+            "session": [method_session],
+            "session_clinical": [clinical_session],
+            "subject_hemisphere": [sub_hem],
+            "clinical_contact_selection": [clinical_contact_selection],
+            "number_clinical_contacts": [number_clinical_contacts],
+            "contacts_rank_1_2": [method_rank_1_and_2],
+            "contacts_rel_to_max_above_70": [method_rel_to_max_above_70],
+            "number_contacts_rel_above_70": [number_contacts_rel_above_70],
+            "compare_rank_contacts": [compare_rank_1_and_2_contacts],
+            "compare_rel_above_70_contacts": [compare_rel_above_70_contacts],
+            "both_contacts_matching_rank": [common_rank_1_and_2_at_least_2],
+            "both_contacts_matching_rel_above_70": [common_rel_above_70_at_least_2],
+        }
+        results_single_DF = pd.DataFrame(results_dict)
+        results_DF = pd.concat([results_DF, results_single_DF], ignore_index=True)
+
+    ################# sample size result #################
+    sub_hem_count = results_DF["subject_hemisphere"].count()
+
+    # count how often at least 1 contact is matching
+    at_least_1_same = results_DF.loc[
+        results_DF[f"compare_{rank_or_rel_above_70}_contacts"] == "at_least_one_contact_match"
+    ]
+    at_least_1_same = at_least_1_same["subject_hemisphere"].count()
+    percentage_at_least_1_same = at_least_1_same / sub_hem_count
+
+    # count how often at least 2 contacts are matching
+    both_contacts_matching = results_DF.loc[results_DF[f"both_contacts_matching_{rank_or_rel_above_70}"] == "yes"]
+    both_contacts_matching = both_contacts_matching["subject_hemisphere"].count()
+    percentage_both_contacts_matching = both_contacts_matching / sub_hem_count
+
+    sample_size_dict = {
+        "method_1": ["best_clinical_contacts"],
+        "method_2": [method],
+        "session": [method_session],
+        "session_clinical": [clinical_session],
+        "rank_or_rel": [rank_or_rel_above_70],
+        "sample_size": [sub_hem_count],
+        "both_contacts_matching": [both_contacts_matching],
+        "percentage_both_contacts_matching": [percentage_both_contacts_matching],
+        "at_least_1_contact_same": [at_least_1_same],
+        "percentage_at_least_one_same_contact_rank_1_and_2": [percentage_at_least_1_same],
+    }
+
+    sample_size_result = pd.DataFrame(sample_size_dict)
+
+    # save tables as Excel
+    helpers.save_result_excel(
+        result_df=results_DF,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
+
+    helpers.save_result_excel(
+        result_df=sample_size_result,
+        filename=f"fooof_monopol_beta_correlations_sample_size_df_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
+
+    return results_DF, sample_size_result
+
+
+def group_comparison_externalized_percept_clinical(
+    clinical_session: str, percept_session: str, rank_or_rel_above_70: str
+):
+    """ """
+    list_of_methods = [
+        "externalized_ssd",
+        "externalized_fooof",
+        "JLB_directional",
+        "euclidean_directional",
+        "best_bssu_contacts",
+    ]
+
+    sample_size_group = {}
+    correlation_group = {}
+
+    percept_methods = ["euclidean_directional", "JLB_directional"]
+    # externalized_methods = ["externalized_fooof", "externalized_ssd"]
+
+    # comparison of percept methods to each other
+    euclidean_directional_JLB_directional = correlation_monopol_fooof_beta_methods(
+        method_1="euclidean_directional", method_2="JLB_directional", fooof_version="v2"
+    )
+
+    sample_size_group["euclidean_directional_JLB_directional"] = euclidean_directional_JLB_directional[1]
+    correlation_group["euclidean_directional_JLB_directional"] = euclidean_directional_JLB_directional[2]
+
+    # percept methods vs. best bssu method
+    percept_vs_best_bssu = compare_method_to_best_bssu_contact_pair(fooof_version="v2")
+
+    sample_size_percept_vs_best_bssu = percept_vs_best_bssu[0]
+
+    for percept_m in percept_methods:
+        percept_vs_best_bssu_contacts = sample_size_percept_vs_best_bssu.loc[
+            sample_size_percept_vs_best_bssu.method_1 == percept_m
+        ]
+        sample_size_group[f"{percept_m}_best_bssu_contacts"] = percept_vs_best_bssu_contacts
+
+    # percept methods vs. externalized FOOOF
+    for percept_m in percept_methods:
+        percept_vs_externalized_fooof = percept_vs_externalized(
+            method=percept_m,
+            percept_session=percept_session,
+            externalized_version="externalized_fooof",
+            fooof_version="v2",
+            reference="bipolar_to_lowermost",
+        )
+
+        sample_size_group[f"{percept_m}_externalized_fooof"] = percept_vs_externalized_fooof[1]
+        correlation_group[f"{percept_m}_externalized_fooof"] = percept_vs_externalized_fooof[2]
+
+    best_bssu_contacts_externalized_fooof = percept_vs_externalized(
+        method="best_bssu_contacts",
+        percept_session=percept_session,
+        externalized_version="externalized_fooof",
+        fooof_version="v2",
+        reference="bipolar_to_lowermost",
+    )
+
+    sample_size_group["best_bssu_contacts_externalized_fooof"] = best_bssu_contacts_externalized_fooof[1]
+
+    # percept methods vs. externalized SSD
+    for percept_m in percept_methods:
+        percept_vs_externalized_ssd = percept_vs_externalized(
+            method=percept_m,
+            percept_session=percept_session,
+            externalized_version="externalized_ssd",
+            fooof_version="v2",
+            reference="bipolar_to_lowermost",
+        )
+
+        sample_size_group[f"{percept_m}_externalized_ssd"] = percept_vs_externalized_ssd[1]
+        correlation_group[f"{percept_m}_externalized_ssd"] = percept_vs_externalized_ssd[2]
+
+    best_bssu_contacts_externalized_ssd = percept_vs_externalized(
+        method="best_bssu_contacts",
+        percept_session=percept_session,
+        externalized_version="externalized_ssd",
+        fooof_version="v2",
+        reference="bipolar_to_lowermost",
+    )
+
+    sample_size_group["best_bssu_contacts_externalized_ssd"] = best_bssu_contacts_externalized_ssd[1]
+
+    # compare externalized with each other
+    externalized_fooof_externalized_ssd = externalized_versions_comparison(
+        externalized_version_1="externalized_fooof",
+        externalized_version_2="externalized_ssd",
+        fooof_version="v2",
+        reference="bipolar_to_lowermost",
+    )
+
+    sample_size_group["externalized_fooof_externalized_ssd"] = externalized_fooof_externalized_ssd[1]
+    correlation_group["externalized_fooof_externalized_ssd"] = externalized_fooof_externalized_ssd[2]
+
+    # compare all methods to clinical contacts
+    for m in list_of_methods:
+        result_m_vs_clinical = methods_vs_best_clinical_contacts(
+            clinical_session=clinical_session,
+            percept_session=percept_session,
+            method=m,
+            rank_or_rel_above_70=rank_or_rel_above_70,
+            fooof_version="v2",
+            reference="bipolar_to_lowermost",
+        )
+
+        sample_size_group[f"best_clinical_contacts_{m}"] = result_m_vs_clinical[1]
+
+    # save session Dataframes as Excel files
+    helpers.save_result_as_pickle(
+        filename=f"sample_size_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{rank_or_rel_above_70}",
+        data=sample_size_group,
+    )
+    helpers.save_result_as_pickle(
+        filename=f"correlation_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{rank_or_rel_above_70}",
+        data=correlation_group,
+    )
+
+    return {"sample_size": sample_size_group, "correlation_group": correlation_group}
+
+
+def heatmap_method_comparison(
+    value_to_plot: str, clinical_session: str, percept_session: str, rank_or_rel_above_70: str
+):
+    """
+    methods: "externalized_ssd", "externalized_fooof", "JLB_directional", "euclidean_directional", "best_bssu_contacts", "best_clinical_contacts"
 
     Input:
         - value_to_plot: str e.g.
@@ -1022,10 +1365,19 @@ def heatmap_method_comparison(value_to_plot: str):
             "estimated_beta_spearman",
             "normalized_beta_pearson"
 
+        - clinical_session
+
+        - percept_session
+
     """
 
     # load the comparison matrix for the value to plot
-    loaded_comparison_matrix = helpers.get_comparison_matrix_for_heatmap(value_to_plot=value_to_plot)
+    loaded_comparison_matrix = helpers.get_comparison_matrix_for_heatmap_from_dict(
+        value_to_plot=value_to_plot,
+        clinical_session=clinical_session,
+        percept_session=percept_session,
+        rank_or_rel_above_70=rank_or_rel_above_70,
+    )
 
     comparison_matrix = loaded_comparison_matrix["comparison_matrix"]
     comparison_dict = loaded_comparison_matrix["comparison_dict"]
@@ -1063,6 +1415,9 @@ def heatmap_method_comparison(value_to_plot: str):
         for j in range(len(list_of_methods)):
             ax.text(j, i, f"{comparison_matrix[i][j]:.2f}", ha='center', va='center', color='black', fontsize=10)
 
-    helpers.save_fig_png_and_svg(filename=f"heatmap_method_comparison_{value_to_plot}", figure=fig)
+    helpers.save_fig_png_and_svg(
+        filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}_{rank_or_rel_above_70}",
+        figure=fig,
+    )
 
     return comparison_matrix, comparison_dict, sample_size
