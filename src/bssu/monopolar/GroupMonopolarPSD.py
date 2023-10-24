@@ -811,7 +811,7 @@ def fooof_monopol_psd_spearman_betw_sessions(
         results_path,
     )
 
-    return {"results_DF": results_DF, "sample_size_df": sample_size_df, "spearman_m_df": spearman_m_df}
+    return {"results_DF": results_DF_copy, "sample_size_df": sample_size_df, "spearman_m_df": spearman_m_df}
 
 
 def mono_rank_differences(freq_band: str, normalization: str, filter_signal: str, level_or_direction: str):
