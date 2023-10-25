@@ -1169,7 +1169,9 @@ def load_pickle_group_result(filename: str, fooof_version: str):
         "best_2_contacts_from_directional_bssu",
         "fooof_group_data_percept" -> {fooof_version},
         "permutation_beta_ranks_fooof_spectra"
-        "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance"
+        "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance",
+        "fooof_detec_beta_all_directional_ranks",
+        "fooof_detec_beta_levels_and_directions_ranks"
 
 
     The pickle file: "{filename}.pickle"
@@ -1183,6 +1185,8 @@ def load_pickle_group_result(filename: str, fooof_version: str):
         "MonoRef_JLB_fooof_beta",
         "permutation_beta_ranks_fooof_spectra",
         "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance",
+        "fooof_detec_beta_all_directional_ranks",
+        "fooof_detec_beta_levels_and_directions_ranks",
     ]
 
     # find the path to the results folder

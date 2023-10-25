@@ -100,8 +100,6 @@ def MonoRef_JLB(incl_sub: str, hemisphere: str, normalization: str, incl_session
     averagedPSD_dict = {}
     percentagePSD_dict = {}
     monopolar_references = {}
-    MonoRef_JLB_result = {}
-
     ############# READ CSV FILE WITH AVERAGED PSD as Dataframe #############
     # get path to .csv file
     results_path = find_folders.get_local_path(folder="results", sub=incl_sub)
@@ -121,7 +119,7 @@ def MonoRef_JLB(incl_sub: str, hemisphere: str, normalization: str, incl_session
     # select the correct normalization
     psdAverageDataframe = psdAverageDataframe[psdAverageDataframe.absoluteOrRelativePSD == normalization]
 
-    for t, tp in enumerate(time_points):
+    for tp in time_points:
         # check if timepoint exists
 
         for f, fq in enumerate(frequency_range):
@@ -132,7 +130,7 @@ def MonoRef_JLB(incl_sub: str, hemisphere: str, normalization: str, incl_session
 
             ################### WEIGHT DIRECTION ###################
             # get all relevant averaged psd values for each direction
-            for d, dir in enumerate(direction_proxy):
+            for dir in direction_proxy:
                 # get the row that contains the the bipolar channel of interest "1A2A", "1B2B", "1C2C"
                 directionDF = session_frequency_Dataframe[
                     session_frequency_Dataframe["bipolarChannel"].str.contains(dir)
@@ -150,7 +148,7 @@ def MonoRef_JLB(incl_sub: str, hemisphere: str, normalization: str, incl_session
             sumABC = averagedPsd_A + averagedPsd_B + averagedPsd_C
 
             # calculate the percentage of each direction of the total mean beta power of all directions
-            for d, dir in enumerate(direction_proxy):
+            for dir in direction_proxy:
                 percentagePSD = averagedPSD_dict[f"averagedPSD_{tp}_{fq}_{dir}"][3] / sumABC
 
                 percentagePSD_dict[f"percentagePSD_{tp}_{fq}_{dir}"] = [tp, fq, dir, percentagePSD]
@@ -162,7 +160,7 @@ def MonoRef_JLB(incl_sub: str, hemisphere: str, normalization: str, incl_session
             ################### WEIGHT LEVEL ###################
 
             # get both relevant averaged PSD values for the levels 1 and 2
-            for l, lev in enumerate(level_proxy):
+            for lev in level_proxy:
                 # get the row that contains the the bipolar channels of interest "02", "13"
                 levelDF = session_frequency_Dataframe[session_frequency_Dataframe["bipolarChannel"].str.contains(lev)]
 
@@ -226,12 +224,12 @@ def MonoRef_JLB(incl_sub: str, hemisphere: str, normalization: str, incl_session
         ascending=False
     )  # new Dataframe ranking monopolar values from monopolRefDF from high to low
 
-    # store all Dataframes into dictionary
-    MonoRef_JLB_result["BIP_psdAverage"] = psdAverageDF
-    MonoRef_JLB_result["BIP_directionalPercentage"] = psdPercentageDF
-    MonoRef_JLB_result["monopolar_psdAverage"] = monopolRefDF
-    MonoRef_JLB_result["monopolar_psdRank"] = monopolRankDF
-
+    MonoRef_JLB_result = {
+        "BIP_psdAverage": psdAverageDF,
+        "BIP_directionalPercentage": psdPercentageDF,
+        "monopolar_psdAverage": monopolRefDF,
+        "monopolar_psdRank": monopolRankDF,
+    }
     # # save Dataframes as csv in the results folder
     # psdAverageDF.to_csv(os.path.join(results_path,f"averagedPSD_{normalization}_{hemisphere}"), sep=",")
     # psdPercentageDF.to_csv(os.path.join(results_path,f"percentagePsdDirection_{normalization}_{hemisphere}"), sep=",")
@@ -519,6 +517,7 @@ def MonoRefPsd_highestRank(sub: str, normalization: str, hemisphere: str):
 
 def fooof_monoRef_JLB(fooof_version: str):
     """
+    FIRST WEIGHT POWER SPECTRA, THEN AVERAGE BETA AFTERWARDS!
     Calculate the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C)
 
     Input:
@@ -582,30 +581,33 @@ def fooof_monoRef_JLB(fooof_version: str):
         for stn in stn_unique:
             stn_data = session_Dataframe_copy.loc[session_Dataframe_copy.subject_hemisphere == stn]
 
-            # get averaged beta power from the relevant directional channels and level channels
+            # get FOOOF power from the relevant directional channels and level channels
             ### direction ###
             beta_1A2A = stn_data.loc[stn_data.bipolar_channel == "1A2A"]
-            beta_1A2A = beta_1A2A["beta_average"].values[0]
+            beta_1A2A = beta_1A2A["fooof_power_spectrum"].values[0]
 
             beta_1B2B = stn_data.loc[stn_data.bipolar_channel == "1B2B"]
-            beta_1B2B = beta_1B2B["beta_average"].values[0]
+            beta_1B2B = beta_1B2B["fooof_power_spectrum"].values[0]
 
             beta_1C2C = stn_data.loc[stn_data.bipolar_channel == "1C2C"]
-            beta_1C2C = beta_1C2C["beta_average"].values[0]
+            beta_1C2C = beta_1C2C["fooof_power_spectrum"].values[0]
 
             # percentage of each direction
-            direction_A = beta_1A2A / (np.sum([beta_1A2A, beta_1B2B, beta_1C2C])) / 3
-            direction_B = beta_1B2B / (np.sum([beta_1A2A, beta_1B2B, beta_1C2C])) / 3
-            direction_C = beta_1C2C / (np.sum([beta_1A2A, beta_1B2B, beta_1C2C])) / 3
+            sum_directions = np.sum([beta_1A2A, beta_1B2B, beta_1C2C], axis=0)
+            sum_directions[sum_directions == 0] = np.nan  # replace 0 by NaN, so division by zero won't happen
+
+            direction_A = beta_1A2A / (sum_directions / 3)
+            direction_B = beta_1B2B / (sum_directions / 3)
+            direction_C = beta_1C2C / (sum_directions / 3)
 
             ### level ###
             level_1 = stn_data.loc[stn_data.bipolar_channel == "02"]
-            level_1 = level_1["beta_average"].values[0]
+            level_1 = level_1["fooof_power_spectrum"].values[0]
 
             level_2 = stn_data.loc[stn_data.bipolar_channel == "13"]
-            level_2 = level_2["beta_average"].values[0]
+            level_2 = level_2["fooof_power_spectrum"].values[0]
 
-            ### calculate the monopolar estimate of spectral beta power for all segmental contacts ###
+            ### calculate the monopolar estimate of spectral FOOOF power for all segmental contacts ###
             for s, segment in enumerate(segmental_contacts):
                 # get level
                 if "1" in segment:
@@ -624,26 +626,33 @@ def fooof_monoRef_JLB(fooof_version: str):
                 elif "C" in segment:
                     direction = direction_C
 
-                monopol_beta = direction * level
+                weighted_power = direction * level
 
                 # store monopolar references in a dictionary
-                monopolar_results_single[f"{ses}_{stn}_{segment}"] = [ses, stn, segment, monopol_beta]
+                monopolar_results_single[f"{ses}_{stn}_{segment}"] = [ses, stn, segment, weighted_power]
 
     #################### WRITE DATAFRAMES seperately for each STN to also rank within an STN and session ####################
 
     monopolar_dataframe = pd.DataFrame(monopolar_results_single)
     monopolar_dataframe.rename(
-        index={0: "session", 1: "subject_hemisphere", 2: "contact", 3: "estimated_monopolar_beta_psd"}, inplace=True
+        index={0: "session", 1: "subject_hemisphere", 2: "contact", 3: "weighted_fooof_power_spectrum"}, inplace=True
     )  # rename the rows
     monopolar_dataframe = monopolar_dataframe.transpose()
+
+    # average of beta band from weighted power spectrum
+    monopolar_dataframe_copy = monopolar_dataframe.copy()
+    monopolar_dataframe_copy["estimated_monopolar_beta_psd"] = monopolar_dataframe_copy["weighted_fooof_power_spectrum"]
+    monopolar_dataframe_copy["estimated_monopolar_beta_psd"] = monopolar_dataframe_copy[
+        "estimated_monopolar_beta_psd"
+    ].apply(lambda row: np.mean(row[13:36]))
 
     # rank monopolar estimates for every session and stn
     for ses in incl_sessions:
         # check if session exists
-        if ses not in monopolar_dataframe.session.values:
+        if ses not in monopolar_dataframe_copy.session.values:
             continue
 
-        session_Dataframe_2 = monopolar_dataframe[monopolar_dataframe.session == ses]
+        session_Dataframe_2 = monopolar_dataframe_copy[monopolar_dataframe_copy.session == ses]
         # copying session_Dataframe to add new columns
         stn_unique_2 = list(session_Dataframe_2.subject_hemisphere.unique())
 

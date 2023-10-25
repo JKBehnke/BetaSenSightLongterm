@@ -75,9 +75,7 @@ def band_pass_filter_percept(fs: int, signal: np.array):
     b, a = scipy.signal.butter(
         filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs
     )
-    band_pass_filtered = scipy.signal.filtfilt(b, a, signal)
-
-    return band_pass_filtered
+    return scipy.signal.filtfilt(b, a, signal)
 
 
 def high_pass_filter_percept(fs: int, signal: np.array):
@@ -96,9 +94,7 @@ def high_pass_filter_percept(fs: int, signal: np.array):
 
     # create and apply the filter
     b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low), btype='highpass', output='ba', fs=fs)
-    band_pass_filtered = scipy.signal.filtfilt(b, a, signal)
-
-    return band_pass_filtered
+    return scipy.signal.filtfilt(b, a, signal)
 
 
 def save_result_dataframe_as_pickle(data: pd.DataFrame, filename: str):
@@ -157,5 +153,5 @@ def assign_cluster(value):
     elif 0.4 < value <= 0.7:
         return 2
 
-    elif 0.7 < value:
+    else:
         return 1

@@ -177,6 +177,43 @@ def load_best_bssu_method(fooof_version: str):
     return best_bssu_contacts_copy
 
 
+def load_detec_strelow_beta_ranks(fooof_version: str, level_first_or_all_directional: str):
+    """
+    Method from Strelow et al. weighting power by distance between contact pairs
+
+    Parameters:
+        - fooof_version: The version of FOOOF to use. Currently, only "v2" is supported.
+        - level_first_or_all_directional: A string indicating whether to load the beta ranks for the "level_first" or "all_directional" approach.
+
+    Returns:
+        A pandas DataFrame containing the beta ranks from the Strelow et al. method, weighted by distance between contact pairs.
+        The DataFrame includes columns for the beta ranks and a column indicating the method name.
+
+    Notes:
+        - The function relies on the 'loadResults.load_pickle_group_result' function to load the beta ranks.
+        - The function assumes the existence of the pickle files 'fooof_detec_beta_levels_and_directions_ranks' and 'fooof_detec_beta_all_directional_ranks'.
+
+
+    """
+    if level_first_or_all_directional == "level_first":
+        detec_fooof_result = loadResults.load_pickle_group_result(
+            filename="fooof_detec_beta_levels_and_directions_ranks", fooof_version="v2"
+        )
+
+    elif level_first_or_all_directional == "all_directional":
+        detec_fooof_result = loadResults.load_pickle_group_result(
+            filename="fooof_detec_beta_all_directional_ranks", fooof_version="v2"
+        )
+
+    # add column with method name
+    detec_fooof_result_copy = detec_fooof_result.copy()
+    detec_fooof_result_copy["method"] = "detec_strelow_contacts"
+    detec_fooof_result_copy = detec_fooof_result_copy.reset_index()
+    detec_fooof_result_copy = detec_fooof_result_copy.drop(columns=["index"])
+
+    return detec_fooof_result_copy
+
+
 def load_best_clinical_contacts():
     """
     Loading the Excel file BestClinicalStimulation.xlsx , sheet "BestContacts_one_longterm"
