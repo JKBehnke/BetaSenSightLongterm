@@ -195,15 +195,18 @@ def load_detec_strelow_beta_ranks(fooof_version: str, level_first_or_all_directi
 
 
     """
-    if level_first_or_all_directional == "level_first":
+    if level_first_or_all_directional == "all_directional":
         detec_fooof_result = loadResults.load_pickle_group_result(
-            filename="fooof_detec_beta_levels_and_directions_ranks", fooof_version="v2"
+            filename="fooof_detec_beta_all_directional_ranks", fooof_version=fooof_version
         )
 
-    elif level_first_or_all_directional == "all_directional":
+    elif level_first_or_all_directional == "level_first":
         detec_fooof_result = loadResults.load_pickle_group_result(
-            filename="fooof_detec_beta_all_directional_ranks", fooof_version="v2"
+            filename="fooof_detec_beta_levels_and_directions_ranks", fooof_version=fooof_version
         )
+
+        # only keep the directional contacts of the level rank 1
+        detec_fooof_result = detec_fooof_result.loc[detec_fooof_result.level_or_direction == "direction"]
 
     # add column with method name
     detec_fooof_result_copy = detec_fooof_result.copy()
@@ -314,9 +317,7 @@ def correlation_tests_percept_methods(
     stn_unique_method_1 = list(method_1_df.subject_hemisphere.unique())
     stn_unique_method_2 = list(method_2_df.subject_hemisphere.unique())
 
-    stn_comparison_list = list(set(stn_unique_method_1) & set(stn_unique_method_2))
-    stn_comparison_list.sort()
-
+    stn_comparison_list = sorted(set(stn_unique_method_1) & set(stn_unique_method_2))
     comparison_df_method_1 = method_1_df.loc[method_1_df["subject_hemisphere"].isin(stn_comparison_list)]
     comparison_df_method_2 = method_2_df.loc[method_2_df["subject_hemisphere"].isin(stn_comparison_list)]
 
@@ -437,7 +438,6 @@ def rank_comparison_percept_methods(
     method_1: str, method_2: str, method_1_df: pd.DataFrame, method_2_df: pd.DataFrame, ses: str
 ):
     """
-    Requirement: best_bssu method must be one of the methods
 
     For each session:
     for each subject hemisphere:
@@ -450,16 +450,14 @@ def rank_comparison_percept_methods(
     comparison_result = pd.DataFrame()
 
     # find STNs with data from both methods and externalized
-    stn_unique_method = list(method_1_df.subject_hemisphere.unique())
-    stn_unique_best_bssu = list(method_2_df.subject_hemisphere.unique())
+    stn_unique_method_1 = list(method_1_df.subject_hemisphere.unique())
+    stn_unique_method_2 = list(method_2_df.subject_hemisphere.unique())
 
-    stn_comparison_list = list(set(stn_unique_method) & set(stn_unique_best_bssu))
-    stn_comparison_list.sort()
+    stn_comparison_list = sorted(set(stn_unique_method_1) & set(stn_unique_method_2))
+    comparison_df_method_1 = method_1_df.loc[method_1_df["subject_hemisphere"].isin(stn_comparison_list)]
+    comparison_df_method_2 = method_2_df.loc[method_2_df["subject_hemisphere"].isin(stn_comparison_list)]
 
-    comparison_df_method = method_1_df.loc[method_1_df["subject_hemisphere"].isin(stn_comparison_list)]
-    comparison_df_best_bssu = method_2_df.loc[method_2_df["subject_hemisphere"].isin(stn_comparison_list)]
-
-    comparison_df = pd.concat([comparison_df_method, comparison_df_best_bssu], axis=0)
+    comparison_df = pd.concat([comparison_df_method_1, comparison_df_method_2], axis=0)
 
     for sub_hem in stn_comparison_list:
         # only run, if sub_hem STN exists in both session Dataframes
@@ -470,31 +468,49 @@ def rank_comparison_percept_methods(
         # only take one electrode at both sessions and get spearman correlation
         stn_comparison = comparison_df.loc[comparison_df["subject_hemisphere"] == sub_hem]
 
-        stn_method = stn_comparison.loc[stn_comparison.method == method_1]
-        stn_best_bssu = stn_comparison.loc[stn_comparison.method == method_2]
+        stn_method_1 = stn_comparison.loc[stn_comparison.method == method_1]
+        stn_method_2 = stn_comparison.loc[stn_comparison.method == method_2]
 
-        # contacts with beta rank 1 and 2
-        # method:
-        rank1_method = stn_method.loc[stn_method.beta_rank == 1.0]
-        rank1_method = rank1_method.contact.values[0]
+        ######### METHOD 1 RANK CONTACTS 1 AND 2 #########
+        if method_1 == "best_bssu_contacts":
+            rank1_method_1 = "none"
+            rank2_method_1 = "none"
+            rank_1_and_2_method_1 = stn_method_1.selected_2_contacts.values[0]
 
-        rank2_method = stn_method.loc[stn_method.beta_rank == 2.0]
-        rank2_method = rank2_method.contact.values[0]
+        else:
+            # contacts with beta rank 1 and 2
+            rank1_method_1 = stn_method_1.loc[stn_method_1.beta_rank == 1.0]
+            rank1_method_1 = rank1_method_1.contact.values[0]
 
-        rank_1_and_2_method = [rank1_method, rank2_method]
+            rank2_method_1 = stn_method_1.loc[stn_method_1.beta_rank == 2.0]
+            rank2_method_1 = rank2_method_1.contact.values[0]
 
-        # best BSSU contact pair:
-        best_contact_pair = stn_best_bssu.selected_2_contacts.values[0]
+            rank_1_and_2_method_1 = [rank1_method_1, rank2_method_1]
+
+        if method_2 == "best_bssu_contacts":
+            rank1_method_2 = "none"
+            rank2_method_2 = "none"
+            rank_1_and_2_method_2 = stn_method_2.selected_2_contacts.values[0]
+
+        else:
+            # contacts with beta rank 1 and 2
+            rank1_method_2 = stn_method_2.loc[stn_method_2.beta_rank == 1.0]
+            rank1_method_2 = rank1_method_2.contact.values[0]
+
+            rank2_method_2 = stn_method_2.loc[stn_method_2.beta_rank == 2.0]
+            rank2_method_2 = rank2_method_2.contact.values[0]
+
+            rank_1_and_2_method_2 = [rank1_method_2, rank2_method_2]
 
         # yes if 2 contacts with rank 1 or 2 are the same (independent of which one is rank 1 or 2)
-        if set(rank_1_and_2_method) == set(best_contact_pair):
+        if set(rank_1_and_2_method_1) == set(rank_1_and_2_method_2):
             both_contacts_matching = "yes"
 
         else:
             both_contacts_matching = "no"
 
         # check if at least one contact selected as beta rank 1 or 2 match for both methods
-        if set(rank_1_and_2_method).intersection(set(best_contact_pair)):
+        if set(rank_1_and_2_method_1).intersection(set(rank_1_and_2_method_2)):
             at_least_1_contact_matching = "at_least_one_contact_match"
 
         else:
@@ -502,14 +518,17 @@ def rank_comparison_percept_methods(
 
         # store values in a dictionary
         comparison_result_dict = {
-            "method": [method_1],
-            "best_bssu_contacts": [method_2],
+            "method_1": [method_1],
+            "method_2": [method_2],
             "session": [ses],
             "subject_hemisphere": [sub_hem],
-            "contact_rank_1_method": [rank1_method],
-            "contact_rank_2_method": [rank2_method],
-            "rank_1_and_2_method": [rank_1_and_2_method],
-            "bssu_best_contact_pair": [best_contact_pair],
+            "contact_rank_1_method_1": [rank1_method_1],
+            "contact_rank_2_method_1": [rank2_method_1],
+            "rank_1_and_2_method_1": [rank_1_and_2_method_1],
+            "contact_rank_1_method_2": [rank1_method_2],
+            "contact_rank_2_method_2": [rank2_method_2],
+            "rank_1_and_2_method_2": [rank_1_and_2_method_2],
+            # "bssu_best_contact_pair": [best_contact_pair],
             "both_contacts_matching": [both_contacts_matching],
             "at_least_1_contact_matching": [at_least_1_contact_matching],
         }
@@ -596,66 +615,179 @@ def get_sample_size_percept_methods(
     return sample_size_single_df
 
 
-def load_method_comparison_result(
-    method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str
+def load_comparison_result_DF(
+    method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str, fooof_version: str
 ):
     """
     Input:
-        - method_comparison: str e.g. "euclidean_directional_JLB_directional" watch out! MUST be the correct order of the filename
-        - comparison_file: str e.g.
-            "sample_size" for comparing "percentage_at_least_one_same_contact_rank_1_and_2" and "percentage_both_contacts_matching"
-            "correlation" for comparing "estimated_beta_spearman", "normalized_beta_pearson"
+        - method_comparison
+        - comparison_file: "rank" or "correlation"
+        - clinical_session:
+        - percept_session:
+
     """
-    externalized_versions = ["externalized_ssd", "externalized_fooof"]
-    percept_methods = ["JLB_directional", "euclidean_directional", "best_bssu_contacts"]
 
-    if "best_clinical_contacts" in method_comparison:
-        clinical_ses = f"{clinical_session}_"
-    else:
-        clinical_ses = ""
-
-    # check if externalized is in the method comparison
-    externalized = []
-    for substr in externalized_versions:
-        if substr in method_comparison:
-            externalized.append(substr)
-
-    if len(externalized) != 0:
-        method_comparison = f"{method_comparison}_bipolar_to_lowermost"
-
-    if comparison_file == "sample_size":
-        filename = f"fooof_monopol_beta_correlations_sample_size_df_{clinical_ses}{method_comparison}_v2"
+    if comparison_file == "rank":
+        filename = f"{comparison_file}_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{fooof_version}.pickle"
 
     elif comparison_file == "correlation":
-        filename = f"fooof_monopol_beta_correlations_corr_ses_df_{clinical_ses}{method_comparison}_v2"
-
-    # check if exactly 1 percept method is in the comparison, if yes, add percept_session at the end of the filename
-    percept_list = []
-    for m in percept_methods:
-        if m in method_comparison:
-            percept_list.append(m)
-            break
-
-    if len(percept_list) == 1:
-        filename = f"{filename}_{percept_session}.xlsx"
-
-    else:
-        filename = f"{filename}.xlsx"
-
-    sheet_name = "fooof_monopol_beta_correlations"
+        filename = (
+            f"{comparison_file}_group_comparison_all_externalized_percept_{percept_session}_{fooof_version}.pickle"
+        )
 
     filepath = os.path.join(GROUP_RESULTS_PATH, filename)
 
-    # read the excel file
-    excel_file = pd.read_excel(filepath, sheet_name=sheet_name)
+    # load the pickle file
+    with open(filepath, "rb") as file:
+        data = pickle.load(file)  # data is a Dataframe with method_comparison as column "method_comparison"
 
-    return excel_file
+    data = data.loc[data.method_comparison == method_comparison]
+
+    return data
+
+
+def get_comparison_matrix_for_heatmap_from_DF(
+    value_to_plot: str, clinical_session: str, percept_session: str, rank_or_correlation: str, fooof_version: str
+):
+    """
+
+    Creates a 5x5 comparison matrix of the input value
+    value_to_plot must be a column name in the Excel sample size file loaded with load_sample_size_result()
+
+    Input:
+        - value_to_plot: e.g. "percentage_at_least_one_same_contact_rank_1_and_2", "percentage_both_contacts_matching"
+        - clinical_session: "fu3m", "fu12m", "fu18or24m"
+        - percept_session: "postop", "fu3m", "fu12m", "fu18or24m"
+        - rank_or_rel_above_70: "rank", "correlation"
+
+
+    """
+    comparison_dict = {}
+    sample_size = {}
+
+    rank_comparison = ["percentage_at_least_one_same_contact_rank_1_and_2", "percentage_both_contacts_matching"]
+    correlation_comparison = ["estimated_beta_spearman", "normalized_beta_pearson"]
+
+    if rank_or_correlation == "rank":
+        method_comparisons = [
+            "euclidean_directional_JLB_directional",
+            "euclidean_directional_best_bssu_contacts",
+            "euclidean_directional_detec_strelow_contacts",
+            "JLB_directional_best_bssu_contacts",
+            "JLB_directional_detec_strelow_contacts",
+            "detec_strelow_contacts_best_bssu_contacts",
+            "externalized_fooof_detec_strelow_contacts",
+            "externalized_ssd_detec_strelow_contacts",
+            "JLB_directional_externalized_fooof",
+            "JLB_directional_externalized_ssd",
+            "euclidean_directional_externalized_fooof",
+            "euclidean_directional_externalized_ssd",
+            "externalized_fooof_best_bssu_contacts",
+            "externalized_ssd_best_bssu_contacts",
+            "externalized_fooof_externalized_ssd",
+            "best_clinical_contacts_externalized_ssd",
+            "best_clinical_contacts_externalized_fooof",
+            "best_clinical_contacts_JLB_directional",
+            "best_clinical_contacts_euclidean_directional",
+            "best_clinical_contacts_best_bssu_contacts",
+            "best_clinical_contacts_detec_strelow_contacts",
+        ]
+
+        list_of_methods = [
+            "externalized_ssd",
+            "externalized_fooof",
+            "JLB_directional",
+            "euclidean_directional",
+            "best_bssu_contacts",
+            "detec_strelow_contacts",
+            "best_clinical_contacts",
+        ]
+
+        # Initialize an empty 7x7 matrix
+        comparison_matrix = np.zeros((7, 7))
+
+    elif rank_or_correlation == "correlation":
+        method_comparisons = [
+            "euclidean_directional_JLB_directional",
+            "euclidean_directional_detec_strelow_contacts",
+            "JLB_directional_detec_strelow_contacts",
+            "detec_strelow_contacts_externalized_fooof",
+            "detec_strelow_contacts_externalized_ssd",
+            "JLB_directional_externalized_fooof",
+            "JLB_directional_externalized_ssd",
+            "euclidean_directional_externalized_fooof",
+            "euclidean_directional_externalized_ssd",
+            "externalized_fooof_externalized_ssd",
+        ]
+
+        list_of_methods = [
+            "externalized_ssd",
+            "externalized_fooof",
+            "JLB_directional",
+            "euclidean_directional",
+            "detec_strelow_contacts",
+        ]
+
+        # Initialize an empty 5x5 matrix
+        comparison_matrix = np.zeros((5, 5))
+
+    # create dictionary with method comparisons as keys and the percentage of at least 1 same rank 1 or 2 contact as value
+    for comp in method_comparisons:
+        # load the percentage_at_least_one_same_contact_rank_1_and_2
+        # from each comparison of methods
+        comparison_df = load_comparison_result_DF(
+            method_comparison=comp,
+            comparison_file=rank_or_correlation,
+            clinical_session=clinical_session,
+            percept_session=percept_session,
+            fooof_version=fooof_version,
+        )
+
+        # for correlation first select the rows with relevant values
+        if rank_or_correlation == "correlation":
+            comparison_df = comparison_df.loc[
+                comparison_df.correlation == value_to_plot
+            ]  # only row with specific correlation: spearman or pearson
+            comparison_dict[comp] = comparison_df["percentage_significant"].values[0]
+
+        elif rank_or_correlation == "rank":
+            comparison_dict[comp] = comparison_df[value_to_plot].values[0]
+
+        sample_size[comp] = comparison_df.sample_size.values[0]
+
+    # Populate the matrix with comparison values
+    for i in range(len(list_of_methods)):
+        for j in range(i, len(list_of_methods)):
+            if i == j:
+                # Diagonal elements should be 1 since it's the comparison with itself
+                comparison_matrix[i, j] = 1.0
+            else:
+                method1 = list_of_methods[i]
+                method2 = list_of_methods[j]
+                # Set both directions in the matrix
+                key1 = f"{method1}_{method2}"
+                key2 = f"{method2}_{method1}"
+                if key1 in comparison_dict:
+                    comparison_matrix[i, j] = comparison_dict[key1]
+                    comparison_matrix[j, i] = comparison_dict[key1]
+                elif key2 in comparison_dict:
+                    comparison_matrix[i, j] = comparison_dict[key2]
+                    comparison_matrix[j, i] = comparison_dict[key2]
+
+    # Now, comparison_matrix contains the nicely structured comparison values
+    return {
+        "comparison_matrix": comparison_matrix,
+        "comparison_dict": comparison_dict,
+        "sample_size": sample_size,
+        "list_of_methods": list_of_methods,
+    }
 
 
 def load_comparison_result_dict(
     method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str, rank_or_rel_above_70: str
 ):
     """
+    #### correlation should work here #####
     Input:
         - method_comparison
         - comparison_file: "sample_size" or "correlation"
@@ -672,9 +804,7 @@ def load_comparison_result_dict(
     with open(filepath, "rb") as file:
         data = pickle.load(file)  # data is a dictionary with method comparisons as keys
 
-    method_comparison_data = data[method_comparison]
-
-    return method_comparison_data
+    return data[method_comparison]
 
 
 def get_comparison_matrix_for_heatmap_from_dict(
@@ -757,12 +887,11 @@ def get_comparison_matrix_for_heatmap_from_dict(
     for comp in method_comparisons:
         # load the percentage_at_least_one_same_contact_rank_1_and_2
         # from each comparison of methods
-        comparison_df = load_comparison_result_dict(
+        comparison_df = load_comparison_result_DF(
             method_comparison=comp,
-            comparison_file=comparison_file,
+            comparison_file=rank_or_rel_above_70,
             clinical_session=clinical_session,
             percept_session=percept_session,
-            rank_or_rel_above_70=rank_or_rel_above_70,
         )
 
         if comparison_file == "correlation":
@@ -778,12 +907,12 @@ def get_comparison_matrix_for_heatmap_from_dict(
     # Populate the matrix with comparison values
     for i in range(len(list_of_methods)):
         for j in range(i, len(list_of_methods)):
-            method1 = list_of_methods[i]
-            method2 = list_of_methods[j]
             if i == j:
                 # Diagonal elements should be 1 since it's the comparison with itself
                 comparison_matrix[i, j] = 1.0
             else:
+                method1 = list_of_methods[i]
+                method2 = list_of_methods[j]
                 # Set both directions in the matrix
                 key1 = f"{method1}_{method2}"
                 key2 = f"{method2}_{method1}"
@@ -801,3 +930,51 @@ def get_comparison_matrix_for_heatmap_from_dict(
         "sample_size": sample_size,
         "list_of_methods": list_of_methods,
     }
+
+
+def load_method_comparison_result(
+    method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str
+):
+    """
+    Input:
+        - method_comparison: str e.g. "euclidean_directional_JLB_directional" watch out! MUST be the correct order of the filename
+        - comparison_file: str e.g.
+            "sample_size" for comparing "percentage_at_least_one_same_contact_rank_1_and_2" and "percentage_both_contacts_matching"
+            "correlation" for comparing "estimated_beta_spearman", "normalized_beta_pearson"
+    """
+    externalized_versions = ["externalized_ssd", "externalized_fooof"]
+    percept_methods = ["JLB_directional", "euclidean_directional", "best_bssu_contacts"]
+
+    if "best_clinical_contacts" in method_comparison:
+        clinical_ses = f"{clinical_session}_"
+    else:
+        clinical_ses = ""
+
+    externalized = [substr for substr in externalized_versions if substr in method_comparison]
+    if externalized:
+        method_comparison = f"{method_comparison}_bipolar_to_lowermost"
+
+    if comparison_file == "correlation":
+        filename = f"fooof_monopol_beta_correlations_corr_ses_df_{clinical_ses}{method_comparison}_v2"
+
+    elif comparison_file == "sample_size":
+        filename = f"fooof_monopol_beta_correlations_sample_size_df_{clinical_ses}{method_comparison}_v2"
+
+    # check if exactly 1 percept method is in the comparison, if yes, add percept_session at the end of the filename
+    percept_list = []
+    for m in percept_methods:
+        if m in method_comparison:
+            percept_list.append(m)
+            break
+
+    if len(percept_list) == 1:
+        filename = f"{filename}_{percept_session}.xlsx"
+
+    else:
+        filename = f"{filename}.xlsx"
+
+    sheet_name = "fooof_monopol_beta_correlations"
+
+    filepath = os.path.join(GROUP_RESULTS_PATH, filename)
+
+    return pd.read_excel(filepath, sheet_name=sheet_name)

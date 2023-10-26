@@ -165,10 +165,12 @@ def fooof_detec_weight_power(fooof_version: str):
 
     # calculate beta average from weighted fooof power spectra
     weighted_group_results_copy = weighted_group_results.copy()
-    weighted_group_results_copy["beta_average"] = weighted_group_results_copy["weighted_fooof_power_spectrum"]
-    weighted_group_results_copy["beta_average"] = weighted_group_results_copy["beta_average"].apply(
-        lambda row: np.mean(row[13:36])
-    )
+    weighted_group_results_copy["estimated_monopolar_beta_psd"] = weighted_group_results_copy[
+        "weighted_fooof_power_spectrum"
+    ]
+    weighted_group_results_copy["estimated_monopolar_beta_psd"] = weighted_group_results_copy[
+        "estimated_monopolar_beta_psd"
+    ].apply(lambda row: np.mean(row[13:36]))
 
     return weighted_group_results_copy
 
@@ -196,10 +198,24 @@ def detec_rank_level_and_direction(fooof_version: str):
         for stn in stn_unique:
             stn_data = session_Dataframe.loc[session_Dataframe.subject_hemisphere == stn]
 
+            ################# weighted power #################
             # rank beta average of 6 directional contacts
             all_directional_data = stn_data[stn_data["contact"].isin(DIRECTIONAL_CONTACTS)]
             all_directional_data_copy = all_directional_data.copy()
-            all_directional_data_copy["beta_rank"] = all_directional_data_copy["beta_average"].rank(ascending=False)
+            all_directional_data_copy["beta_rank"] = all_directional_data_copy["estimated_monopolar_beta_psd"].rank(
+                ascending=False
+            )
+
+            # normalize to maximal beta
+            max_value_dir = all_directional_data_copy["estimated_monopolar_beta_psd"].max()
+            all_directional_data_copy["beta_relative_to_max"] = (
+                all_directional_data_copy["estimated_monopolar_beta_psd"] / max_value_dir
+            )
+
+            # cluster values into 3 categories: <40%, 40-70% and >70%
+            all_directional_data_copy["beta_cluster"] = all_directional_data_copy["beta_relative_to_max"].apply(
+                helpers.assign_cluster
+            )
 
             # save
             beta_all_directional_ranks = pd.concat(
@@ -207,10 +223,11 @@ def detec_rank_level_and_direction(fooof_version: str):
                 ignore_index=True,
             )
 
+            ################# strategy 1st rank level, 2nd rank directions #################
             # 1st step: rank levels
             level_data = stn_data[stn_data["contact"].isin(LEVELS)]
             level_data_copy = level_data.copy()
-            level_data_copy["beta_rank"] = level_data_copy["beta_average"].rank(ascending=False)
+            level_data_copy["beta_rank"] = level_data_copy["estimated_monopolar_beta_psd"].rank(ascending=False)
             level_data_copy["level_or_direction"] = "level"
 
             level_rank_1 = level_data_copy.loc[level_data_copy["beta_rank"] == 1.0]
@@ -220,7 +237,7 @@ def detec_rank_level_and_direction(fooof_version: str):
             direction_contacts_level_rank_1 = [f"{level_rank_1}A", f"{level_rank_1}B", f"{level_rank_1}C"]
             direction_data = stn_data[stn_data["contact"].isin(direction_contacts_level_rank_1)]
             direction_data_copy = direction_data.copy()
-            direction_data_copy["beta_rank"] = direction_data_copy["beta_average"].rank(ascending=False)
+            direction_data_copy["beta_rank"] = direction_data_copy["estimated_monopolar_beta_psd"].rank(ascending=False)
             direction_data_copy["level_or_direction"] = "direction"
 
             # save to group dataframe
