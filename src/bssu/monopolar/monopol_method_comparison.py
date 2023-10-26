@@ -1049,7 +1049,8 @@ def heatmap_method_comparison(
             "percentage_at_least_one_same_contact_rank_1_and_2" must be a column in the sample size result Excel file
             "percentage_both_contacts_matching"
             "estimated_beta_spearman",
-            "normalized_beta_pearson"
+            "normalized_beta_pearson",
+            "cluster_beta_spearman"
 
         - clinical_session
 
@@ -1071,6 +1072,7 @@ def heatmap_method_comparison(
     comparison_matrix = loaded_comparison_matrix["comparison_matrix"]
     comparison_dict = loaded_comparison_matrix["comparison_dict"]
     sample_size = loaded_comparison_matrix["sample_size"]
+    sample_size_matrix = loaded_comparison_matrix["sample_size_matrix"]
     list_of_methods = loaded_comparison_matrix["list_of_methods"]
 
     # Create a heatmap
@@ -1100,9 +1102,16 @@ def heatmap_method_comparison(
     ax.set_title(title_str[value_to_plot])
 
     # Add the values to the heatmap cells
+    # for i in range(len(list_of_methods)):
+    #     for j in range(len(list_of_methods)):
+    #         ax.text(j, i, f"{comparison_matrix[i][j]:.2f}", ha='center', va='center', color='black', fontsize=10)
+
     for i in range(len(list_of_methods)):
         for j in range(len(list_of_methods)):
-            ax.text(j, i, f"{comparison_matrix[i][j]:.2f}", ha='center', va='center', color='black', fontsize=10)
+            value = f"{comparison_matrix[i][j]:.2f}"
+            sample_size_value = f"n={int(sample_size_matrix[i][j])}"
+            text_for_cell = f"{value}\n{sample_size_value}"
+            ax.text(j, i, text_for_cell, ha='center', va='center', color='black', fontsize=10)
 
     helpers.save_fig_png_and_svg(
         filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}_{rank_or_correlation}_{fooof_version}",

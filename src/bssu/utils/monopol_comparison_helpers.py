@@ -662,6 +662,25 @@ def get_comparison_matrix_for_heatmap_from_DF(
 
 
     """
+
+    def populate_matrix(matrix, dict, list_of_methods):
+        for i in range(len(list_of_methods)):
+            for j in range(i, len(list_of_methods)):
+                if i == j:
+                    matrix[i, j] = 1.0
+                else:
+                    method1 = list_of_methods[i]
+                    method2 = list_of_methods[j]
+                    key1 = f"{method1}_{method2}"
+                    key2 = f"{method2}_{method1}"
+                    if key1 in dict:
+                        matrix[i, j] = dict[key1]
+                        matrix[j, i] = dict[key1]
+                    elif key2 in dict:
+                        matrix[i, j] = dict[key2]
+                        matrix[j, i] = dict[key2]
+        return matrix
+
     comparison_dict = {}
     sample_size = {}
 
@@ -705,6 +724,7 @@ def get_comparison_matrix_for_heatmap_from_DF(
 
         # Initialize an empty 7x7 matrix
         comparison_matrix = np.zeros((7, 7))
+        sample_size_matrix = np.zeros((7, 7))
 
     elif rank_or_correlation == "correlation":
         method_comparisons = [
@@ -730,6 +750,7 @@ def get_comparison_matrix_for_heatmap_from_DF(
 
         # Initialize an empty 5x5 matrix
         comparison_matrix = np.zeros((5, 5))
+        sample_size_matrix = np.zeros((5, 5))
 
     # create dictionary with method comparisons as keys and the percentage of at least 1 same rank 1 or 2 contact as value
     for comp in method_comparisons:
@@ -756,23 +777,8 @@ def get_comparison_matrix_for_heatmap_from_DF(
         sample_size[comp] = comparison_df.sample_size.values[0]
 
     # Populate the matrix with comparison values
-    for i in range(len(list_of_methods)):
-        for j in range(i, len(list_of_methods)):
-            if i == j:
-                # Diagonal elements should be 1 since it's the comparison with itself
-                comparison_matrix[i, j] = 1.0
-            else:
-                method1 = list_of_methods[i]
-                method2 = list_of_methods[j]
-                # Set both directions in the matrix
-                key1 = f"{method1}_{method2}"
-                key2 = f"{method2}_{method1}"
-                if key1 in comparison_dict:
-                    comparison_matrix[i, j] = comparison_dict[key1]
-                    comparison_matrix[j, i] = comparison_dict[key1]
-                elif key2 in comparison_dict:
-                    comparison_matrix[i, j] = comparison_dict[key2]
-                    comparison_matrix[j, i] = comparison_dict[key2]
+    comparison_matrix = populate_matrix(comparison_matrix, comparison_dict, list_of_methods)
+    sample_size_matrix = populate_matrix(sample_size_matrix, sample_size, list_of_methods)
 
     # Now, comparison_matrix contains the nicely structured comparison values
     return {
@@ -780,6 +786,7 @@ def get_comparison_matrix_for_heatmap_from_DF(
         "comparison_dict": comparison_dict,
         "sample_size": sample_size,
         "list_of_methods": list_of_methods,
+        "sample_size_matrix": sample_size_matrix,
     }
 
 
@@ -822,6 +829,7 @@ def get_comparison_matrix_for_heatmap_from_dict(
 
 
     """
+
     comparison_dict = {}
     sample_size = {}
 
@@ -860,6 +868,7 @@ def get_comparison_matrix_for_heatmap_from_dict(
 
         # Initialize an empty 6x6 matrix
         comparison_matrix = np.zeros((6, 6))
+        sample_size_matrix = np.zeros((6, 6))
 
     elif value_to_plot in correlation_file:
         comparison_file = "correlation"
@@ -882,6 +891,7 @@ def get_comparison_matrix_for_heatmap_from_dict(
 
         # Initialize an empty 4x4 matrix
         comparison_matrix = np.zeros((4, 4))
+        sample_size_matrix = np.zeros((4, 4))
 
     # create dictionary with method comparisons as keys and the percentage of at least 1 same rank 1 or 2 contact as value
     for comp in method_comparisons:
@@ -923,12 +933,31 @@ def get_comparison_matrix_for_heatmap_from_dict(
                     comparison_matrix[i, j] = comparison_dict[key2]
                     comparison_matrix[j, i] = comparison_dict[key2]
 
+    for i in range(len(list_of_methods)):
+        for j in range(i, len(list_of_methods)):
+            if i == j:
+                # Diagonal elements should be 1 since it's the comparison with itself
+                sample_size_matrix[i, j] = 1.0
+            else:
+                method1 = list_of_methods[i]
+                method2 = list_of_methods[j]
+                # Set both directions in the matrix
+                key1 = f"{method1}_{method2}"
+                key2 = f"{method2}_{method1}"
+                if key1 in comparison_dict:
+                    comparison_matrix[i, j] = sample_size[key1]
+                    comparison_matrix[j, i] = sample_size[key1]
+                elif key2 in comparison_dict:
+                    comparison_matrix[i, j] = sample_size[key2]
+                    comparison_matrix[j, i] = sample_size[key2]
+
     # Now, comparison_matrix contains the nicely structured comparison values
     return {
         "comparison_matrix": comparison_matrix,
         "comparison_dict": comparison_dict,
         "sample_size": sample_size,
         "list_of_methods": list_of_methods,
+        "sample_size_matrix": sample_size_matrix,
     }
 
 
