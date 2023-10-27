@@ -14,6 +14,7 @@ import pickle
 # local Imports
 from ..utils import find_folders as findfolders
 from ..utils import loadResults as loadResults
+from ..utils import percept_helpers as helpers
 
 
 def group_monopolarPSDaverageAndRanks(
@@ -780,35 +781,16 @@ def fooof_monopol_psd_spearman_betw_sessions(
         file_add = "all_contacts"
 
     fig.tight_layout()
-    fig.savefig(
-        os.path.join(
-            figures_path,
-            f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap_{fooof_version}.png",
-        ),
-        bbox_inches="tight",
-    )
-    fig.savefig(
-        os.path.join(
-            figures_path,
-            f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap_{fooof_version}.svg",
-        ),
-        bbox_inches="tight",
-        format="svg",
+    helpers.save_fig_png_and_svg(
+        path=figures_path,
+        figure=fig,
+        filename=f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap_{fooof_version}",
     )
 
     # save DF as pickle file
-    spearman_m_df_filepath = os.path.join(
-        results_path,
-        f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap_{fooof_version}.pickle",
-    )
-    with open(spearman_m_df_filepath, "wb") as file:
-        pickle.dump(spearman_m_df, file)
-
-    print(
-        "file: ",
-        f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap_{fooof_version}.pickle",
-        "\nwritten in: ",
-        results_path,
+    helpers.save_result_dataframe_as_pickle(
+        data=spearman_m_df,
+        filename=f"fooof_monopol_{similarity_calculation}_beta_correlations_{mean_or_median}_{file_add}_heatmap_{fooof_version}",
     )
 
     return {"results_DF": results_DF_copy, "sample_size_df": sample_size_df, "spearman_m_df": spearman_m_df}

@@ -917,14 +917,16 @@ def group_rank_comparison_externalized_percept_clinical(
             rank_comparison_group[f"{percept_m}_{ext_m}"] = percept_vs_externalized_fooof["rank"]
 
     # compare externalized with each other
-    externalized_fooof_externalized_ssd = externalized_versions_comparison(
-        externalized_version_1="externalized_fooof",
-        externalized_version_2="externalized_ssd",
-        fooof_version="v2",
-        reference="bipolar_to_lowermost",
-    )
+    for ext_1 in externalized_methods:
+        for ext_2 in externalized_methods:
+            ext_1_vs_ext_2 = externalized_versions_comparison(
+                externalized_version_1=ext_1,
+                externalized_version_2=ext_2,
+                fooof_version="v2",
+                reference="bipolar_to_lowermost",
+            )
 
-    rank_comparison_group["externalized_fooof_externalized_ssd"] = externalized_fooof_externalized_ssd["rank"]
+            rank_comparison_group[f"{ext_1}_{ext_2}"] = ext_1_vs_ext_2["rank"]
 
     # compare all methods to clinical contacts
     for m in list_of_methods:
@@ -1006,16 +1008,17 @@ def group_correlation_comparison_externalized_percept_clinical(
             correlation_comparison_group[f"{percept_m}_{ext_m}"] = percept_vs_externalized_fooof["correlation"]
 
     # compare externalized with each other
-    externalized_fooof_externalized_ssd = externalized_versions_comparison(
-        externalized_version_1="externalized_fooof",
-        externalized_version_2="externalized_ssd",
-        fooof_version="v2",
-        reference="bipolar_to_lowermost",
-    )
+    # compare externalized with each other
+    for ext_1 in externalized_methods:
+        for ext_2 in externalized_methods:
+            ext_1_vs_ext_2 = externalized_versions_comparison(
+                externalized_version_1=ext_1,
+                externalized_version_2=ext_2,
+                fooof_version="v2",
+                reference="bipolar_to_lowermost",
+            )
 
-    correlation_comparison_group["externalized_fooof_externalized_ssd"] = externalized_fooof_externalized_ssd[
-        "correlation"
-    ]
+            correlation_comparison_group[f"{ext_1}_{ext_2}"] = ext_1_vs_ext_2["correlation"]
 
     correlation_comparison_group = pd.concat(correlation_comparison_group.values(), ignore_index=True)
     correlation_comparison_group = correlation_comparison_group.copy()
