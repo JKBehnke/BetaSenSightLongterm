@@ -88,11 +88,11 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
         results_DF_copy[f"significant_{corr}"] = ["yes" if cond else "no" for cond in significant_correlation]
 
     # save as Excel
-    # helpers.save_result_excel(
-    #     result_df=results_DF_copy,
-    #     filename=f"fooof_monopol_beta_correlations_per_stn_{method_1}_{method_2}_{fooof_version}",
-    #     sheet_name="fooof_monopol_beta_correlations",
-    # )
+    helpers.save_result_excel(
+        result_df=results_DF_copy,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{method_1}_{method_2}_{fooof_version}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
 
     # get sample size
     for ses in incl_sessions:
@@ -295,12 +295,12 @@ def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version:
 
         comparison_result = pd.concat([comparison_result, ses_result_df], ignore_index=True)
 
-    # # save as Excel
-    # helpers.save_result_excel(
-    #     result_df=comparison_result,
-    #     filename=f"fooof_monopol_best_contacts_per_stn_{method_1}_{method_2}_{fooof_version}",
-    #     sheet_name="fooof_monopol_best_contacts",
-    # )
+    # save as Excel
+    helpers.save_result_excel(
+        result_df=comparison_result,
+        filename=f"fooof_monopol_best_contacts_per_stn_{method_1}_{method_2}_{fooof_version}",
+        sheet_name="fooof_monopol_best_contacts",
+    )
 
     results_DF_copy = comparison_result.copy()
 
@@ -412,12 +412,12 @@ def percept_vs_externalized(
             significant_correlation = results_DF_copy[f"{corr}_pval"] < 0.05
             results_DF_copy[f"significant_{corr}"] = ["yes" if cond else "no" for cond in significant_correlation]
 
-        # # save as Excel
-        # helpers.save_result_excel(
-        #     result_df=results_DF_copy,
-        #     filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
-        #     sheet_name="fooof_monopol_beta_correlations",
-        # )
+        # save as Excel
+        helpers.save_result_excel(
+            result_df=results_DF_copy,
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
+            sheet_name="fooof_monopol_beta_correlations",
+        )
 
         # get sample size
         count = results_DF_copy["subject_hemisphere"].count()
@@ -484,12 +484,12 @@ def percept_vs_externalized(
             ses="postop",
         )
 
-        # # save as Excel
-        # helpers.save_result_excel(
-        #     result_df=result_df,
-        #     filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
-        #     sheet_name="fooof_monopol_best_contacts",
-        # )
+        # save as Excel
+        helpers.save_result_excel(
+            result_df=result_df,
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
+            sheet_name="fooof_monopol_best_contacts",
+        )
 
         results_DF_copy = result_df.copy()
 
@@ -576,11 +576,11 @@ def externalized_versions_comparison(
         results_DF_copy[f"significant_{corr}"] = ["yes" if cond else "no" for cond in significant_correlation]
 
     # save as Excel
-    # helpers.save_result_excel(
-    #     result_df=results_DF_copy,
-    #     filename=f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}_{fooof_version}",
-    #     sheet_name="fooof_monopol_beta_correlations",
-    # )
+    helpers.save_result_excel(
+        result_df=results_DF_copy,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}_{fooof_version}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
 
     # get sample size
     count = results_DF_copy["subject_hemisphere"].count()
@@ -854,12 +854,12 @@ def methods_vs_best_clinical_contacts(
 
     sample_size_result = pd.DataFrame(sample_size_dict)
 
-    # # save tables as Excel
-    # helpers.save_result_excel(
-    #     result_df=results_DF,
-    #     filename=f"fooof_monopol_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
-    #     sheet_name="fooof_monopol_beta_correlations",
-    # )
+    # save tables as Excel
+    helpers.save_result_excel(
+        result_df=results_DF,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
 
     # helpers.save_result_excel(
     #     result_df=sample_size_result,
