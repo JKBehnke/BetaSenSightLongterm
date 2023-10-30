@@ -88,11 +88,11 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
         results_DF_copy[f"significant_{corr}"] = ["yes" if cond else "no" for cond in significant_correlation]
 
     # save as Excel
-    # helpers.save_result_excel(
-    #     result_df=results_DF_copy,
-    #     filename=f"fooof_monopol_beta_correlations_per_stn_{method_1}_{method_2}_{fooof_version}",
-    #     sheet_name="fooof_monopol_beta_correlations",
-    # )
+    helpers.save_result_excel(
+        result_df=results_DF_copy,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{method_1}_{method_2}_{fooof_version}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
 
     # get sample size
     for ses in incl_sessions:
@@ -295,12 +295,12 @@ def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version:
 
         comparison_result = pd.concat([comparison_result, ses_result_df], ignore_index=True)
 
-    # # save as Excel
-    # helpers.save_result_excel(
-    #     result_df=comparison_result,
-    #     filename=f"fooof_monopol_best_contacts_per_stn_{method_1}_{method_2}_{fooof_version}",
-    #     sheet_name="fooof_monopol_best_contacts",
-    # )
+    # save as Excel
+    helpers.save_result_excel(
+        result_df=comparison_result,
+        filename=f"fooof_monopol_best_contacts_per_stn_{method_1}_{method_2}_{fooof_version}",
+        sheet_name="fooof_monopol_best_contacts",
+    )
 
     results_DF_copy = comparison_result.copy()
 
@@ -412,12 +412,12 @@ def percept_vs_externalized(
             significant_correlation = results_DF_copy[f"{corr}_pval"] < 0.05
             results_DF_copy[f"significant_{corr}"] = ["yes" if cond else "no" for cond in significant_correlation]
 
-        # # save as Excel
-        # helpers.save_result_excel(
-        #     result_df=results_DF_copy,
-        #     filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
-        #     sheet_name="fooof_monopol_beta_correlations",
-        # )
+        # save as Excel
+        helpers.save_result_excel(
+            result_df=results_DF_copy,
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
+            sheet_name="fooof_monopol_beta_correlations",
+        )
 
         # get sample size
         count = results_DF_copy["subject_hemisphere"].count()
@@ -484,12 +484,12 @@ def percept_vs_externalized(
             ses="postop",
         )
 
-        # # save as Excel
-        # helpers.save_result_excel(
-        #     result_df=result_df,
-        #     filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
-        #     sheet_name="fooof_monopol_best_contacts",
-        # )
+        # save as Excel
+        helpers.save_result_excel(
+            result_df=result_df,
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
+            sheet_name="fooof_monopol_best_contacts",
+        )
 
         results_DF_copy = result_df.copy()
 
@@ -576,11 +576,11 @@ def externalized_versions_comparison(
         results_DF_copy[f"significant_{corr}"] = ["yes" if cond else "no" for cond in significant_correlation]
 
     # save as Excel
-    # helpers.save_result_excel(
-    #     result_df=results_DF_copy,
-    #     filename=f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}_{fooof_version}",
-    #     sheet_name="fooof_monopol_beta_correlations",
-    # )
+    helpers.save_result_excel(
+        result_df=results_DF_copy,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}_{fooof_version}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
 
     # get sample size
     count = results_DF_copy["subject_hemisphere"].count()
@@ -854,12 +854,12 @@ def methods_vs_best_clinical_contacts(
 
     sample_size_result = pd.DataFrame(sample_size_dict)
 
-    # # save tables as Excel
-    # helpers.save_result_excel(
-    #     result_df=results_DF,
-    #     filename=f"fooof_monopol_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
-    #     sheet_name="fooof_monopol_beta_correlations",
-    # )
+    # save tables as Excel
+    helpers.save_result_excel(
+        result_df=results_DF,
+        filename=f"fooof_monopol_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
+        sheet_name="fooof_monopol_beta_correlations",
+    )
 
     # helpers.save_result_excel(
     #     result_df=sample_size_result,
@@ -917,14 +917,16 @@ def group_rank_comparison_externalized_percept_clinical(
             rank_comparison_group[f"{percept_m}_{ext_m}"] = percept_vs_externalized_fooof["rank"]
 
     # compare externalized with each other
-    externalized_fooof_externalized_ssd = externalized_versions_comparison(
-        externalized_version_1="externalized_fooof",
-        externalized_version_2="externalized_ssd",
-        fooof_version="v2",
-        reference="bipolar_to_lowermost",
-    )
+    for ext_1 in externalized_methods:
+        for ext_2 in externalized_methods:
+            ext_1_vs_ext_2 = externalized_versions_comparison(
+                externalized_version_1=ext_1,
+                externalized_version_2=ext_2,
+                fooof_version="v2",
+                reference="bipolar_to_lowermost",
+            )
 
-    rank_comparison_group["externalized_fooof_externalized_ssd"] = externalized_fooof_externalized_ssd["rank"]
+            rank_comparison_group[f"{ext_1}_{ext_2}"] = ext_1_vs_ext_2["rank"]
 
     # compare all methods to clinical contacts
     for m in list_of_methods:
@@ -1006,16 +1008,17 @@ def group_correlation_comparison_externalized_percept_clinical(
             correlation_comparison_group[f"{percept_m}_{ext_m}"] = percept_vs_externalized_fooof["correlation"]
 
     # compare externalized with each other
-    externalized_fooof_externalized_ssd = externalized_versions_comparison(
-        externalized_version_1="externalized_fooof",
-        externalized_version_2="externalized_ssd",
-        fooof_version="v2",
-        reference="bipolar_to_lowermost",
-    )
+    # compare externalized with each other
+    for ext_1 in externalized_methods:
+        for ext_2 in externalized_methods:
+            ext_1_vs_ext_2 = externalized_versions_comparison(
+                externalized_version_1=ext_1,
+                externalized_version_2=ext_2,
+                fooof_version="v2",
+                reference="bipolar_to_lowermost",
+            )
 
-    correlation_comparison_group["externalized_fooof_externalized_ssd"] = externalized_fooof_externalized_ssd[
-        "correlation"
-    ]
+            correlation_comparison_group[f"{ext_1}_{ext_2}"] = ext_1_vs_ext_2["correlation"]
 
     correlation_comparison_group = pd.concat(correlation_comparison_group.values(), ignore_index=True)
     correlation_comparison_group = correlation_comparison_group.copy()
@@ -1049,7 +1052,8 @@ def heatmap_method_comparison(
             "percentage_at_least_one_same_contact_rank_1_and_2" must be a column in the sample size result Excel file
             "percentage_both_contacts_matching"
             "estimated_beta_spearman",
-            "normalized_beta_pearson"
+            "normalized_beta_pearson",
+            "cluster_beta_spearman"
 
         - clinical_session
 
@@ -1071,6 +1075,7 @@ def heatmap_method_comparison(
     comparison_matrix = loaded_comparison_matrix["comparison_matrix"]
     comparison_dict = loaded_comparison_matrix["comparison_dict"]
     sample_size = loaded_comparison_matrix["sample_size"]
+    sample_size_matrix = loaded_comparison_matrix["sample_size_matrix"]
     list_of_methods = loaded_comparison_matrix["list_of_methods"]
 
     # Create a heatmap
@@ -1100,9 +1105,16 @@ def heatmap_method_comparison(
     ax.set_title(title_str[value_to_plot])
 
     # Add the values to the heatmap cells
+    # for i in range(len(list_of_methods)):
+    #     for j in range(len(list_of_methods)):
+    #         ax.text(j, i, f"{comparison_matrix[i][j]:.2f}", ha='center', va='center', color='black', fontsize=10)
+
     for i in range(len(list_of_methods)):
         for j in range(len(list_of_methods)):
-            ax.text(j, i, f"{comparison_matrix[i][j]:.2f}", ha='center', va='center', color='black', fontsize=10)
+            value = f"{comparison_matrix[i][j]:.2f}"
+            sample_size_value = f"n={int(sample_size_matrix[i][j])}"
+            text_for_cell = f"{value}\n{sample_size_value}"
+            ax.text(j, i, text_for_cell, ha='center', va='center', color='black', fontsize=10)
 
     helpers.save_fig_png_and_svg(
         filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}_{rank_or_correlation}_{fooof_version}",
