@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import sys
 
 
 from ..utils import loadResults as loadResults
@@ -15,11 +16,13 @@ def find_project_folder():
     """
 
     # from the cwd get path to PyPerceive_Project (=Git Repository)
-    project_path = os.getcwd()
-    while project_path[-16:] != 'ResearchProjects':
-        project_path = os.path.dirname(project_path)
+    jennifer_user_path = os.getcwd()
+    while jennifer_user_path[-14:] != 'jenniferbehnke':
+        jennifer_user_path = os.path.dirname(jennifer_user_path)
 
-    results_path = os.path.join(project_path, 'BetaSenSightLongterm', 'results')
+    project_path = os.path.join(jennifer_user_path, 'Dropbox', 'work', 'ResearchProjects', 'BetaSenSightLongterm')
+
+    results_path = os.path.join(project_path, 'results')
 
     return project_path, results_path
 
@@ -265,33 +268,30 @@ def get_local_path(folder: str, sub: str = None):
     #     f'should be {folder_options}')
 
     # from your cwd get the path and stop at 'Users'
-    path = os.getcwd()
+    jennifer_user_path = os.getcwd()
+    while jennifer_user_path[-14:] != 'jenniferbehnke':
+        jennifer_user_path = os.path.dirname(jennifer_user_path)
 
-    while os.path.dirname(path)[-4:] != 'work':
-        path = os.path.dirname(path)  # path is now leading to Users/username
-
-    # get the Research folder and add it to the path
-
-    path = os.path.join(path, 'BetaSenSightLongterm')  # path is now leading to Research folder
+    project_path = os.path.join(jennifer_user_path, 'Dropbox', 'work', 'ResearchProjects', 'BetaSenSightLongterm')
 
     # add the folder to the path and from there open the folders depending on input folder
     if folder == 'Project':
-        return path
+        return project_path
 
     elif folder == "GroupResults":
-        return os.path.join(path, "results")
+        return os.path.join(project_path, "results")
 
     elif folder == 'results':
-        return os.path.join(path, "results", f"sub-{sub}")
+        return os.path.join(project_path, "results", f"sub-{sub}")
 
     elif folder == 'GroupFigures':
-        return os.path.join(path, "figures")
+        return os.path.join(project_path, "figures")
 
     elif folder == 'figures':
-        return os.path.join(path, "figures", f"sub-{sub}")
+        return os.path.join(project_path, "figures", f"sub-{sub}")
 
     elif folder == 'data':
-        return os.path.join(path, "data")
+        return os.path.join(project_path, "data")
 
 
 def get_monopolar_project_path(folder: str, sub: str = None):
@@ -321,37 +321,36 @@ def get_monopolar_project_path(folder: str, sub: str = None):
     #     f'should be {folder_options}')
 
     # from your cwd get the path and stop at 'Users'
-    path = os.getcwd()
+    jennifer_user_path = os.getcwd()
+    while jennifer_user_path[-14:] != 'jenniferbehnke':
+        jennifer_user_path = os.path.dirname(jennifer_user_path)
 
-    while os.path.dirname(path)[-4:] != 'work':
-        path = os.path.dirname(path)  # path is now leading to Users/username
-
-    # get the Research folder and add it to the path
-
-    path = os.path.join(path, 'Monopolar_power_estimation')  # path is now leading to Research folder
+    project_path = os.path.join(jennifer_user_path, 'Dropbox', 'work', 'ResearchProjects', 'Monopolar_power_estimation')
 
     # add the folder to the path and from there open the folders depending on input folder
     if folder == 'Project':
-        return path
+        return project_path
 
     elif folder == "GroupResults":
-        return os.path.join(path, "results")
+        return os.path.join(project_path, "results")
 
     elif folder == 'results':
-        return os.path.join(path, "results", f"sub-{sub}")
+        return os.path.join(project_path, "results", f"sub-{sub}")
 
     elif folder == 'GroupFigures':
-        return os.path.join(path, "figures")
+        return os.path.join(project_path, "figures")
 
     elif folder == 'figures':
-        return os.path.join(path, "figures", f"sub-{sub}")
+        return os.path.join(project_path, "figures", f"sub-{sub}")
 
     elif folder == 'data':
-        return os.path.join(path, "data")
+        return os.path.join(project_path, "data")
 
     elif folder == 'data_sub':
         patient_metadata = pd.read_excel(
-            os.path.join(path, "data", "patient_metadata.xlsx"), keep_default_na=True, sheet_name="patient_metadata"
+            os.path.join(project_path, "data", "patient_metadata.xlsx"),
+            keep_default_na=True,
+            sheet_name="patient_metadata",
         )
 
         # change column "patient_ID" to strings
@@ -360,7 +359,7 @@ def get_monopolar_project_path(folder: str, sub: str = None):
         sub_externalized_ID = patient_metadata.loc[patient_metadata.patient_ID == sub]  # row of subject
         sub_externalized_ID = sub_externalized_ID.externalized_ID.values[0]  # externalized ID
 
-        sub_folders = os.listdir(os.path.join(path, "data", "externalized_lfp"))
+        sub_folders = os.listdir(os.path.join(project_path, "data", "externalized_lfp"))
         # check if externalized ID is in the directory
         for folder in sub_folders:
             if sub_externalized_ID in folder:
@@ -369,31 +368,62 @@ def get_monopolar_project_path(folder: str, sub: str = None):
         # if folder_name not in locals():
         #     print(f"subject {sub} not in data. Check, if this subject has a folder in data")
 
-        sub_path = os.path.join(path, "data", "externalized_lfp", folder_name)
+        sub_path = os.path.join(project_path, "data", "externalized_lfp", folder_name)
         return sub_path
 
 
 def get_patterned_dbs_project_path(folder: str, sub: str = None):
     """ """
     # from your cwd get the path and stop at 'Users'
-    path = os.getcwd()
+    jennifer_user_path = os.getcwd()
+    while jennifer_user_path[-14:] != 'jenniferbehnke':
+        jennifer_user_path = os.path.dirname(jennifer_user_path)
 
-    while os.path.dirname(path)[-4:] != 'work':
-        path = os.path.dirname(path)  # path is now leading to Users/username
-
-    # get the Research folder and add it to the path
-
-    path = os.path.join(path, 'Patterned_stimulation_project')  # path is now leading to Research folder
+    project_path = os.path.join(
+        jennifer_user_path, 'Dropbox', 'work', 'ResearchProjects', 'Patterned_stimulation_project'
+    )
 
     folder_paths = {
-        'Project': path,
-        'GroupResults': os.path.join(path, "results"),
-        'results': os.path.join(path, "results", f"sub-{sub}"),
-        'GroupFigures': os.path.join(path, "figures"),
-        'figures': os.path.join(path, "figures", f"sub-{sub}"),
-        'data': os.path.join(path, "data"),
-        'sub_data': os.path.join(path, "data", f"sub-{sub}"),
+        'Project': project_path,
+        'GroupResults': os.path.join(project_path, "results"),
+        'results': os.path.join(project_path, "results", f"sub-{sub}"),
+        'GroupFigures': os.path.join(project_path, "figures"),
+        'figures': os.path.join(project_path, "figures", f"sub-{sub}"),
+        'data': os.path.join(project_path, "data"),
+        'sub_data': os.path.join(project_path, "data", f"sub-{sub}"),
     }
 
     # add the folder to the path and from there open the folders depending on input folder
     return folder_paths[folder]
+
+
+def chdir_repository(repository: str):
+    """
+    repository: "Py_Perceive", "meet", "BetaSenSightLongterm"
+
+    """
+
+    #######################     USE THIS DIRECTORY FOR IMPORTING PYPERCEIVE REPO  #######################
+
+    # create a path to the BetaSenSightLongterm folder
+    # and a path to the code folder within the BetaSenSightLongterm Repo
+    jennifer_user_path = os.getcwd()
+    while jennifer_user_path[-14:] != 'jenniferbehnke':
+        jennifer_user_path = os.path.dirname(jennifer_user_path)
+
+    repo_dict = {
+        "Py_Perceive": os.path.join(jennifer_user_path, 'code', 'PyPerceive_project', 'PyPerceive', 'code'),
+        "meet": os.path.join(jennifer_user_path, 'code', 'meet_repository', 'meet'),
+        "BetaSenSightLongterm": os.path.join(
+            jennifer_user_path, 'code', 'BetaSenSightLongterm', 'BetaSenSightLongterm'
+        ),
+    }
+
+    # directory to PyPerceive code folder
+    project_path = repo_dict[repository]
+    sys.path.append(project_path)
+
+    # # change directory to PyPerceive code path within BetaSenSightLongterm Repo
+    os.chdir(project_path)
+
+    return os.getcwd()
