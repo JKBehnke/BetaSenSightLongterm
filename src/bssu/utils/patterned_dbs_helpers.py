@@ -140,6 +140,7 @@ def load_pickle_files(filename: str):
         - filename: str, e.g.
             "streaming_info_patterned_pilot_sub-075"
             "raw_objects_patterned_pilot_sub-075"
+            "beta_baseline_patterned_pilot_sub-075"
 
     Returns:
         - data
@@ -148,5 +149,28 @@ def load_pickle_files(filename: str):
     group_data_path = os.path.join(GROUP_RESULTS_PATH, f"{filename}.pickle")
     with open(group_data_path, "rb") as file:
         data = pickle.load(file)
+
+    return data
+
+
+def load_excel_files(filename: str):
+    """ """
+
+    dbs_turned_off_sheet = ["streaming_dbs_turned_OFF"]
+
+    # find the path to the results folder
+    path = find_folders.get_patterned_dbs_project_path(folder="data")
+
+    # create filename
+    f_name = f"{filename}.xlsx"
+
+    if filename in dbs_turned_off_sheet:
+        sheet_name = "dbs_OFF"
+
+    filepath = os.path.join(path, f_name)
+
+    # load the file
+    data = pd.read_excel(filepath, keep_default_na=True, sheet_name=sheet_name)
+    print("Excel file loaded: ", f_name, "\nloaded from: ", path)
 
     return data

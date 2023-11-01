@@ -299,7 +299,7 @@ def normalize_to_psd(to_sum: str, power_spectrum: np.array):
     return normalized_power_spectrum
 
 
-def calculate_beta_baseline(dbs_duration: str, cDBS_or_burst_DBS: str, filtered: str):
+def calculate_beta_baseline(DBS_duration: str, burstDBS_or_cDBS: str, filtered: str):
     """
     Input:
         - dbs_duration: str, e.g. "1min", "5min", "30min"
@@ -319,10 +319,10 @@ def calculate_beta_baseline(dbs_duration: str, cDBS_or_burst_DBS: str, filtered:
     streaming_data = helpers.load_pickle_files(filename="streaming_info_patterned_pilot_sub-075")
 
     # select for dbs_duration
-    streaming_data = streaming_data[streaming_data["DBS_duration"] == dbs_duration]
+    streaming_data = streaming_data[streaming_data["DBS_duration"] == DBS_duration]
 
     # select for cDBS and burstDBS and pre DBS
-    streaming_data = streaming_data[streaming_data["burstDBS_or_cDBS"] == cDBS_or_burst_DBS]
+    streaming_data = streaming_data[streaming_data["burstDBS_or_cDBS"] == burstDBS_or_cDBS]
     streaming_data = streaming_data[streaming_data["pre_or_post"] == "pre"]
 
     for hem in HEMISPHERES:
@@ -354,8 +354,8 @@ def calculate_beta_baseline(dbs_duration: str, cDBS_or_burst_DBS: str, filtered:
             # save data
             pre_DBS_baseline_dict = {
                 "hemisphere": [hem],
-                "dbs_duration": [dbs_duration],
-                "cDBS_or_burst_DBS": [cDBS_or_burst_DBS],
+                "DBS_duration": [DBS_duration],
+                "burstDBS_or_cDBS": [burstDBS_or_cDBS],
                 "filtered": [filtered],
                 "freq_band": [freq],
                 "frequencies": [frequencies],
@@ -375,3 +375,236 @@ def calculate_beta_baseline(dbs_duration: str, cDBS_or_burst_DBS: str, filtered:
             pre_DBS_baseline = pd.concat([pre_DBS_baseline, pre_DBS_baseline_single], ignore_index=True)
 
     return pre_DBS_baseline
+
+
+def concatenate_beta_baseline_data():
+    """ """
+
+    DBS_duration = ["1min", "5min"]
+    burstDBS_or_cDBS = ["cDBS", "burstDBS"]
+    filtered = ["band-pass_5_95", "unfiltered"]
+
+    beta_baseline = pd.DataFrame()
+
+    for duration in DBS_duration:
+        for dbs_type in burstDBS_or_cDBS:
+            for filt in filtered:
+                pre_DBS_baseline = calculate_beta_baseline(
+                    DBS_duration=duration, burstDBS_or_cDBS=dbs_type, filtered=filt
+                )
+
+                beta_baseline = pd.concat([beta_baseline, pre_DBS_baseline], ignore_index=True)
+
+    for filt in filtered:
+        burstDBS_30min = calculate_beta_baseline(DBS_duration="30min", burstDBS_or_cDBS="burstDBS", filtered=filt)
+        beta_baseline = pd.concat([beta_baseline, burstDBS_30min], ignore_index=True)
+
+    # save data as pickle
+    helpers.save_result_dataframe_as_pickle(data=beta_baseline, filename="beta_baseline_patterned_pilot_sub-075")
+
+    return beta_baseline
+
+
+def load_value_beta_baseline(
+    DBS_duration: str, burstDBS_or_cDBS: str, hemisphere: str, normalized: str, freq_band: str, filtered: str
+):
+    """
+    Input:
+        - DBS_duration: str, e.g. "1min", "5min", "30min"
+        - burstDBS_or_cDBS: str, e.g. "cDBS", "burstDBS"
+        - hemisphere: str, e.g. "Left", "Right"
+        - normalized: str, e.g. "normalized_to_5_95", "normalized_to_40_90", "not_normalized"
+        - freq_band: str, e.g. "beta", "low_beta", "high_beta"
+        - filtered: str, e.g. "band-pass_5_95", "unfiltered"
+
+    """
+
+    normalize_dict = {
+        "normalized_to_5_95": "f_average_rel_to_5_95",
+        "normalized_to_40_90": "f_average_rel_to_40_90",
+        "not_normalized": "f_average_raw",
+    }
+
+    ############## load the beta baseline of the given recording ##############
+    beta_baseline = helpers.load_pickle_files(filename="beta_baseline_patterned_pilot_sub-075")
+    beta_baseline = beta_baseline[beta_baseline["DBS_duration"] == DBS_duration]
+    beta_baseline = beta_baseline[beta_baseline["burstDBS_or_cDBS"] == burstDBS_or_cDBS]
+    beta_baseline = beta_baseline[beta_baseline["hemisphere"] == hemisphere]
+    beta_baseline = beta_baseline[beta_baseline["filtered"] == filtered]
+    beta_baseline = beta_baseline[beta_baseline["freq_band"] == freq_band]
+
+    return beta_baseline[normalize_dict[normalized]].values[0]
+
+
+def plot_post_dbs_time_series(DBS_duration: str, burstDBS_or_cDBS: str, hemisphere: str):
+    """
+    Input:
+        - dbs_duration: str, e.g. "1min", "5min", "30min"
+        - burst_or_cDBS: str, e.g. "cDBS", "burstDBS"
+        - hemisphere: str, e.g. "Left", "Right"
+
+    plot the raw time series, manually write the time in seconds when stimulation is turned off = start for collecting beta post-DBS
+
+
+    """
+
+    # load the raw object
+    all_raw_objects = helpers.load_pickle_files(filename="raw_objects_patterned_pilot_sub-075")
+
+    # find correct key by input values
+    for key, value in sub_075_pilot_streaming_dict.items():
+        if value[0] == "post" and value[1] == burstDBS_or_cDBS and value[2] == DBS_duration and value[3] == hemisphere:
+            raw = all_raw_objects[key]
+
+    raw.plot()
+
+    return raw
+
+
+def get_post_dbs_time_series(DBS_duration: str, burstDBS_or_cDBS: str, hemisphere: str):
+    """
+    Input:
+        - DBS_duration: str, e.g. "1min", "5min", "30min"
+        - burstDBS_or_cDBS: str, e.g. "cDBS", "burstDBS"
+        - hemisphere: str, e.g. "Left", "Right"
+    """
+
+    ############## load the excel file to get the index when stimulation is turned OFF ##############
+    dbs_turned_off = helpers.load_excel_files(filename="streaming_dbs_turned_OFF")
+
+    # select
+    dbs_turned_off = dbs_turned_off[dbs_turned_off["DBS_duration"] == DBS_duration]
+    dbs_turned_off = dbs_turned_off[dbs_turned_off["burstDBS_or_cDBS"] == burstDBS_or_cDBS]
+    dbs_turned_off = dbs_turned_off[dbs_turned_off["hemisphere"] == hemisphere]
+
+    # get index when stimulation is turned off
+    dbs_OFF_sec = dbs_turned_off["DBS_OFF_sec"].values[0]
+
+    ############## load the time domain data ##############
+    streaming_data = helpers.load_pickle_files(filename="streaming_info_patterned_pilot_sub-075")
+
+    # select
+    streaming_data = streaming_data[streaming_data["pre_or_post"] == "post"]
+    streaming_data = streaming_data[streaming_data["DBS_duration"] == DBS_duration]
+    streaming_data = streaming_data[streaming_data["burstDBS_or_cDBS"] == burstDBS_or_cDBS]
+    streaming_data = streaming_data[streaming_data["hemisphere"] == hemisphere]
+
+    # get the time domain data
+    streaming_data = streaming_data["original_time_domain_data"].values[0]
+
+    # now get the index of the time domain matching the dbs_OFF_sec
+    dbs_OFF_index = int(dbs_OFF_sec * SAMPLING_FREQ)  # this is start of the beta post-DBS readout
+
+    # cut the time domain data at the dbs_OFF_index and take the following 3 min (45000 samples)
+    streaming_data = streaming_data[dbs_OFF_index : dbs_OFF_index + 45000]
+
+    return streaming_data
+
+
+def calculate_rel_beta_post_dbs(
+    DBS_duration: str, burstDBS_or_cDBS: str, hemisphere: str, normalized: str, freq_band: str, filtered: str
+):
+    """
+
+    Input:
+        - dbs_duration: str, e.g. "1min", "5min", "30min"
+        - burst_or_cDBS: str, e.g. "cDBS", "burstDBS"
+        - hemisphere: str, e.g. "Left", "Right"
+        - normalized: str, e.g. "normalized_to_5_95", "normalized_to_40_90", "not_normalized"
+        - freq_band: str, e.g. "beta", "low_beta", "high_beta"
+        - filtered: str, e.g. "band-pass_5_95", "unfiltered"
+
+    1) load the post DBS time series
+    2) load the beta baseline of the given recording: band-pass-filtered 5-95 Hz
+    """
+
+    post_DBS_dataframe = pd.DataFrame()
+
+    ############## load the post DBS time series ##############
+
+    normalized_dict = {
+        "normalized_to_5_95": "5_to_95",
+        "normalized_to_40_90": "40_to_90",
+    }
+    # length = 3 minutes (45000 samples)
+    streaming_data = get_post_dbs_time_series(
+        DBS_duration=DBS_duration, burstDBS_or_cDBS=burstDBS_or_cDBS, hemisphere=hemisphere
+    )
+
+    ############## load the beta baseline of the given recording ##############
+    beta_baseline = load_value_beta_baseline(
+        DBS_duration=DBS_duration,
+        burstDBS_or_cDBS=burstDBS_or_cDBS,
+        hemisphere=hemisphere,
+        normalized=normalized,
+        freq_band=freq_band,
+        filtered=filtered,
+    )
+
+    if filtered == "band-pass_5_95":
+        # band-pass filter 5-95 Hz
+        time_domain_data = helpers.band_pass_filter_percept(fs=SAMPLING_FREQ, signal=np.array(streaming_data))
+
+    elif filtered == "unfiltered":
+        time_domain_data = np.array(streaming_data)
+
+    # calculate PSD from the postDBS time series (3 minutes = 45000 samples)
+    frequencies, times, Zxx, average_Zxx, std_Zxx, sem_Zxx = fourier_transform(time_domain_data)
+    # Zxx = 126 arrays, each len=359 -> 359*0.5s = 179.5s = 2.99 min
+
+    # from Zxx get the power spectra for each 0.5 seconds
+    power_spectra_half_sec = np.transpose(Zxx)  # 359 arrays, each len=126
+
+    # save data
+    post_DBS_dict = {
+        "hemisphere": [hemisphere],
+        "DBS_duration": [DBS_duration],
+        "burstDBS_or_cDBS": [burstDBS_or_cDBS],
+        "filtered": [filtered],
+        "freq_band": [freq_band],
+        "frequencies": [frequencies],
+        "times": [times],
+        "Zxx": [Zxx],
+        "average_Zxx": [average_Zxx],
+        "std_Zxx": [std_Zxx],
+        "sem_Zxx": [sem_Zxx],
+        "power_spectra_half_sec": [power_spectra_half_sec],
+    }
+
+    post_DBS_single_dataframe = pd.DataFrame(post_DBS_dict)
+    post_DBS_dataframe = pd.concat([post_DBS_dataframe, post_DBS_single_dataframe], ignore_index=True)
+
+    # normalize PSD for each 0.5 seconds
+
+    half_sec_spectra_df = pd.DataFrame()
+
+    for half_sec_psd in np.arange(0, len(power_spectra_half_sec), 1):
+        single_spectrum = power_spectra_half_sec[half_sec_psd]
+        seconds_post_DBS_OFF = times[half_sec_psd]
+
+        # normalize PSD
+        if normalized != "not_normalized":
+            normalized_psd = normalize_to_psd(to_sum=normalized_dict[normalized], power_spectrum=single_spectrum)
+
+        elif normalized == "not_normalized":
+            normalized_psd = single_spectrum
+
+        # calculate average of frequency range of interest
+        freq_average = np.mean(normalized_psd[FREQUENCY_BANDS[freq_band][0] : FREQUENCY_BANDS[freq_band][1]])
+
+        # calculate relative frequency power to beta baseline
+        rel_freq_power = freq_average / beta_baseline
+
+        half_sec_spectra_dict = {
+            "half_sec_psd": [half_sec_psd],
+            "seconds_post_DBS_OFF": [seconds_post_DBS_OFF],
+            "single_spectrum": [normalized_psd],
+            "freq_average": [freq_average],
+            "rel_freq_average_to_preDBS": [rel_freq_power],
+            "beta_baseline": [beta_baseline],
+        }
+
+        half_sec_spectra_single = pd.DataFrame(half_sec_spectra_dict)
+        half_sec_spectra_df = pd.concat([half_sec_spectra_df, half_sec_spectra_single], ignore_index=True)
+
+    return post_DBS_dataframe, half_sec_spectra_df
