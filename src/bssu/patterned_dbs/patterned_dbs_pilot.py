@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import mne
+import scipy
+from scipy import signal
+from scipy.signal import butter, filtfilt, freqz, hann, spectrogram
 
 
 # internal Imports
@@ -17,6 +20,12 @@ from ..utils import patterned_dbs_helpers as helpers
 
 HEMISPHERES = ["Right", "Left"]
 SAMPLING_FREQ = 250
+
+FREQUENCY_BANDS = {
+    "beta": [13, 36],
+    "low_beta": [13, 21],
+    "high_beta": [21, 36],
+}
 
 GROUP_RESULTS_PATH = find_folders.get_patterned_dbs_project_path(folder="GroupResults")
 GROUP_FIGURES_PATH = find_folders.get_patterned_dbs_project_path(folder="GroupFigures")
@@ -203,6 +212,13 @@ def plot_time_frequency(dbs_duration: str):
             axes[1, 0].grid(False)
             axes[1, 1].grid(False)
 
+            fig.suptitle(f"sub-075 3MFU pilot {hem} hemisphere {dbs_duration} DBS duration")
+            helpers.save_fig_png_and_svg(
+                path=GROUP_FIGURES_PATH,
+                filename=f"time_frequency_plot_sub-075_{hem}_3MFU_pilot_{dbs_duration}",
+                figure=fig,
+            )
+
         else:
             for dbs, dbs_type in enumerate(cDBS_or_burst_DBS):
                 # select for cDBS and burstDBS and pre and post DBS
@@ -232,7 +248,130 @@ def plot_time_frequency(dbs_duration: str):
                 axes[dbs, 0].grid(False)
                 axes[dbs, 1].grid(False)
 
-        fig.suptitle(f"sub-075 3MFU pilot {hem} hemisphere {dbs_duration} DBS duration")
-        helpers.save_fig_png_and_svg(
-            path=GROUP_FIGURES_PATH, filename=f"time_frequency_plot_{dbs_duration}_sub-075_3MFU_pilot", figure=fig
-        )
+            fig.suptitle(f"sub-075 3MFU pilot {hem} hemisphere {dbs_duration} DBS duration")
+            helpers.save_fig_png_and_svg(
+                path=GROUP_FIGURES_PATH,
+                filename=f"time_frequency_plot_sub-075_{hem}_3MFU_pilot_{dbs_duration}",
+                figure=fig,
+            )
+
+
+def fourier_transform(time_domain_data: np.array):
+    """ """
+
+    window_length = int(SAMPLING_FREQ)  # 1 second window length
+    overlap = window_length // 2  # 50% overlap e.g. 2min pre-DBS baseline -> 239 x 0.5 seconds = 120 seconds
+
+    # Calculate the short-time Fourier transform (STFT) using Hann window
+    window = hann(window_length, sym=False)
+
+    frequencies, times, Zxx = scipy.signal.spectrogram(
+        time_domain_data, fs=SAMPLING_FREQ, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0
+    )
+
+    # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
+    # times: len=161, 0, 0.75, 1.5 .... 120.75
+    # Zxx: 126 arrays, each len=239
+
+    # average PSD across duration of the recording
+    average_Zxx = np.mean(Zxx, axis=1)
+    std_Zxx = np.std(Zxx, axis=1)
+    sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
+
+    return frequencies, times, Zxx, average_Zxx, std_Zxx, sem_Zxx
+
+
+def normalize_to_psd(to_sum: str, power_spectrum: np.array):
+    """ """
+
+    if to_sum == "40_to_90":
+        # sum frequencies 40-90 Hz
+        sum_40_90 = np.sum(power_spectrum[40:90])
+        # normalize
+        normalized_power_spectrum = power_spectrum / sum_40_90
+
+    elif to_sum == "5_to_95":
+        # sum frequencies 5-95 Hz
+        sum_5_95 = np.sum(power_spectrum[5:95])
+        # normalize
+        normalized_power_spectrum = power_spectrum / sum_5_95
+
+    return normalized_power_spectrum
+
+
+def calculate_beta_baseline(dbs_duration: str, cDBS_or_burst_DBS: str, filtered: str):
+    """
+    Input:
+        - dbs_duration: str, e.g. "1min", "5min", "30min"
+        - cDBS_or_burst_DBS: str, e.g. "cDBS", "burstDBS"
+        - filtered: str, e.g. "band-pass_5_95" or "unfiltered"
+
+    1) select for dbs_duration, cDBS or burstDBS, pre DBS
+    2) get time domain data, only take the last 120 seconds of the original time domain data (30000 samples = 2 minutes)
+    3) band-pass filter 5-95 Hz
+    4) calculate PSD
+
+
+    """
+
+    pre_DBS_baseline = pd.DataFrame()
+
+    streaming_data = helpers.load_pickle_files(filename="streaming_info_patterned_pilot_sub-075")
+
+    # select for dbs_duration
+    streaming_data = streaming_data[streaming_data["DBS_duration"] == dbs_duration]
+
+    # select for cDBS and burstDBS and pre DBS
+    streaming_data = streaming_data[streaming_data["burstDBS_or_cDBS"] == cDBS_or_burst_DBS]
+    streaming_data = streaming_data[streaming_data["pre_or_post"] == "pre"]
+
+    for hem in HEMISPHERES:
+        hem_data = streaming_data[streaming_data["hemisphere"] == hem]
+
+        # get data
+        time_domain_data = hem_data.original_time_domain_data.values[0]
+
+        # only take the last 120 seconds of the original time domain data (30000 samples = 2 minutes)
+        time_domain_data = np.array(time_domain_data[-30000:])
+
+        if filtered == "band-pass_5_95":
+            # band-pass filter 5-95 Hz
+            time_domain_data = helpers.band_pass_filter_percept(fs=SAMPLING_FREQ, signal=time_domain_data)
+
+        # calculate PSD
+        frequencies, times, Zxx, average_Zxx, std_Zxx, sem_Zxx = fourier_transform(time_domain_data)
+
+        # normalize PSD
+        normalized_to_5_95 = normalize_to_psd(to_sum="5_to_95", power_spectrum=average_Zxx)
+        normalized_to_40_90 = normalize_to_psd(to_sum="40_to_90", power_spectrum=average_Zxx)
+
+        # calculate average of beta range 13-35 Hz
+        for freq in FREQUENCY_BANDS.keys():
+            f_average_rel_to_5_95 = np.mean(normalized_to_5_95[FREQUENCY_BANDS[freq][0] : FREQUENCY_BANDS[freq][1]])
+            f_average_rel_to_40_90 = np.mean(normalized_to_40_90[FREQUENCY_BANDS[freq][0] : FREQUENCY_BANDS[freq][1]])
+            f_average_raw = np.mean(average_Zxx[FREQUENCY_BANDS[freq][0] : FREQUENCY_BANDS[freq][1]])
+
+            # save data
+            pre_DBS_baseline_dict = {
+                "hemisphere": [hem],
+                "dbs_duration": [dbs_duration],
+                "cDBS_or_burst_DBS": [cDBS_or_burst_DBS],
+                "filtered": [filtered],
+                "freq_band": [freq],
+                "frequencies": [frequencies],
+                "times": [times],
+                "Zxx": [Zxx],
+                "average_Zxx": [average_Zxx],
+                "std_Zxx": [std_Zxx],
+                "sem_Zxx": [sem_Zxx],
+                "normalized_to_5_95": [normalized_to_5_95],
+                "normalized_to_40_90": [normalized_to_40_90],
+                "f_average_rel_to_5_95": [f_average_rel_to_5_95],
+                "f_average_rel_to_40_90": [f_average_rel_to_40_90],
+                "f_average_raw": [f_average_raw],
+            }
+
+            pre_DBS_baseline_single = pd.DataFrame(pre_DBS_baseline_dict)
+            pre_DBS_baseline = pd.concat([pre_DBS_baseline, pre_DBS_baseline_single], ignore_index=True)
+
+    return pre_DBS_baseline
