@@ -5,6 +5,7 @@ import os
 import pickle
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -15,11 +16,72 @@ from ..utils import load_data_files as load_data
 from ..utils import loadResults as loadResults
 from ..utils import monopol_comparison_helpers as helpers
 
-group_results_path = find_folders.get_monopolar_project_path(folder="GroupResults")
-group_figures_path = find_folders.get_monopolar_project_path(folder="GroupFigures")
+GROUP_RESULTS_PATH = find_folders.get_monopolar_project_path(folder="GroupResults")
+GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigures")
 
-incl_sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
-segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+INCL_SESSIONS = ["postop", "fu3m", "fu12m", "fu18or24m"]
+SEGMENTAL_CONTACTS = ["1A", "1B", "1C", "2A", "2B", "2C"]
+
+# no beta either in externalized or percept -> exclude for comparison externalized vs percept
+EXCLUDED_NO_BETA_EXT_OR_PERCEPT = [
+    "028_Right",
+    "028_Left",
+    "029_Right",
+    "029_Left",
+    "032_Right",
+    "032_Left",
+    "048_Right",
+    "048_Left",
+    "049_Right",
+    "049_Left",
+    "056_Left",
+    "061_Right",
+    "071_Right",
+    "075_Right",
+]
+
+# no beta only in externalized -> exclude for comparison externalized vs externalized
+EXCLUDED_NO_BETA_EXT = [
+    "028_Right",
+    "028_Left",
+    "032_Right",
+    "032_Left",
+    "048_Right",
+    "048_Left",
+    "049_Right",
+    "049_Left",
+    "061_Right",
+    "071_Right",
+    "072_Right",
+]
+
+# no beta only in percept postop -> exclude for comparison percept postop vs percept postop
+EXCLUDED_NO_BETA_PERCEPT = [
+    "029_Right",
+    "029_Left",
+    "032_Right",
+    "048_Right",
+    "048_Left",
+    "049_Left",
+    "056_Left",
+    "061_Right",
+    "071_Right",
+    "075_Right",
+]
+
+
+def exclude_subjects(df: pd.DataFrame, exclude_list: list):
+    """
+    Exclude subjects from Dataframe
+
+    Input:
+        - df: Dataframe with subject_hemisphere column
+        - exclude_list: list of subject_hemispheres to exclude: EXCLUDED_NO_BETA_EXT_OR_PERCEPT, EXCLUDED_NO_BETA_EXT or EXCLUDED_NO_BETA_PERCEPT
+    """
+
+    df = df[~((df.subject_hemisphere.isin(exclude_list)) & (df.session == "postop"))]
+
+    return df
 
 
 def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_version: str):
@@ -67,8 +129,12 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
         )
         # monopolar beta average for all directional contacts
 
+    # exclude subject hemispheres without beta
+    method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+
     # Perform 3 versions of correlation tests for every session separately and within each STN
-    for ses in incl_sessions:
+    for ses in INCL_SESSIONS:
         method_1_session = method_1_data.loc[method_1_data.session == ses]
         method_2_session = method_2_data.loc[method_2_data.session == ses]
 
@@ -95,7 +161,7 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
     )
 
     # get sample size
-    for ses in incl_sessions:
+    for ses in INCL_SESSIONS:
         ses_df = results_DF_copy.loc[results_DF_copy.session == ses]
         ses_count = ses_df["session"].count()
 
@@ -170,6 +236,12 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
 
     best_bssu_contact_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
 
+    # exclude subject hemispheres without beta
+    JLB_method = exclude_subjects(df=JLB_method, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    Euclidean_method = exclude_subjects(df=Euclidean_method, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    detec_method = exclude_subjects(df=detec_method, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    best_bssu_contact_data = exclude_subjects(df=best_bssu_contact_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+
     three_methods = [1, 2, 3]
 
     for run in three_methods:
@@ -185,7 +257,7 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
             method_data = detec_method
             method = "detec_strelow_contacts"
 
-        for ses in incl_sessions:
+        for ses in INCL_SESSIONS:
             ses_data_method = method_data.loc[method_data.session == ses]
             ses_data_best_bssu = best_bssu_contact_data.loc[best_bssu_contact_data.session == ses]
 
@@ -208,7 +280,7 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
 
         results_DF_copy = comparison_result.copy()
 
-        for ses in incl_sessions:
+        for ses in INCL_SESSIONS:
             ses_result = results_DF_copy.loc[results_DF_copy.session == ses]
 
             # get sample size
@@ -280,8 +352,12 @@ def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version:
     elif method_2 == "best_bssu_contacts":
         method_2_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
 
+    # exclude subject hemispheres without beta
+    method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+
     # Perform 3 versions of correlation tests for every session separately and within each STN
-    for ses in incl_sessions:
+    for ses in INCL_SESSIONS:
         method_1_session = method_1_data.loc[method_1_data.session == ses]
         method_2_session = method_2_data.loc[method_2_data.session == ses]
 
@@ -304,7 +380,7 @@ def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version:
 
     results_DF_copy = comparison_result.copy()
 
-    for ses in incl_sessions:
+    for ses in INCL_SESSIONS:
         ses_result = results_DF_copy.loc[results_DF_copy.session == ses]
 
         # get sample size
@@ -391,6 +467,10 @@ def percept_vs_externalized(
 
     elif externalized_version == "externalized_ssd":
         externalized_data = helpers.load_externalized_ssd_data(reference=reference)
+
+    # exclude subject hemispheres without beta
+    method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT_OR_PERCEPT)
+    externalized_data = exclude_subjects(df=externalized_data, exclude_list=EXCLUDED_NO_BETA_EXT_OR_PERCEPT)
 
     # Perform comparison for every session separately and within each STN
     if method in methods_for_spearman:
@@ -556,6 +636,10 @@ def externalized_versions_comparison(
     elif externalized_version_2 == "externalized_ssd":
         externalized_data_2 = helpers.load_externalized_ssd_data(reference=reference)
 
+    # exclude subject hemispheres without beta
+    externalized_data_1 = exclude_subjects(df=externalized_data_1, exclude_list=EXCLUDED_NO_BETA_EXT)
+    externalized_data_2 = exclude_subjects(df=externalized_data_2, exclude_list=EXCLUDED_NO_BETA_EXT)
+
     # Perform spearman correlation for every session separately and within each STN
     result_df = helpers.correlation_tests_percept_methods(
         method_1=externalized_version_1,
@@ -677,23 +761,29 @@ def methods_vs_best_clinical_contacts(
     # get data from the method
     if method == "externalized_fooof":
         method_data = helpers.load_externalized_fooof_data(fooof_version=fooof_version, reference=reference)
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
     elif method == "externalized_ssd":
         method_data = helpers.load_externalized_ssd_data(reference=reference)
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
     elif method == "JLB_directional":
         method_data = helpers.load_JLB_method(fooof_version=fooof_version)
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
 
     elif method == "euclidean_directional":
         method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
 
     elif method == "best_bssu_contacts":
         method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
 
     elif method == "detec_strelow_contacts":
         method_data = helpers.load_detec_strelow_beta_ranks(
             fooof_version=fooof_version, level_first_or_all_directional="level_first"
         )
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
         print("Strelow method: level first, 3 directional ranks of level rank 1")
 
     # select the session of the method data
@@ -1082,7 +1172,14 @@ def heatmap_method_comparison(
     fig, ax = plt.subplots()
     heatmap = ax.imshow(comparison_matrix, cmap='coolwarm', interpolation='nearest')
 
+    # # Define custom color map
+    # colors = [(0, 'blue'), (0.5, 'white'), (1, 'red')]  # Adjust color points as needed
+    # cmap = mcolors.LinearSegmentedColormap.from_list("custom_cmap", colors)
+    # # Example data
+    # comparison_matrix = np.random.rand(10, 10)  # Replace with your data
+
     cbar = fig.colorbar(heatmap)
+    # heatmap.set_clim(vmin=0, vmax=1)
     # cbar.set_label(f"{value_to_plot}")
 
     ax.set_xticks(range(len(list_of_methods)))

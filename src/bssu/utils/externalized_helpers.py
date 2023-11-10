@@ -236,7 +236,7 @@ def save_fig_png_and_svg(path: str, filename: str, figure=None):
     print(f"Figures {filename}.svg and {filename}.png", f"\nwere written in: {path}.")
 
 
-def assign_cluster(value):
+def assign_cluster(value=None):
     """
     This function takes an input float value and assigns a mathing cluster value between 1 and 3
 

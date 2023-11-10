@@ -67,6 +67,7 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
 
     group_data = pd.DataFrame()
     group_originial_rec_info = pd.DataFrame()
+    mne_hem = {}
     mne_objects = {}
 
     for patient in sub:
@@ -97,11 +98,11 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
         for hem in HEMISPHERES:
             mne_copy = mne_data.copy()
 
-            ch_names_hemisphere = [chan for chan in ch_names_LFP if hem[0] in chan]
+            ch_names_hemisphere = [chan for chan in ch_names_LFP if f"_{hem[0]}" in chan]
             print(ch_names_hemisphere)
 
             # pick LFP channels of one hemisphere only
-            mne_copy.pick(ch_names_hemisphere)
+            mne_copy = mne_copy.pick(ch_names_hemisphere)
 
             recording_info["original_information"] = [
                 subject,
@@ -132,7 +133,7 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
             )
 
             # select a period of 2 minutes with no aratefacts, default start at 1 min until 3 min
-            mne_copy.crop(60, 180)
+            mne_copy = mne_copy.crop(60, 180)
 
             # downsample all to 4000 Hz
             if int(sfreq) != 4000:
@@ -144,37 +145,42 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
             sfreq_250 = resampled_250.info["sfreq"]
             # cropped data should have 30000 samples (2 min of sfreq 250)
 
-            # save the mne object
-            mne_objects[f"{patient}_4000Hz_2min"] = mne_copy
-            mne_objects[f"{patient}_resampled_250Hz"] = resampled_250
-
             if reference == "bipolar_to_lowermost":
                 # reference all data with sfreq 4000 Hz
                 reference_channel = mne_copy.get_data(picks=f"LFP_{hem[0]}_01_STN_MT")[0]
-                lfp_data = mne_copy.get_data()
-                referenced_data = lfp_data - reference_channel
-                mne_copy._data = referenced_data
-
-                # reference all data with sfreq 250 Hz
                 reference_channel_250 = resampled_250.get_data(picks=f"LFP_{hem[0]}_01_STN_MT")[0]
-                lfp_data_250 = resampled_250.get_data()
-                referenced_data_250 = lfp_data_250 - reference_channel_250
-                resampled_250._data = referenced_data_250
-
                 reference_name = "_bipolar_to_lowermost"
 
                 print("All channels referenced to the lowermost ipsilateral channel.")
+
+                # lfp_data = mne_copy.get_data()
+                # referenced_data = lfp_data - reference_channel
+                # # problem: mne_copy will be updated for Right and then Left, so always Left 01 as reference in the end!
+                # mne_copy._data = referenced_data
+
+                # # reference all data with sfreq 250 Hz
+                # reference_channel_250 = resampled_250.get_data(picks=f"LFP_{hem[0]}_01_STN_MT")[0]
+                # lfp_data_250 = resampled_250.get_data()
+                # referenced_data_250 = lfp_data_250 - reference_channel_250
+                # resampled_250._data = referenced_data_250
 
             elif reference == "no":
                 reference_name = ""
                 print("Original common reference")
 
+            # save the mne object
+            mne_objects[f"{patient}_{hem}_4000Hz_2min"] = mne_copy
+            mne_objects[f"{patient}_{hem}_resampled_250Hz"] = resampled_250
+
             ########## save processed LFP data in dataframe ##########
             for idx, chan in enumerate(ch_names_hemisphere):  # 8 channels per hemisphere
+                # reference each channel to the lowermost ipsilateral channel
                 lfp_chan_data = mne_copy.get_data(picks=chan)[0]
+                referenced_lfp_chan = lfp_chan_data - reference_channel
                 time_stamps = mne_copy[idx][1]
 
                 lfp_chan_data_250 = resampled_250.get_data(picks=chan)[0]
+                referenced_lfp_chan_250 = lfp_chan_data_250 - reference_channel_250
                 time_stamps_250 = resampled_250[idx][1]
 
                 # ch_name corresponding to Percept -> TODO: is the order always correct???? 02 = 1A? could it also be 1B?
@@ -213,12 +219,12 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
                 subject_hemisphere = f"{subject}_{hemisphere}"
 
                 # only high-pass filter 1 Hz
-                only_high_pass_lfp_4000 = helpers.high_pass_filter_externalized(fs=sfreq, signal=lfp_chan_data)
-                only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=sfreq, signal=lfp_chan_data_250)
+                only_high_pass_lfp_4000 = helpers.high_pass_filter_externalized(fs=sfreq, signal=referenced_lfp_chan)
+                only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=sfreq, signal=referenced_lfp_chan_250)
 
                 # notch filter 50 Hz
-                notch_filtered_lfp_4000 = helpers.notch_filter_externalized(fs=sfreq, signal=lfp_chan_data)
-                notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=sfreq_250, signal=lfp_chan_data_250)
+                notch_filtered_lfp_4000 = helpers.notch_filter_externalized(fs=sfreq, signal=referenced_lfp_chan)
+                notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=sfreq_250, signal=referenced_lfp_chan_250)
 
                 # band pass filter 5-95 Hz, Butter worth filter order 3
                 filtered_lfp_4000 = helpers.band_pass_filter_externalized(fs=sfreq, signal=notch_filtered_lfp_4000)
@@ -235,11 +241,11 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
                     subject_hemisphere,
                     chan,
                     monopol_chan_name,
-                    lfp_chan_data,
+                    referenced_lfp_chan,
                     time_stamps,
                     sfreq,
                     sfreq_250,
-                    lfp_chan_data_250,
+                    referenced_lfp_chan_250,
                     time_stamps_250,
                     filtered_lfp_4000,
                     filtered_lfp_250,
@@ -1215,7 +1221,9 @@ def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=N
         stn_directional_copy["beta_relative_to_max"] = stn_directional_copy["beta_average"] / max_value_dir
 
         # cluster values into 3 categories: <40%, 40-70% and >70%
-        stn_directional_copy["beta_cluster"] = stn_directional_copy["beta_relative_to_max"].apply(assign_cluster)
+        stn_directional_copy["beta_cluster"] = stn_directional_copy["beta_relative_to_max"].apply(
+            helpers.assign_cluster
+        )
 
         # save to the beta rank dataframe
         beta_rank_directional_contacts = pd.concat([beta_rank_directional_contacts, stn_directional_copy])
