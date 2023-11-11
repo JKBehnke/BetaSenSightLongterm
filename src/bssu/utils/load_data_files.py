@@ -229,6 +229,7 @@ def load_externalized_pickle(filename: str, fooof_version=None, reference=None):
             "fooof_externalized_beta_ranks_all_contacts",
             "fooof_externalized_beta_ranks_directional_contacts",
             "SSD_directional_externalized_channels"
+            "externalized_directional_bssu_channels",
             ]
 
         - reference: "bipolar_to_lowermost" or "no"

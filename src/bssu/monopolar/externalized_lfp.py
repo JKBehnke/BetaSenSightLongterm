@@ -27,6 +27,23 @@ GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigure
 PATIENT_METADATA = load_data.load_excel_data(filename="patient_metadata")
 HEMISPHERES = ["Right", "Left"]
 DIRECTIONAL_CONTACTS = ["1A", "1B", "1C", "2A", "2B", "2C"]
+BSSU_CHANNELS = [
+    # "01",
+    # "02",
+    # "03",
+    # "12",
+    # "13",
+    # "23",
+    "1A2A",
+    "1B2B",
+    "1C2C",
+    "1A1B",
+    "1A1C",
+    "1B1C",
+    "2A2B",
+    "2A2C",
+    "2B2C",
+]
 
 # list of subjects with no BIDS transformation yet -> load these via poly5reader instead of BIDS
 SUBJECTS_NO_BIDS = ["24", "28", "29", "48", "49", "56"]
@@ -67,7 +84,7 @@ def preprocess_externalized_lfp_referenced(sub: list, reference: str):
 
     group_data = pd.DataFrame()
     group_originial_rec_info = pd.DataFrame()
-    mne_hem = {}
+
     mne_objects = {}
 
     for patient in sub:
@@ -751,6 +768,316 @@ def fourier_transform_to_psd(reference=None):
 
     helpers.save_result_dataframe_as_pickle(
         data=power_spectra_df, filename=f"externalized_power_spectra_250Hz_artefact_free{reference_name}"
+    )
+
+    return power_spectra_df
+
+
+def re_reference_BSSU_externalized(incl_bids_id: list, reference: str):
+    """
+    Simulating the segmental BSSU Percept channels with the externalized LFP data
+    Input:
+        - reference: "bipolar_to_lowermost" or "no"
+
+
+    """
+
+    bssu_channels_group_data = pd.DataFrame()
+
+    # load the dataframe with all filtered LFP data
+    preprocessed_data = load_data.load_externalized_pickle(
+        filename="externalized_preprocessed_data_artefact_free", reference=reference
+    )
+    if reference == "bipolar_to_lowermost":
+        reference_name = "_bipolar_to_lowermost"
+    elif reference == "no":
+        reference_name = ""
+
+    # get all subject_hemispheres
+    if "all" in incl_bids_id:
+        BIDS_id_unique = list(preprocessed_data.BIDS_id.unique())
+
+    else:
+        BIDS_id_unique = incl_bids_id
+
+    # re-reference channels to 15 bipolar channels as in Percept BSSU
+    for BIDS_id in BIDS_id_unique:
+        subject_data = preprocessed_data.loc[preprocessed_data.BIDS_id == BIDS_id]
+        sub = subject_data.subject.values[0]
+
+        for hem in HEMISPHERES:
+            sub_hem = f"{sub}_{hem}"
+            contact_lfp_dict = {}
+
+            sub_hem_data = subject_data.loc[subject_data.hemisphere == hem]
+            contacts = list(sub_hem_data.contact.values)
+            time_stamps_250Hz = sub_hem_data.time_stamps_250Hz.values[0]
+
+            # save the relevant LFP data from each contact into dictionary: unfiltered LFP, sf= 250 Hz
+            for contact in contacts:
+                contact_data = sub_hem_data.loc[sub_hem_data.contact == contact]
+
+                # unfiltered LFP, sf= 250 Hz
+                unfiltered_lfp_250 = contact_data.lfp_resampled_250Hz.values[0]
+
+                contact_lfp_dict[str(contact)] = unfiltered_lfp_250  # dictionary with LFP of each contact
+
+            # re-reference the LFP data of each contact to the 15 bipolar channels
+            for bssu_chan in BSSU_CHANNELS:
+                # get the 2 contacts of the bipolar channel
+                if len(bssu_chan) == 2:
+                    contact1 = bssu_chan[0]
+                    contact2 = bssu_chan[1]
+
+                elif len(bssu_chan) == 4:
+                    contact1 = bssu_chan[:2]
+                    contact2 = bssu_chan[2:]
+
+                # get the LFP data of the 2 contacts
+                contact1_lfp = contact_lfp_dict[str(contact1)]
+                contact2_lfp = contact_lfp_dict[str(contact2)]
+
+                # bipolar re-referencing
+                bipolar_lfp = contact1_lfp - contact2_lfp
+
+                # FILTER
+                # only high-pass filter 1 Hz
+                only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=250, signal=bipolar_lfp)
+
+                # notch filter 50 Hz
+                notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=250, signal=bipolar_lfp)
+
+                # band pass filter 5-95 Hz, Butter worth filter order 3
+                filtered_lfp_250 = helpers.band_pass_filter_externalized(fs=250, signal=notch_filtered_lfp_250)
+
+                # number of samples
+                n_samples_250 = len(filtered_lfp_250)
+
+                # save the bipolar LFP data into the dictionary
+
+                bssu_channels_dict = {
+                    "BIDS_id": [BIDS_id],
+                    "subject": [sub],
+                    "hemisphere": [hem],
+                    "session": ["pre-IPG"],
+                    "subject_hemisphere": [sub_hem],
+                    "bipolar_channel": [bssu_chan],
+                    "time_stamps_250Hz": [time_stamps_250Hz],
+                    "lfp_resampled_250Hz": [bipolar_lfp],
+                    "filtered_lfp_250Hz": [filtered_lfp_250],
+                    "only_high_pass_lfp_250Hz": [only_high_pass_lfp_250],
+                    "n_samples_250Hz": [n_samples_250],
+                }
+                bssu_channels_single = pd.DataFrame(bssu_channels_dict)
+
+                # save the bipolar LFP data into a dataframe
+                bssu_channels_group_data = pd.concat([bssu_channels_group_data, bssu_channels_single])
+
+    # save dataframe
+    helpers.save_result_dataframe_as_pickle(
+        data=bssu_channels_group_data, filename=f"externalized_directional_bssu_channels{reference_name}"
+    )
+
+    return bssu_channels_group_data
+
+
+def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bipolar: str, reference=None):
+    """
+    Input:
+        - reference, "bipolar_to_lowermost" or "no"
+        - incl_BIDS: list of bids_id ["L001", "L013"] or ["all"]
+        - monopol_or_bipol: "monopolar" or "bipolar"
+
+    Load the artefact free data (only the sfreq=250 Hz data is artefact-free!!):
+        - 2 min rest
+        - artefacts removed
+        - resampled to 250 Hz
+        - 3 versions: filtered (notch, band-pass), only high-pass-filtered 1 Hz and unfiltered
+
+    calculate the power spectrum for both filtered and unfiltered LFP:
+        - window length = 250 # 1 second window length
+        - overlap = window_length // 4 # 25% overlap
+        - window = hann(window_length, sym=False)
+        - frequencies, times, Zxx = scipy.signal.spectrogram(band_pass_filtered, fs=fs, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0)
+
+    Plot the Power Spectra only of the filtered sfreq=250Hz data
+
+    Save the Power Spectra of all filtered and unfiltered data in one dataframe:
+        - externalized_power_spectra_250Hz_artefact_free.pickle
+
+    """
+
+    sfreq = 250
+    hemispheres = ["Right", "Left"]
+
+    power_spectra_dict = {}
+
+    if monopolar_or_bipolar == "bipolar":
+        artefact_free_lfp = load_data.load_externalized_pickle(
+            filename="externalized_directional_bssu_channels", reference=reference
+        )
+        fig_title = "BSSU re-referenced externalized LFP"
+        bssu = "BSSU_"
+
+    elif monopolar_or_bipolar == "monopolar":
+        artefact_free_lfp = load_data.load_externalized_pickle(
+            filename="externalized_preprocessed_data_artefact_free", reference=reference
+        )
+        fig_title = "Directional externalized LFP, common reference=lowermost contact ipsilateral"
+        bssu = ""
+
+    # get all subject_hemispheres
+    if "all" in incl_BIDS:
+        BIDS_id_unique = list(artefact_free_lfp.BIDS_id.unique())
+
+    else:
+        BIDS_id_unique = incl_BIDS
+
+    for bids_id in BIDS_id_unique:
+        figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
+
+        # data only of one subject
+        subject_data = artefact_free_lfp.loc[artefact_free_lfp.BIDS_id == bids_id]
+        sub = subject_data.subject.values[0]
+
+        for hem in hemispheres:
+            hem_data = subject_data.loc[subject_data.hemisphere == hem]
+
+            if monopolar_or_bipolar == "bipolar":
+                channel_list = list(hem_data.bipolar_channel.values)
+                c_id = "bipolar_channel"
+
+            elif monopolar_or_bipolar == "monopolar":
+                channel_list = list(hem_data.contact.values)
+                c_id = "contact"
+
+            subject_hemisphere = f"{sub}_{hem}"
+
+            # Figure of one subject_hemisphere with all 9 directional channels
+            # 4 columns, 2 rows
+            fig = plt.figure(figsize=(20, 20), layout="tight")
+
+            for chan in channel_list:
+                channel_data = hem_data.loc[hem_data[c_id] == chan]
+
+                # get LFP data from one channel
+
+                loop_over_data = ["filtered_lfp_250Hz", "lfp_resampled_250Hz", "only_high_pass_lfp_250Hz"]
+                filter_details = ["notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"]
+
+                for f, filt in enumerate(loop_over_data):
+                    lfp_data = channel_data[f"{filt}"].values[0]
+                    filter_id = filter_details[f]
+
+                    ######### short time fourier transform to calculate PSD #########
+                    window_length = int(sfreq)  # 1 second window length
+                    overlap = window_length // 4  # 25% overlap
+
+                    # Calculate the short-time Fourier transform (STFT) using Hann window
+                    window = hann(window_length, sym=False)
+
+                    frequencies, times, Zxx = scipy.signal.spectrogram(
+                        lfp_data, fs=sfreq, window=window, noverlap=overlap, scaling="density", mode="psd", axis=0
+                    )
+                    # Frequencies: 0-125 Hz (1 Hz resolution), Nyquist fs/2
+                    # times: len=161, 0, 0.75, 1.5 .... 120.75
+                    # Zxx: 126 arrays, each len=161
+
+                    # average PSD across duration of the recording
+                    average_Zxx = np.mean(Zxx, axis=1)
+                    std_Zxx = np.std(Zxx, axis=1)
+                    sem_Zxx = std_Zxx / np.sqrt(Zxx.shape[1])
+
+                    # save power spectra values
+                    power_spectra_dict[f"{bids_id}_{hem}_{chan}_{filter_id}"] = [
+                        bids_id,
+                        sub,
+                        hem,
+                        subject_hemisphere,
+                        chan,
+                        filter_id,
+                        lfp_data,
+                        frequencies,
+                        times,
+                        Zxx,
+                        average_Zxx,
+                        std_Zxx,
+                        sem_Zxx,
+                        sfreq,
+                        reference,
+                    ]
+
+                    if filter_id == "notch_and_band_pass_filtered":
+                        plt.subplot(1, 1, 1)
+                        plt.title(fig_title, fontdict={"size": 40})
+                        plt.plot(frequencies, average_Zxx, label=f"{chan}", linewidth=3)
+                        plt.fill_between(
+                            frequencies, average_Zxx - sem_Zxx, average_Zxx + sem_Zxx, color='lightgray', alpha=0.5
+                        )
+
+                        plt.xlabel("Frequency [Hz]", fontdict={"size": 40})
+                        plt.ylabel("PSD", fontdict={"size": 40})
+                        # plt.ylim(1, 100)
+                        plt.xticks(fontsize=35)
+                        plt.yticks(fontsize=35)
+
+                        # Plot the legend only for the first row "postop"
+                        plt.legend(loc='upper right', edgecolor="black", fontsize=40)
+
+            fig.suptitle(
+                f"Power Spectrum sub-{sub}, {hem} hemisphere, fs = 250 Hz, filtered and artefact-free, reference {reference}",
+                fontsize=55,
+                y=1.02,
+            )
+            plt.show()
+
+            # fig.savefig(
+            #     os.path.join(
+            #         figures_path,
+            #         f"One_plot_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}.png",
+            #     ),
+            #     bbox_inches="tight",
+            # )
+
+            helpers.save_fig_png_and_svg(
+                path=figures_path,
+                filename=f"One_plot_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}",
+                figure=fig,
+            )
+
+    power_spectra_df = pd.DataFrame(power_spectra_dict)
+    power_spectra_df.rename(
+        index={
+            0: "BIDS_id",
+            1: "subject",
+            2: "hemisphere",
+            3: "subject_hemisphere",
+            4: "channel",
+            5: "filtered",
+            6: "lfp_data",
+            7: "frequencies",
+            8: "times",
+            9: "power",
+            10: "power_average_over_time",
+            11: "power_std",
+            12: "power_sem",
+            13: "sfreq",
+            14: "reference",
+        },
+        inplace=True,
+    )
+    power_spectra_df = power_spectra_df.transpose()
+
+    # save dataframe
+    if reference == "bipolar_to_lowermost":
+        reference_name = "_bipolar_to_lowermost"
+
+    else:
+        reference_name = ""
+
+    helpers.save_result_dataframe_as_pickle(
+        data=power_spectra_df,
+        filename=f"fourier_transform_externalized_{bssu}power_spectra_250Hz_artefact_free{reference_name}",
     )
 
     return power_spectra_df
