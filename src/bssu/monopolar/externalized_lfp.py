@@ -1031,14 +1031,6 @@ def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bip
             )
             plt.show()
 
-            # fig.savefig(
-            #     os.path.join(
-            #         figures_path,
-            #         f"One_plot_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}.png",
-            #     ),
-            #     bbox_inches="tight",
-            # )
-
             helpers.save_fig_png_and_svg(
                 path=figures_path,
                 filename=f"One_plot_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}",
@@ -1146,7 +1138,12 @@ def fooof_model_predefined(fooof_version: str):
 
 
 def fooof_model_settings(
-    fooof_version: str, bids_id: str, power_spectra_data: pd.DataFrame, filtered: str, reference=None
+    fooof_version: str,
+    bids_id: str,
+    power_spectra_data: pd.DataFrame,
+    filtered: str,
+    monopolar_or_bipolar: str,
+    reference=None,
 ):
     """
     Input:
@@ -1180,6 +1177,8 @@ def fooof_model_settings(
     else:
         reference_name = ""
 
+    monopolar_or_bipolar_dict = {"monopolar": "contact", "bipolar": "channel"}
+
     figures_path = find_folders.get_monopolar_project_path(folder="figures", sub=bids_id)
 
     common_reference_contacts = {}
@@ -1191,22 +1190,24 @@ def fooof_model_settings(
 
     for hem in HEMISPHERES:
         hem_data = subject_data.loc[subject_data.hemisphere == hem]
-        contacts = list(hem_data.contact.values)
+        contacts = list(hem_data[monopolar_or_bipolar_dict[monopolar_or_bipolar]].values)
         subject_hemisphere = f"{sub}_{hem}"
 
         for c, contact in enumerate(contacts):
-            contact_data = hem_data.loc[hem_data.contact == contact]
-            original_ch_name = contact_data.original_ch_name.values[0]
+            contact_data = hem_data.loc[hem_data[monopolar_or_bipolar_dict[monopolar_or_bipolar]] == contact]
+
+            if monopolar_or_bipolar == "monopolar":
+                original_ch_name = contact_data.original_ch_name.values[0]
+
+                # check if the power spectrum contains only 0 -> in case of a contact used as common reference
+                if np.all(power_spectrum == 0):
+                    common_reference_contacts[f"{sub}_{hem}_{contact}"] = [bids_id, sub, hem, contact, original_ch_name]
+                    print(f"Sub-{sub}, {hem}: contact {contact} is used as common reference.")
+                    continue
 
             # get the data to fit
             power_spectrum = contact_data.power_average_over_time.values[0]
             freqs = contact_data.frequencies.values[0]
-
-            # check if the power spectrum contains only 0 -> in case of a contact used as common reference
-            if np.all(power_spectrum == 0):
-                common_reference_contacts[f"{sub}_{hem}_{contact}"] = [bids_id, sub, hem, contact, original_ch_name]
-                print(f"Sub-{sub}, {hem}: contact {contact} is used as common reference.")
-                continue
 
             ############ SET PLOT LAYOUT ############
             fig, ax = plt.subplots(4, 1, figsize=(7, 20))
@@ -1266,9 +1267,13 @@ def fooof_model_settings(
             fig.tight_layout()
 
             # save figures
+            if monopolar_or_bipolar == "monopolar":
+                bssu = ""
+            elif monopolar_or_bipolar == "bipolar":
+                bssu = "BSSU_"
             helpers.save_fig_png_and_svg(
                 path=figures_path,
-                filename=f"fooof_externalized_sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}_{fooof_version}",
+                filename=f"fooof_externalized_{bssu}sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}_{fooof_version}",
                 figure=fig,
             )
 
@@ -1333,7 +1338,6 @@ def fooof_model_settings(
                 "hemisphere": [hem],
                 "subject_hemisphere": [subject_hemisphere],
                 "contact": [contact],
-                "original_ch_name": [original_ch_name],
                 "fooof_error": [err],
                 "fooof_r_sq": [r_sq],
                 "fooof_exponent": [exp],
@@ -1352,11 +1356,15 @@ def fooof_model_settings(
             fooof_results_single = pd.DataFrame(fooof_results)
             fooof_results_df = pd.concat([fooof_results_df, fooof_results_single], ignore_index=True)
 
-    # bids_id, sub, hem, contact, original_ch_name
-    common_reference_contacts_columns = ["BIDS_id", "subject", "hemisphere", "contact", "original_ch_name"]
-    common_reference_contacts_df = pd.DataFrame.from_dict(
-        common_reference_contacts, orient="index", columns=common_reference_contacts_columns
-    )
+    if monopolar_or_bipolar == "monopolar":
+        # bids_id, sub, hem, contact, original_ch_name
+        common_reference_contacts_columns = ["BIDS_id", "subject", "hemisphere", "contact"]
+        common_reference_contacts_df = pd.DataFrame.from_dict(
+            common_reference_contacts, orient="index", columns=common_reference_contacts_columns
+        )
+
+    elif monopolar_or_bipolar == "bipolar":
+        common_reference_contacts_df = "no common reference contacts"
 
     return {"fooof_results_df": fooof_results_df, "common_reference_contacts_df": common_reference_contacts_df}
 
@@ -1463,6 +1471,123 @@ def externalized_fooof_fit(fooof_version: str, filtered: str, reference=None):
         data=common_reference_group_DF,
         filename=f"externalized_contacts_common_reference{reference_name}_{fooof_version}",
     )
+
+    return fooof_results_df
+
+
+def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bipolar: str, reference=None):
+    """
+    Input:
+        - fooof_version: str "v1" or "v2"
+        - filtered: str, "unfiltered", "only_high_pass_filtered"
+        - reference: str "bipolar_to_lowermost" or "no"
+
+    Load the Power Spectra data
+        - externalized_power_spectra_250Hz_artefact_free.pickle
+        - resampled sfreq=250 Hz
+        - artefact-free
+
+        2 versions:
+        - unfiltered Power Spectra
+        - only high-pass filtered Power Spectra
+
+    1) First set and fit a FOOOF model without a knee -> within a frequency range from 1-95 Hz (broad frequency range for fitting the aperiodic component)
+        - peak_width_limits=[2, 15.0],  # must be a list, low limit should be more than twice as frequency resolution, usually not more than 15Hz bw
+        - max_n_peaks=6,                # 4, 5 sometimes misses important peaks, 6 better even though there might be more false positives in high frequencies
+        - min_peak_height=0.2,          # 0.2 detects false positives in gamma but better than 0.35 missing relevant peaks in low frequencies
+        - peak_threshold=2.0,           # default 2.0, lower if necessary to detect peaks more sensitively
+        - aperiodic_mode="fixed",       # fitting without knee component, because there are no knees found so far in the STN
+        - verbose=True,
+
+        frequency range for parameterization: 1-95 Hz
+
+        plot a figure with the raw Power spectrum and the fitted model
+
+    2) save figure into figure folder of each subject:
+        figure filename: fooof_externalized_sub{subject}_{hemisphere}_{chan}_250Hz_clean.png
+
+    3) Extract following parameters and save as columns into DF
+        - 0: "subject_hemisphere",
+        - 1: "subject",
+        - 2: "hemisphere",
+        - 3: "BIDS_id",
+        - 4: "original_ch_name",
+        - 5: "contact",
+        - 6: "fooof_error",
+        - 7: "fooof_r_sq",
+        - 8: "fooof_exponent",
+        - 9: "fooof_offset",
+        - 10: "fooof_power_spectrum", # with 95 values, 1 Hz frequency resolution, so 1-95 Hz
+        - 11: "periodic_plus_aperiodic_power_log",
+        - 12: "fooof_periodic_flat",
+        - 13: "fooof_number_peaks",
+        - 14: "alpha_peak_CF_power_bandWidth",
+        - 15: "low_beta_peak_CF_power_bandWidth",
+        - 16: "high_beta_peak_CF_power_bandWidth",
+        - 17: "beta_peak_CF_power_bandWidth",
+        - 18: "gamma_peak_CF_power_bandWidth",
+
+
+    5) save Dataframe into results folder of each subject
+        - filename: "fooof_externalized_sub{subject}.json"
+
+    """
+
+    if reference == "bipolar_to_lowermost":
+        reference_name = "_bipolar_to_lowermost"
+
+    else:
+        reference_name = ""
+
+    fooof_results_df = pd.DataFrame()
+    common_reference_group_DF = pd.DataFrame()
+
+    if monopolar_or_bipolar == "bipolar":
+        power_spectra_data = load_data.load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free", reference=reference
+        )
+        bssu = "BSSU_"
+
+    elif monopolar_or_bipolar == "monopolar":
+        power_spectra_data = load_data.load_externalized_pickle(
+            filename="externalized_power_spectra_250Hz_artefact_free", reference=reference
+        )  # make sure to use this one and not "fourier_transform_externalized..." because original channel names will be needed for the FOOOF function above
+        bssu = ""
+
+    # first select only the rows with UNFILTERED OR ONLY HIGH-PASS-FILTERED DATA
+    power_spectra_data = power_spectra_data.loc[power_spectra_data.filtered == filtered]
+
+    BIDS_id_unique = list(power_spectra_data.BIDS_id.unique())
+
+    for bids_id in BIDS_id_unique:
+        # fit a FOOOF model, plot the spectra and save the results
+        bids_id_fooof_result = fooof_model_settings(
+            fooof_version=fooof_version,
+            bids_id=bids_id,
+            power_spectra_data=power_spectra_data,
+            filtered=filtered,
+            monopolar_or_bipolar=monopolar_or_bipolar,
+            reference=reference,
+        )
+
+        fooof_results_bids_id_df = bids_id_fooof_result["fooof_results_df"]
+        fooof_results_df = pd.concat([fooof_results_df, fooof_results_bids_id_df], ignore_index=True)
+
+        if monopolar_or_bipolar == "monopolar":
+            common_reference_bids_id_DF = bids_id_fooof_result["common_reference_contacts_df"]
+            common_reference_group_DF = pd.concat(
+                [common_reference_group_DF, common_reference_bids_id_DF], ignore_index=True
+            )
+
+    # save DF as pickle
+    helpers.save_result_dataframe_as_pickle(
+        data=fooof_results_df, filename=f"fooof_externalized_group_{bssu}{filtered}{reference_name}_{fooof_version}"
+    )
+    if monopolar_or_bipolar == "monopolar":
+        helpers.save_result_dataframe_as_pickle(
+            data=common_reference_group_DF,
+            filename=f"externalized_contacts_common_reference{bssu}{reference_name}_{fooof_version}",
+        )
 
     return fooof_results_df
 
