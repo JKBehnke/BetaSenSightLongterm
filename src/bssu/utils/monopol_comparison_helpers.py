@@ -114,6 +114,22 @@ def load_externalized_ssd_data(reference=None):
     return externalized_SSD_beta_ranks_copy
 
 
+def load_externalized_bssu_fooof_data(fooof_version: str, reference=None):
+    """ """
+
+    externalized_bssu_data = load_data.load_externalized_pickle(
+        filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+        fooof_version=fooof_version,
+        reference=reference,
+    )
+
+    # add column with method name
+    externalized_bssu_data_copy = externalized_bssu_data.copy()
+    externalized_bssu_data_copy["method"] = "externalized_bssu_fooof"
+
+    return externalized_bssu_data_copy
+
+
 def load_euclidean_method(fooof_version: str):
     """ """
     ################## method weighted by euclidean coordinates ##################
@@ -145,6 +161,25 @@ def load_euclidean_method(fooof_version: str):
     return monopolar_fooof_euclidean_segmental_copy
 
 
+def load_euclidean_externalized_bssu(fooof_version: str):
+    """ """
+
+    data = loadResults.load_pickle_group_result(
+        filename="fooof_externalized_BSSU_monoRef_only_segmental_weight_beta_psd_by_inverse_distance",
+        fooof_version=fooof_version,
+    )
+
+    data = data["monopolar_Dataframe"]
+
+    # add column with method name
+    data_copy = data.copy()
+    data_copy["method"] = "euclidean_directional_externalized_bssu"
+    data_copy["beta_rank"] = data_copy["rank"]
+    data_copy.drop(columns=["rank"], inplace=True)
+
+    return data_copy
+
+
 def load_JLB_method(fooof_version: str):
     """ """
     ################## method by JLB ##################
@@ -163,6 +198,22 @@ def load_JLB_method(fooof_version: str):
     return monopolar_fooof_JLB_copy
 
 
+def load_JLB_externalized_bssu(fooof_version: str):
+    """ """
+
+    data = loadResults.load_pickle_group_result(
+        filename="MonoRef_JLB_fooof_externalized_BSSU_beta", fooof_version=fooof_version
+    )
+
+    # add column with method name
+    data_copy = data.copy()
+    data_copy["method"] = "JLB_directional_externalized_bssu"
+    data_copy["beta_rank"] = data_copy["rank"]
+    data_copy.drop(columns=["rank"], inplace=True)
+
+    return data_copy
+
+
 def load_best_bssu_method(fooof_version: str):
     """ """
     ################## method by Binder et al. - best directional Survey contact pair ##################
@@ -173,6 +224,20 @@ def load_best_bssu_method(fooof_version: str):
     # add column with method name
     best_bssu_contacts_copy = best_bssu_contacts.copy()
     best_bssu_contacts_copy["method"] = "best_bssu_contacts"
+
+    return best_bssu_contacts_copy
+
+
+def load_best_externalized_bssu(fooof_version: str):
+    """ """
+    ################## method by Binder et al. - best directional Survey contact pair ##################
+    best_bssu_contacts = loadResults.load_pickle_group_result(
+        filename="best_2_contacts_from_directional_externalized_bssu", fooof_version=fooof_version
+    )
+
+    # add column with method name
+    best_bssu_contacts_copy = best_bssu_contacts.copy()
+    best_bssu_contacts_copy["method"] = "best_bssu_contacts_externalized_bssu"
 
     return best_bssu_contacts_copy
 
@@ -211,6 +276,46 @@ def load_detec_strelow_beta_ranks(fooof_version: str, level_first_or_all_directi
     # add column with method name
     detec_fooof_result_copy = detec_fooof_result.copy()
     detec_fooof_result_copy["method"] = "detec_strelow_contacts"
+    detec_fooof_result_copy = detec_fooof_result_copy.reset_index()
+    detec_fooof_result_copy = detec_fooof_result_copy.drop(columns=["index"])
+
+    return detec_fooof_result_copy
+
+
+def load_detec_strelow_beta_ranks_externalized_bssu(fooof_version: str, level_first_or_all_directional: str):
+    """
+    Method from Strelow et al. weighting power by distance between contact pairs
+
+    Parameters:
+        - fooof_version: The version of FOOOF to use. Currently, only "v2" is supported.
+        - level_first_or_all_directional: A string indicating whether to load the beta ranks for the "level_first" or "all_directional" approach.
+
+    Returns:
+        A pandas DataFrame containing the beta ranks from the Strelow et al. method, weighted by distance between contact pairs.
+        The DataFrame includes columns for the beta ranks and a column indicating the method name.
+
+    Notes:
+        - The function relies on the 'loadResults.load_pickle_group_result' function to load the beta ranks.
+        - The function assumes the existence of the pickle files 'fooof_detec_beta_levels_and_directions_ranks' and 'fooof_detec_beta_all_directional_ranks'.
+
+
+    """
+    if level_first_or_all_directional == "all_directional":
+        detec_fooof_result = loadResults.load_pickle_group_result(
+            filename="fooof_detec_externalized_bssu_beta_all_directional_ranks", fooof_version=fooof_version
+        )
+
+    elif level_first_or_all_directional == "level_first":
+        detec_fooof_result = loadResults.load_pickle_group_result(
+            filename="fooof_detec_externalized_bssu_beta_levels_and_directions_ranks", fooof_version=fooof_version
+        )
+
+        # only keep the directional contacts of the level rank 1
+        detec_fooof_result = detec_fooof_result.loc[detec_fooof_result.level_or_direction == "direction"]
+
+    # add column with method name
+    detec_fooof_result_copy = detec_fooof_result.copy()
+    detec_fooof_result_copy["method"] = "detec_strelow_contacts_externalized_bssu"
     detec_fooof_result_copy = detec_fooof_result_copy.reset_index()
     detec_fooof_result_copy = detec_fooof_result_copy.drop(columns=["index"])
 
@@ -295,7 +400,11 @@ def save_fig_png_and_svg(filename: str, figure=None):
 
 
 def correlation_tests_percept_methods(
-    method_1: str, method_2: str, method_1_df: pd.DataFrame, method_2_df: pd.DataFrame, ses: str
+    method_1: str,
+    method_2: str,
+    method_1_df: pd.DataFrame,
+    method_2_df: pd.DataFrame,
+    ses: str,
 ):
     """
     Requirement for methods: must have beta values for all directional contacts (n=6), so don't use best_bssu method here!
@@ -311,6 +420,7 @@ def correlation_tests_percept_methods(
     return a dataframe with results
 
     """
+
     results_DF = pd.DataFrame()
 
     # find STNs with data from both methods
@@ -336,6 +446,25 @@ def correlation_tests_percept_methods(
         stn_method_2 = stn_comparison.loc[stn_comparison.method == method_2]
 
         # Spearman correlation between estimated beta average
+        ####### CHECK IF THERE ARE NANS IN THE DATAFRAME ########
+        if (
+            np.isnan(stn_method_1["estimated_monopolar_beta_psd"].values).any()
+            or np.isnan(stn_method_2["estimated_monopolar_beta_psd"].values).any()
+        ):
+            print(f"Sub-{sub_hem} has NaN values in the estimated beta average.")
+            continue
+
+        elif (
+            np.isnan(stn_method_1["beta_relative_to_max"].values).any()
+            or np.isnan(stn_method_2["beta_relative_to_max"].values).any()
+        ):
+            print(f"Sub-{sub_hem} has NaN values in beta_relative_to_max.")
+            continue
+
+        elif np.isnan(stn_method_1["beta_cluster"].values).any() or np.isnan(stn_method_2["beta_cluster"].values).any():
+            print(f"Sub-{sub_hem} has NaN values in beta_relative_to_max.")
+            continue
+
         spearman_beta_stn = stats.spearmanr(
             stn_method_1["estimated_monopolar_beta_psd"].values, stn_method_2["estimated_monopolar_beta_psd"].values
         )
@@ -435,7 +564,7 @@ def correlation_tests_percept_methods(
 
 
 def rank_comparison_percept_methods(
-    method_1: str, method_2: str, method_1_df: pd.DataFrame, method_2_df: pd.DataFrame, ses: str
+    method_1: str, method_2: str, method_1_df: pd.DataFrame, method_2_df: pd.DataFrame, ses: str, bssu_version: str
 ):
     """
 
@@ -447,6 +576,13 @@ def rank_comparison_percept_methods(
     return a dataframe with results
 
     """
+
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     comparison_result = pd.DataFrame()
 
     # find STNs with data from both methods and externalized
@@ -472,7 +608,7 @@ def rank_comparison_percept_methods(
         stn_method_2 = stn_comparison.loc[stn_comparison.method == method_2]
 
         ######### METHOD 1 RANK CONTACTS 1 AND 2 #########
-        if method_1 == "best_bssu_contacts":
+        if method_1 == f"best_bssu_contacts{external_extension}":
             rank1_method_1 = "none"
             rank2_method_1 = "none"
             rank_1_and_2_method_1 = stn_method_1.selected_2_contacts.values[0]
@@ -480,14 +616,18 @@ def rank_comparison_percept_methods(
         else:
             # contacts with beta rank 1 and 2
             rank1_method_1 = stn_method_1.loc[stn_method_1.beta_rank == 1.0]
-            rank1_method_1 = rank1_method_1.contact.values[0]
-
             rank2_method_1 = stn_method_1.loc[stn_method_1.beta_rank == 2.0]
-            rank2_method_1 = rank2_method_1.contact.values[0]
+            if len(rank1_method_1.contact.values) == 0 or len(rank2_method_1.contact.values) == 0:
+                print(f"no rank 1 contact in {sub_hem} {method_1}")
+                continue
 
-            rank_1_and_2_method_1 = [rank1_method_1, rank2_method_1]
+            else:
+                rank1_method_1 = rank1_method_1.contact.values[0]
+                rank2_method_1 = rank2_method_1.contact.values[0]
 
-        if method_2 == "best_bssu_contacts":
+                rank_1_and_2_method_1 = [rank1_method_1, rank2_method_1]
+
+        if method_2 == f"best_bssu_contacts{external_extension}":
             rank1_method_2 = "none"
             rank2_method_2 = "none"
             rank_1_and_2_method_2 = stn_method_2.selected_2_contacts.values[0]
@@ -495,12 +635,17 @@ def rank_comparison_percept_methods(
         else:
             # contacts with beta rank 1 and 2
             rank1_method_2 = stn_method_2.loc[stn_method_2.beta_rank == 1.0]
-            rank1_method_2 = rank1_method_2.contact.values[0]
-
             rank2_method_2 = stn_method_2.loc[stn_method_2.beta_rank == 2.0]
-            rank2_method_2 = rank2_method_2.contact.values[0]
 
-            rank_1_and_2_method_2 = [rank1_method_2, rank2_method_2]
+            if len(rank1_method_2.contact.values) == 0 or len(rank2_method_2.contact.values) == 0:
+                print(f"no rank 1 contact in {sub_hem} {method_2}")
+                continue
+
+            else:
+                rank1_method_2 = rank1_method_2.contact.values[0]
+                rank2_method_2 = rank2_method_2.contact.values[0]
+
+                rank_1_and_2_method_2 = [rank1_method_2, rank2_method_2]
 
         # yes if 2 contacts with rank 1 or 2 are the same (independent of which one is rank 1 or 2)
         if set(rank_1_and_2_method_1) == set(rank_1_and_2_method_2):
@@ -556,22 +701,22 @@ def get_sample_size_percept_methods(
 
     """
     # sample size
-    ses_count = ses_df["session"].count()
+    ses_count = ses_df["subject_hemisphere"].count()
 
     if rank_1_exists == "yes":
         # count how often compare_rank_1_contact same
         same_rank_1 = ses_df.loc[ses_df.compare_rank_1_contact == "same"]
-        same_rank_1 = same_rank_1["session"].count()
+        same_rank_1 = same_rank_1["subject_hemisphere"].count()
         percentage_same_rank_1 = same_rank_1 / ses_count
 
         # count how often compare_rank_1_contact same
         both_contacts_matching = ses_df.loc[ses_df.both_contacts_matching == "yes"]
-        both_contacts_matching = both_contacts_matching["session"].count()
+        both_contacts_matching = both_contacts_matching["subject_hemisphere"].count()
         percentage_both_contacts_matching = both_contacts_matching / ses_count
 
         # count how often there is at least one matching contact in compare_rank_1_and_2_contact
         at_least_1_same = ses_df.loc[ses_df.compare_rank_1_and_2_contacts == "at_least_one_contact_match"]
-        at_least_1_same = at_least_1_same["session"].count()
+        at_least_1_same = at_least_1_same["subject_hemisphere"].count()
         percentage_at_least_1_same = at_least_1_same / ses_count
 
         sample_size_dict = {
@@ -616,7 +761,12 @@ def get_sample_size_percept_methods(
 
 
 def load_comparison_result_DF(
-    method_comparison: str, comparison_file: str, clinical_session: str, percept_session: str, fooof_version: str
+    method_comparison: str,
+    comparison_file: str,
+    clinical_session: str,
+    percept_session: str,
+    fooof_version: str,
+    bssu_version: str,
 ):
     """
     Input:
@@ -627,13 +777,17 @@ def load_comparison_result_DF(
 
     """
 
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     if comparison_file == "rank":
-        filename = f"{comparison_file}_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{fooof_version}.pickle"
+        filename = f"{comparison_file}_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{fooof_version}.pickle"
 
     elif comparison_file == "correlation":
-        filename = (
-            f"{comparison_file}_group_comparison_all_externalized_percept_{percept_session}_{fooof_version}.pickle"
-        )
+        filename = f"{comparison_file}_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{fooof_version}.pickle"
 
     filepath = os.path.join(GROUP_RESULTS_PATH, filename)
 
@@ -647,7 +801,12 @@ def load_comparison_result_DF(
 
 
 def get_comparison_matrix_for_heatmap_from_DF(
-    value_to_plot: str, clinical_session: str, percept_session: str, rank_or_correlation: str, fooof_version: str
+    value_to_plot: str,
+    clinical_session: str,
+    percept_session: str,
+    rank_or_correlation: str,
+    fooof_version: str,
+    bssu_version: str,
 ):
     """
 
@@ -662,6 +821,12 @@ def get_comparison_matrix_for_heatmap_from_DF(
 
 
     """
+
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
 
     def populate_matrix(matrix, dict, list_of_methods):
         for i in range(len(list_of_methods)):
@@ -689,36 +854,36 @@ def get_comparison_matrix_for_heatmap_from_DF(
 
     if rank_or_correlation == "rank":
         method_comparisons = [
-            "euclidean_directional_JLB_directional",
-            "euclidean_directional_best_bssu_contacts",
-            "euclidean_directional_detec_strelow_contacts",
-            "JLB_directional_best_bssu_contacts",
-            "JLB_directional_detec_strelow_contacts",
-            "detec_strelow_contacts_best_bssu_contacts",
-            "externalized_fooof_detec_strelow_contacts",
-            "externalized_ssd_detec_strelow_contacts",
-            "JLB_directional_externalized_fooof",
-            "JLB_directional_externalized_ssd",
-            "euclidean_directional_externalized_fooof",
-            "euclidean_directional_externalized_ssd",
-            "externalized_fooof_best_bssu_contacts",
-            "externalized_ssd_best_bssu_contacts",
+            f"euclidean_directional{external_extension}_JLB_directional{external_extension}",
+            f"euclidean_directional{external_extension}_best_bssu_contacts{external_extension}",
+            f"euclidean_directional{external_extension}_detec_strelow_contacts{external_extension}",
+            f"JLB_directional{external_extension}_best_bssu_contacts{external_extension}",
+            f"JLB_directional{external_extension}_detec_strelow_contacts{external_extension}",
+            f"detec_strelow_contacts{external_extension}_best_bssu_contacts{external_extension}",
+            f"externalized_fooof_detec_strelow_contacts{external_extension}",
+            f"externalized_ssd_detec_strelow_contacts{external_extension}",
+            f"JLB_directional{external_extension}_externalized_fooof",
+            f"JLB_directional{external_extension}_externalized_ssd",
+            f"euclidean_directional{external_extension}_externalized_fooof",
+            f"euclidean_directional{external_extension}_externalized_ssd",
+            f"externalized_fooof_best_bssu_contacts{external_extension}",
+            f"externalized_ssd_best_bssu_contacts{external_extension}",
             "externalized_fooof_externalized_ssd",
             "best_clinical_contacts_externalized_ssd",
             "best_clinical_contacts_externalized_fooof",
-            "best_clinical_contacts_JLB_directional",
-            "best_clinical_contacts_euclidean_directional",
-            "best_clinical_contacts_best_bssu_contacts",
-            "best_clinical_contacts_detec_strelow_contacts",
+            f"best_clinical_contacts_JLB_directional{external_extension}",
+            f"best_clinical_contacts_euclidean_directional{external_extension}",
+            f"best_clinical_contacts_best_bssu_contacts{external_extension}",
+            f"best_clinical_contacts_detec_strelow_contacts{external_extension}",
         ]
 
         list_of_methods = [
             "externalized_ssd",
             "externalized_fooof",
-            "JLB_directional",
-            "euclidean_directional",
-            "best_bssu_contacts",
-            "detec_strelow_contacts",
+            f"JLB_directional{external_extension}",
+            f"euclidean_directional{external_extension}",
+            f"best_bssu_contacts{external_extension}",
+            f"detec_strelow_contacts{external_extension}",
             "best_clinical_contacts",
         ]
 
@@ -728,24 +893,24 @@ def get_comparison_matrix_for_heatmap_from_DF(
 
     elif rank_or_correlation == "correlation":
         method_comparisons = [
-            "euclidean_directional_JLB_directional",
-            "euclidean_directional_detec_strelow_contacts",
-            "JLB_directional_detec_strelow_contacts",
-            "detec_strelow_contacts_externalized_fooof",
-            "detec_strelow_contacts_externalized_ssd",
-            "JLB_directional_externalized_fooof",
-            "JLB_directional_externalized_ssd",
-            "euclidean_directional_externalized_fooof",
-            "euclidean_directional_externalized_ssd",
+            f"euclidean_directional{external_extension}_JLB_directional{external_extension}",
+            f"euclidean_directional{external_extension}_detec_strelow_contacts{external_extension}",
+            f"JLB_directional{external_extension}_detec_strelow_contacts{external_extension}",
+            f"detec_strelow_contacts{external_extension}_externalized_fooof",
+            f"detec_strelow_contacts{external_extension}_externalized_ssd",
+            f"JLB_directional{external_extension}_externalized_fooof",
+            f"JLB_directional{external_extension}_externalized_ssd",
+            f"euclidean_directional{external_extension}_externalized_fooof",
+            f"euclidean_directional{external_extension}_externalized_ssd",
             "externalized_fooof_externalized_ssd",
         ]
 
         list_of_methods = [
             "externalized_ssd",
             "externalized_fooof",
-            "JLB_directional",
-            "euclidean_directional",
-            "detec_strelow_contacts",
+            f"JLB_directional{external_extension}",
+            f"euclidean_directional{external_extension}",
+            f"detec_strelow_contacts{external_extension}",
         ]
 
         # Initialize an empty 5x5 matrix
@@ -762,6 +927,7 @@ def get_comparison_matrix_for_heatmap_from_DF(
             clinical_session=clinical_session,
             percept_session=percept_session,
             fooof_version=fooof_version,
+            bssu_version=bssu_version,
         )
 
         # for correlation first select the rows with relevant values

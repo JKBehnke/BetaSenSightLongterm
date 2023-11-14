@@ -18,6 +18,7 @@ import pickle
 from ..utils import loadResults as loadResults
 from ..utils import find_folders as find_folders
 from ..utils import percept_helpers as helpers
+from ..utils import load_data_files as load_data
 
 
 def monoRef_weightPsdBetaAverageByCoordinateDistance(
@@ -1452,7 +1453,9 @@ def calculate_average_coordinates_between_contacts(session_Dataframe_coord, only
     return session_Dataframe_coord
 
 
-def weight_power_of_single_contacts(mono_data, mono_data_copy, stn_ses_bipolar, contacts, similarity_calculation):
+def weight_power_of_single_contacts(
+    mono_data, mono_data_copy, stn_ses_bipolar, contacts, similarity_calculation, spectra_column
+):
     """ """
     # for stn in stn_list:
     #     # only select bipolar channels of this stn and session
@@ -1514,7 +1517,7 @@ def weight_power_of_single_contacts(mono_data, mono_data_copy, stn_ses_bipolar, 
 
         ########### weight fooof_power_spectrum ###########
         # weighting the power of bipolar contacts by their similarity to the monopolar contact
-        weighted_power = stn_ses_bipolar['fooof_power_spectrum'].values * similarity  # 9 arrays for only segmental
+        weighted_power = stn_ses_bipolar[spectra_column].values * similarity  # 9 arrays for only segmental
 
         # sum of all 9 arrays
         sum_weighted_power = np.sum(
@@ -1630,6 +1633,7 @@ def fooof_weight_psd_by_euclidean_distance(
     TODO: ask Rob again, is normalization of similarity in this case with only segmental contacts not necessary?
 
     """
+    spectra_column = "fooof_power_spectrum"
     # segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
     # segmental_channels = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
     incl_sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
@@ -1700,7 +1704,7 @@ def fooof_weight_psd_by_euclidean_distance(
             mono_data_copy["subject_hemisphere"] = f"{stn}"
 
             weighted_power_dataframe = weight_power_of_single_contacts(
-                mono_data, mono_data_copy, stn_ses_bipolar, contacts, similarity_calculation
+                mono_data, mono_data_copy, stn_ses_bipolar, contacts, similarity_calculation, spectra_column
             )
 
             mono_data_copy = weighted_power_dataframe[0]
@@ -1733,6 +1737,342 @@ def fooof_weight_psd_by_euclidean_distance(
 
 
 def fooof_monoRef_weight_psd_by_distance_all_contacts(similarity_calculation: str, fooof_version: str):
+    """
+
+    Input:
+
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
+        - fooof_version: "v1" or "v2"
+
+    merging the monopolar estimated beta power from segmented contacts only from segmental channels
+    and the ring contacts (0 and 3) from all 13 bipolar channels
+
+    """
+
+    sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
+
+    # load the dataframes from segmented and ring contacts
+    segmented_data = fooof_weight_psd_by_euclidean_distance(
+        fooof_spectrum="periodic_spectrum",
+        fooof_version=fooof_version,
+        only_segmental="yes",
+        similarity_calculation=similarity_calculation,
+    )
+
+    ring_data = fooof_weight_psd_by_euclidean_distance(
+        fooof_spectrum="periodic_spectrum",
+        fooof_version=fooof_version,
+        only_segmental="no",
+        similarity_calculation=similarity_calculation,
+    )
+
+    # clean up the dataframes
+
+    merged_data = pd.DataFrame()
+
+    for ses in sessions:
+        segmented_clean_data = segmented_data[f"{ses}_monopolar_Dataframe"]  # DF of only one session
+        segmented_clean_data = segmented_clean_data.dropna()
+
+        ring_clean_data = ring_data[f"{ses}_monopolar_Dataframe"]  # DF of only one session
+        ring_clean_data = ring_clean_data.dropna()
+
+        # merge into complete dataframe
+        merged_data = pd.concat([merged_data, segmented_clean_data, ring_clean_data], ignore_index=True)
+
+    all_ranked_data = pd.DataFrame()
+    electrodes_list = sorted(merged_data.subject_hemisphere.unique())
+
+    for electrode in electrodes_list:
+        electrode_data = merged_data.loc[merged_data.subject_hemisphere == electrode]
+
+        for ses in sessions:
+            if ses not in electrode_data.session.values:
+                continue
+
+            electrode_session_data = electrode_data.loc[electrode_data.session == ses]
+
+            # rank estimated monopolar beta of all 8 contacts
+            electrode_session_copy = electrode_session_data.copy()
+            electrode_session_copy["rank_8"] = electrode_session_copy["estimated_monopolar_beta_psd"].rank(
+                ascending=False
+            )
+            electrode_session_copy = electrode_session_copy.drop(columns=["rank"])
+            electrode_session_copy = electrode_session_copy.reset_index()
+
+            # add column with relative beta power to beta rank 1 power
+            beta_rank_1 = electrode_session_copy[electrode_session_copy["rank_8"] == 1.0]
+            beta_rank_1 = beta_rank_1["estimated_monopolar_beta_psd"].values[0]  # just taking psdAverage of rank 1.0
+
+            electrode_session_copy["beta_psd_rel_to_rank1"] = electrode_session_copy.apply(
+                lambda row: row["estimated_monopolar_beta_psd"] / beta_rank_1, axis=1
+            )  # in each row add to new value psd/beta_rank1
+            electrode_session_copy["beta_relative_to_max"] = electrode_session_copy.apply(
+                lambda row: row["estimated_monopolar_beta_psd"] / beta_rank_1, axis=1
+            )  # in each row add to new value psd/beta_rank1
+
+            # add column with relative beta power to beta rank1 and rank8, so values ranging from 0 to 1
+            # value of rank 8
+            beta_rank_8 = electrode_session_copy[electrode_session_copy["rank_8"] == 8.0]
+            beta_rank_8 = beta_rank_8["estimated_monopolar_beta_psd"].values[0]  # just taking psdAverage of rank 8.0
+
+            beta_rank_1 = (
+                beta_rank_1 - beta_rank_8
+            )  # this is necessary to get value 1.0 after dividng the subtracted PSD value of rank 1 by itself
+
+            # in each row add in new column: (psd-beta_rank_8)/beta_rank1
+            electrode_session_copy["beta_psd_rel_range_0_to_1"] = electrode_session_copy.apply(
+                lambda row: (row["estimated_monopolar_beta_psd"] - beta_rank_8) / beta_rank_1, axis=1
+            )
+
+            # cluster values into 3 categories: <40%, 40-70% and >70%
+            electrode_session_copy["beta_cluster"] = electrode_session_copy["beta_relative_to_max"].apply(
+                helpers.assign_cluster
+            )
+
+            # save
+            all_ranked_data = pd.concat([all_ranked_data, electrode_session_copy], ignore_index=True)
+
+    # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
+    helpers.save_result_dataframe_as_pickle(
+        data=all_ranked_data,
+        filename=f"fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}_{fooof_version}",
+    )
+
+    return all_ranked_data
+
+
+########################## externalized re-referenced BSSU ##########################
+
+
+def load_data_to_weight(data_type: str):
+    """
+    Input:
+        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
+    """
+
+    # load the correct data type
+    if data_type == "fooof":
+        loaded_data = load_data.load_externalized_pickle(
+            filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+            fooof_version="v2",
+            reference="bipolar_to_lowermost",
+        )
+
+        contact_channel = "contact"
+        spectra_column = "fooof_power_spectrum"
+
+    elif data_type == "notch_and_band_pass_filtered":
+        loaded_data = load_data.load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
+            reference="bipolar_to_lowermost",
+        )
+        loaded_data = loaded_data.loc[loaded_data.filtered == "notch_and_band_pass_filtered"]
+        contact_channel = "channel"
+        spectra_column = "power_average_over_time"
+
+    elif data_type == "unfiltered":
+        loaded_data = load_data.load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
+            reference="bipolar_to_lowermost",
+        )
+        loaded_data = loaded_data.loc[loaded_data.filtered == "unfiltered"]
+        contact_channel = "channel"
+        spectra_column = "power_average_over_time"
+
+    elif data_type == "only_high_pass_filtered":
+        loaded_data = load_data.load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
+            reference="bipolar_to_lowermost",
+        )
+        loaded_data = loaded_data.loc[loaded_data.filtered == "only_high_pass_filtered"]
+        contact_channel = "channel"
+        spectra_column = "power_average_over_time"
+
+    return {"loaded_data": loaded_data, "contact_channel": contact_channel, "spectra": spectra_column}
+
+
+def fooof_externalized_bssu_weight_psd_by_euclidean_distance(
+    fooof_version: str,
+    data_type: str,
+    only_segmental: str,
+    similarity_calculation: str,
+):
+    """
+
+    Input:
+        - fooof_spectrum:
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+        - only_segmental: str e.g. "yes" or "no"
+
+        - similarity_calculation: "inverse_distance", "exp_neg_distance"
+        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
+
+
+
+    1) define imaginary coordinates for segmental contacts only or for all contacts
+        - plot the imaginary contact coordinates using plotly
+
+
+
+    2) Load the fooof dataframe and edit dataframe
+
+        - check which sessions exist for this patient
+        - only for segmental bipolar channels: add columns
+            subject_hemisphere
+            contact1
+            contact2
+            bip_chan
+            coord_z = mean coordinate between contact 1 and 2
+            coord_xy = mean coordinate between contact 1 and 2
+            channel_group
+
+        - delete all rows with Ring bipolar channels using drop NaN
+
+        save Dataframe for each session: session_data[f"{ses}_bipolar_Dataframe"]
+
+
+    3) Calculate for each segmental contact the estimated PSD
+
+        - new dataframe per session with segmental contacts as index
+
+        - calculate an array with all euclidean distances based on both directions in z- and xy-axis
+
+            diff_z = abs(coord_z - session_Dataframe_coord.loc[bipolar_channel, 'coord_z'])
+            diff_xy = abs(coord_xy - session_Dataframe_coord.loc[bipolar_channel, 'coord_xy'])
+
+            dist = np.sqrt(diff_z**2 + diff_xy**2)
+
+        - compute similarity from distances
+
+            similarity = np.exp(-all_dists) # alternative to 1/x, but exp^-x does't reach 0
+
+        - normalization of similarity is not necessary when only using segmental bipolar recordings
+        -> each contact should have the same similarities
+
+        - weight the recorded psd in a frequency band:
+
+            for each bipolar segmental channel:
+            weighted_beta = averaged PSD * similarity
+            weighted_power = fooof_power_spectrum * similarity
+
+        -> monopolar estimated psd of one segmental contact = np.sum(weighted_beta)
+
+
+    4) save the dictionary sub{sub}_{hemisphere}_monoRef_only_segmental_weight_psd_by_distance{freqBand}_{normalization}_{filterSignal}.pickle"
+
+        - in results_path of the subject
+        - keys of dictionary:
+
+            f"{ses}_bipolar_Dataframe" with bipolar content: contact1 and contact2 with coordinates and psd average of bipolar channels
+
+            f"{ses}_monopolar_Dataframe" with monopolar content: contact, estimated_monopol_psd_{freqBand}, rank
+
+
+
+    TODO: ask Rob again, is normalization of similarity in this case with only segmental contacts not necessary?
+
+    """
+    # segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+    # segmental_channels = ["1A1B", "1A1C", "1B1C", "2A2B", "2A2C", "2B2C", "1A2A", "1B2B", "1C2C"]
+
+    # calculate and plot coordinates:
+    calculated_coordinates = calculate_coordinates(only_segmental)
+    contacts = calculated_coordinates[0]
+    channels = calculated_coordinates[1]
+    contact_coordinates = calculated_coordinates[2]
+
+    # plot coordinates
+    plot_coordinates(contact_coordinates)
+
+    #####################  Loading the Data #####################
+    loaded_data = load_data_to_weight(data_type=data_type)
+    externalized_data = loaded_data["loaded_data"]
+    # fooof_externalized_dataframe = load_data.load_externalized_pickle(
+    #     filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+    #     fooof_version=fooof_version,
+    #     reference="bipolar_to_lowermost",
+    # )
+
+    # rename column contact to bipolar_channel
+    externalized_data = externalized_data.rename(columns={loaded_data["contact_channel"]: "bipolar_channel"})
+    spectra_column = loaded_data["spectra"]
+
+    # only take rows of channels of interest
+    externalized_data = externalized_data.loc[externalized_data.bipolar_channel.isin(channels)]
+
+    session_data = {}
+    weighted_power_spectra = {}
+
+    data_with_calculated_coordinates = calculate_average_coordinates_between_contacts(
+        externalized_data, only_segmental, contact_coordinates
+    )
+
+    # store copied and modified session_Dataframe into session dictionary
+    session_data["bipolar_Dataframe"] = data_with_calculated_coordinates
+
+    ##################### Calculate beta psd average of each monopolar contact from all averaged coordinates #####################
+
+    session_data["monopolar_Dataframe"] = pd.DataFrame()
+
+    ses_dataframe = session_data["bipolar_Dataframe"]
+
+    stn_list = list(ses_dataframe.subject_hemisphere.unique())
+
+    for stn in stn_list:
+        # only select bipolar channels of this stn and session
+        stn_ses_bipolar = ses_dataframe.loc[ses_dataframe.subject_hemisphere == stn]
+        stn_ses_bipolar = stn_ses_bipolar.reset_index()
+
+        # Create Dataframe with the coordinates of 6 contact coordinates: 1A, 1B, 1C, 2A, 2B, 2C
+        mono_data = pd.DataFrame(contact_coordinates).T
+        mono_data.columns = ['coord_z', 'coord_xy']  # columns with z- and xy-coordinates of each contact
+
+        # copy mono_data dataframe to add new columns
+        mono_data_copy = mono_data.copy()
+
+        mono_data_copy["session"] = "postop"
+        mono_data_copy["subject_hemisphere"] = f"{stn}"
+
+        weighted_power_dataframe = weight_power_of_single_contacts(
+            mono_data, mono_data_copy, stn_ses_bipolar, contacts, similarity_calculation, spectra_column=spectra_column
+        )
+
+        mono_data_copy = weighted_power_dataframe[0]
+        weighted_power = weighted_power_dataframe[1]
+
+        session_data["monopolar_Dataframe"] = pd.concat([session_data["monopolar_Dataframe"], mono_data_copy])
+
+        weighted_power_spectra[stn] = weighted_power
+
+    if only_segmental == "yes":
+        filename = "only_segmental_"
+
+    else:
+        filename = "segments_and_rings_"
+
+    # save session_data dictionary with bipolar and monopolar psd average Dataframes as pickle files
+    helpers.save_result_dataframe_as_pickle(
+        data=session_data,
+        filename=f"{data_type}_externalized_BSSU_monoRef_{filename}weight_beta_psd_by_{similarity_calculation}_{fooof_version}",
+    )
+
+    helpers.save_result_dataframe_as_pickle(
+        data=weighted_power_spectra,
+        filename=f"{data_type}_externalized_BSSU_euclidean_weighted_power_spectra_{filename}{similarity_calculation}_{fooof_version}",
+    )
+
+    return session_data
+
+
+def fooof_externalized_bssu_monoRef_weight_psd_by_distance_all_contacts(
+    similarity_calculation: str, fooof_version: str
+):
     """
 
     Input:

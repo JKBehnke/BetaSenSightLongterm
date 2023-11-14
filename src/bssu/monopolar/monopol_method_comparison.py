@@ -50,7 +50,7 @@ EXCLUDED_NO_BETA_EXT = [
     "048_Left",
     "049_Right",
     "049_Left",
-    "061_Right",
+    "061_Right",  # NaNs, don't know why because nice beta
     "071_Right",
     "072_Right",
 ]
@@ -84,7 +84,7 @@ def exclude_subjects(df: pd.DataFrame, exclude_list: list):
     return df
 
 
-def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_version: str):
+def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_version: str, bssu_version: str):
     """
     Spearman correlation between monopolar beta power estimations between 2 methods
     only of directional contacts
@@ -98,48 +98,101 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
         - fooof_version: "v1", "v2"
     """
 
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     # results
     results_DF = pd.DataFrame()
     sample_size_df = pd.DataFrame()
     corr_ses_df = pd.DataFrame()
 
     # get data from method 1
-    if method_1 == "JLB_directional":
-        method_1_data = helpers.load_JLB_method(fooof_version=fooof_version)
+    if method_1 == f"JLB_directional{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_JLB_method(fooof_version=fooof_version)
 
-    elif method_1 == "euclidean_directional":
-        method_1_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_JLB_externalized_bssu(fooof_version=fooof_version)
 
-    elif method_1 == "detec_strelow_contacts":
-        method_1_data = helpers.load_detec_strelow_beta_ranks(
-            fooof_version=fooof_version, level_first_or_all_directional="all_directional"
-        )
+    elif method_1 == f"euclidean_directional{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_euclidean_externalized_bssu(fooof_version=fooof_version)
+
+    elif method_1 == f"detec_strelow_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_detec_strelow_beta_ranks(
+                fooof_version=fooof_version, level_first_or_all_directional="all_directional"
+            )
+
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_detec_strelow_beta_ranks_externalized_bssu(
+                fooof_version=fooof_version, level_first_or_all_directional="all_directional"
+            )
+
+        print("Strelow method: all directional contact values")
         # monopolar beta average for all directional contacts
 
     # get data from method 2
-    if method_2 == "JLB_directional":
-        method_2_data = helpers.load_JLB_method(fooof_version=fooof_version)
+    if method_2 == f"JLB_directional{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_JLB_method(fooof_version=fooof_version)
 
-    elif method_2 == "euclidean_directional":
-        method_2_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_JLB_externalized_bssu(fooof_version=fooof_version)
 
-    elif method_2 == "detec_strelow_contacts":
-        method_2_data = helpers.load_detec_strelow_beta_ranks(
-            fooof_version=fooof_version, level_first_or_all_directional="all_directional"
-        )
+    elif method_2 == f"euclidean_directional{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_euclidean_externalized_bssu(fooof_version=fooof_version)
+
+    elif method_2 == f"detec_strelow_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_detec_strelow_beta_ranks(
+                fooof_version=fooof_version, level_first_or_all_directional="all_directional"
+            )
+
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_detec_strelow_beta_ranks_externalized_bssu(
+                fooof_version=fooof_version, level_first_or_all_directional="all_directional"
+            )
+        print("Strelow method: all directional contact values")
         # monopolar beta average for all directional contacts
 
     # exclude subject hemispheres without beta
-    method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
-    method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    if bssu_version == "percept":
+        method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+        method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+
+    elif bssu_version == "externalized":
+        method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_EXT)
+        method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
     # Perform 3 versions of correlation tests for every session separately and within each STN
-    for ses in INCL_SESSIONS:
-        method_1_session = method_1_data.loc[method_1_data.session == ses]
-        method_2_session = method_2_data.loc[method_2_data.session == ses]
+    if bssu_version == "percept":
+        for ses in INCL_SESSIONS:
+            method_1_session = method_1_data.loc[method_1_data.session == ses]
+            method_2_session = method_2_data.loc[method_2_data.session == ses]
 
+            ses_result_df = helpers.correlation_tests_percept_methods(
+                method_1=method_1,
+                method_2=method_2,
+                method_1_df=method_1_session,
+                method_2_df=method_2_session,
+                ses=ses,
+            )
+            results_DF = pd.concat([results_DF, ses_result_df], ignore_index=True)
+
+    elif bssu_version == "externalized":
         ses_result_df = helpers.correlation_tests_percept_methods(
-            method_1=method_1, method_2=method_2, method_1_df=method_1_session, method_2_df=method_2_session, ses=ses
+            method_1=method_1, method_2=method_2, method_1_df=method_1_data, method_2_df=method_2_data, ses="postop"
         )
         results_DF = pd.concat([results_DF, ses_result_df], ignore_index=True)
 
@@ -161,28 +214,64 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
     )
 
     # get sample size
-    for ses in INCL_SESSIONS:
-        ses_df = results_DF_copy.loc[results_DF_copy.session == ses]
-        ses_count = ses_df["session"].count()
+    if bssu_version == "percept":
+        for ses in INCL_SESSIONS:
+            ses_df = results_DF_copy.loc[results_DF_copy.session == ses]
+            ses_count = ses_df["session"].count()
+
+            sample_size_single_df = helpers.get_sample_size_percept_methods(
+                ses=ses, ses_df=ses_df, method_1=method_1, method_2=method_2, rank_1_exists="yes"
+            )
+            sample_size_df = pd.concat([sample_size_df, sample_size_single_df], ignore_index=True)
+
+            # correlation results per correlation test
+            for corr in correlation_results:
+                corr_mean = ses_df[f"{corr}_r"].mean()
+                corr_median = ses_df[f"{corr}_r"].median()
+                corr_std = np.std(ses_df[f"{corr}_r"])
+
+                # calculate how often significant?
+                significant_count = ses_df.loc[ses_df[f"significant_{corr}"] == "yes"]
+                significant_count = significant_count["session"].count()
+                percentage_significant = significant_count / ses_count
+
+                corr_ses_result = {
+                    "session": [ses],
+                    "method_1": [method_1],
+                    "method_2": [method_2],
+                    "sample_size": [ses_count],
+                    "correlation": [corr],
+                    "corr_mean": [corr_mean],
+                    "corr_median": [corr_median],
+                    "corr_std": [corr_std],
+                    "significant_count": [significant_count],
+                    "percentage_significant": [percentage_significant],
+                }
+                corr_ses_single_df = pd.DataFrame(corr_ses_result)
+
+                corr_ses_df = pd.concat([corr_ses_df, corr_ses_single_df], ignore_index=True)
+
+    elif bssu_version == "externalized":
+        ses_count = results_DF_copy["session"].count()
 
         sample_size_single_df = helpers.get_sample_size_percept_methods(
-            ses=ses, ses_df=ses_df, method_1=method_1, method_2=method_2, rank_1_exists="yes"
+            ses="postop", ses_df=results_DF_copy, method_1=method_1, method_2=method_2, rank_1_exists="yes"
         )
         sample_size_df = pd.concat([sample_size_df, sample_size_single_df], ignore_index=True)
 
         # correlation results per correlation test
         for corr in correlation_results:
-            corr_mean = ses_df[f"{corr}_r"].mean()
-            corr_median = ses_df[f"{corr}_r"].median()
-            corr_std = np.std(ses_df[f"{corr}_r"])
+            corr_mean = results_DF_copy[f"{corr}_r"].mean()
+            corr_median = results_DF_copy[f"{corr}_r"].median()
+            corr_std = np.std(results_DF_copy[f"{corr}_r"])
 
             # calculate how often significant?
-            significant_count = ses_df.loc[ses_df[f"significant_{corr}"] == "yes"]
+            significant_count = results_DF_copy.loc[results_DF_copy[f"significant_{corr}"] == "yes"]
             significant_count = significant_count["session"].count()
             percentage_significant = significant_count / ses_count
 
             corr_ses_result = {
-                "session": [ses],
+                "session": ["postop"],
                 "method_1": [method_1],
                 "method_2": [method_2],
                 "sample_size": [ses_count],
@@ -213,7 +302,7 @@ def correlation_monopol_fooof_beta_methods(method_1: str, method_2: str, fooof_v
     return {"single_stn_results": results_DF_copy, "rank": sample_size_df, "correlation": corr_ses_df}
 
 
-def compare_method_to_best_bssu_contact_pair(fooof_version: str):
+def compare_method_to_best_bssu_contact_pair(fooof_version: str, bssu_version: str):
     """
     No need for this function, consider to delete it
 
@@ -267,6 +356,7 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
                 method_1_df=ses_data_method,
                 method_2_df=ses_data_best_bssu,
                 ses=ses,
+                bssu_version=bssu_version,
             )
 
             comparison_result = pd.concat([comparison_result, comparison_single_result], ignore_index=True)
@@ -308,7 +398,7 @@ def compare_method_to_best_bssu_contact_pair(fooof_version: str):
     }
 
 
-def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version: str):
+def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version: str, bssu_version: str):
     """
     Comparing the ranks of all percept methods to each other (NO correlation)
 
@@ -317,56 +407,120 @@ def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version:
 
     """
 
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     sample_size_df = pd.DataFrame()
     comparison_result = pd.DataFrame()
 
     # get data from method 1
-    if method_1 == "JLB_directional":
-        method_1_data = helpers.load_JLB_method(fooof_version=fooof_version)
+    if method_1 == f"JLB_directional{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_JLB_method(fooof_version=fooof_version)
 
-    elif method_1 == "euclidean_directional":
-        method_1_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_JLB_externalized_bssu(fooof_version=fooof_version)
 
-    elif method_1 == "detec_strelow_contacts":
-        method_1_data = helpers.load_detec_strelow_beta_ranks(
-            fooof_version=fooof_version, level_first_or_all_directional="level_first"
-        )
+    elif method_1 == f"euclidean_directional{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_euclidean_externalized_bssu(fooof_version=fooof_version)
+
+    elif method_1 == f"detec_strelow_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_detec_strelow_beta_ranks(
+                fooof_version=fooof_version, level_first_or_all_directional="level_first"
+            )
+
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_detec_strelow_beta_ranks_externalized_bssu(
+                fooof_version=fooof_version, level_first_or_all_directional="level_first"
+            )
+
         print("Strelow method: level first, 3 directional ranks of level rank 1")
 
-    elif method_1 == "best_bssu_contacts":
-        method_1_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+    elif method_1 == f"best_bssu_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_1_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+
+        elif bssu_version == "externalized":
+            method_1_data = helpers.load_best_externalized_bssu(fooof_version=fooof_version)
 
     # get data from method 2
-    if method_2 == "JLB_directional":
-        method_2_data = helpers.load_JLB_method(fooof_version=fooof_version)
+    if method_2 == f"JLB_directional{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_JLB_method(fooof_version=fooof_version)
 
-    elif method_2 == "euclidean_directional":
-        method_2_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_JLB_externalized_bssu(fooof_version=fooof_version)
 
-    elif method_2 == "detec_strelow_contacts":
-        method_2_data = helpers.load_detec_strelow_beta_ranks(
-            fooof_version=fooof_version, level_first_or_all_directional="level_first"
-        )
+    elif method_2 == f"euclidean_directional{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_euclidean_externalized_bssu(fooof_version=fooof_version)
+
+    elif method_2 == f"detec_strelow_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_detec_strelow_beta_ranks(
+                fooof_version=fooof_version, level_first_or_all_directional="level_first"
+            )
+
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_detec_strelow_beta_ranks_externalized_bssu(
+                fooof_version=fooof_version, level_first_or_all_directional="level_first"
+            )
+
         print("Strelow method: level first, 3 directional ranks of level rank 1")
 
-    elif method_2 == "best_bssu_contacts":
-        method_2_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+    elif method_2 == f"best_bssu_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_2_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+
+        elif bssu_version == "externalized":
+            method_2_data = helpers.load_best_externalized_bssu(fooof_version=fooof_version)
 
     # exclude subject hemispheres without beta
-    method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
-    method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    if bssu_version == "percept":
+        method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+        method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+
+    elif bssu_version == "externalized":
+        method_1_data = exclude_subjects(df=method_1_data, exclude_list=EXCLUDED_NO_BETA_EXT)
+        method_2_data = exclude_subjects(df=method_2_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
     # Perform 3 versions of correlation tests for every session separately and within each STN
-    for ses in INCL_SESSIONS:
-        method_1_session = method_1_data.loc[method_1_data.session == ses]
-        method_2_session = method_2_data.loc[method_2_data.session == ses]
 
+    if bssu_version == "percept":
+        for ses in INCL_SESSIONS:
+            method_1_session = method_1_data.loc[method_1_data.session == ses]
+            method_2_session = method_2_data.loc[method_2_data.session == ses]
+
+            ses_result_df = helpers.rank_comparison_percept_methods(
+                method_1=method_1,
+                method_2=method_2,
+                method_1_df=method_1_session,
+                method_2_df=method_2_session,
+                ses=ses,
+                bssu_version=bssu_version,
+            )
+
+            comparison_result = pd.concat([comparison_result, ses_result_df], ignore_index=True)
+
+    elif bssu_version == "externalized":
         ses_result_df = helpers.rank_comparison_percept_methods(
             method_1=method_1,
             method_2=method_2,
-            method_1_df=method_1_session,
-            method_2_df=method_2_session,
-            ses=ses,
+            method_1_df=method_1_data,
+            method_2_df=method_2_data,
+            ses="postop",
+            bssu_version=bssu_version,
         )
 
         comparison_result = pd.concat([comparison_result, ses_result_df], ignore_index=True)
@@ -374,19 +528,33 @@ def rank_comparison_percept_methods(method_1: str, method_2: str, fooof_version:
     # save as Excel
     helpers.save_result_excel(
         result_df=comparison_result,
-        filename=f"fooof_monopol_best_contacts_per_stn_{method_1}_{method_2}_{fooof_version}",
+        filename=f"fooof_monopol_best_contacts_per_stn_{method_1}_{method_2}{external_extension}_{fooof_version}",
         sheet_name="fooof_monopol_best_contacts",
     )
 
     results_DF_copy = comparison_result.copy()
 
-    for ses in INCL_SESSIONS:
-        ses_result = results_DF_copy.loc[results_DF_copy.session == ses]
+    if bssu_version == "percept":
+        for ses in INCL_SESSIONS:
+            ses_result = results_DF_copy.loc[results_DF_copy.session == ses]
 
+            # get sample size
+            sample_size_single_df = helpers.get_sample_size_percept_methods(
+                ses=ses,
+                ses_df=ses_result,
+                rank_1_exists="no",
+                method_1=method_1,
+                method_2=method_2,
+            )
+
+            # sample_size_single_df = pd.DataFrame(sample_size_dict)
+            sample_size_df = pd.concat([sample_size_df, sample_size_single_df])
+
+    elif bssu_version == "externalized":
         # get sample size
         sample_size_single_df = helpers.get_sample_size_percept_methods(
-            ses=ses,
-            ses_df=ses_result,
+            ses="postop",
+            ses_df=results_DF_copy,
             rank_1_exists="no",
             method_1=method_1,
             method_2=method_2,
@@ -414,6 +582,7 @@ def percept_vs_externalized(
     fooof_version: str,
     strelow_level_first: str,
     externalized_version: str,
+    bssu_version: str,
     reference=None,
 ):
     """
@@ -426,8 +595,16 @@ def percept_vs_externalized(
         - fooof_version: "v1", "v2"
         - strelow_level_first: "level_first" if you want to use this method for ranking, or "all_directional" if you want the beta average of all directional contacts
         - externalized_version: "externalized_fooof", "externalized_ssd"
+        - bssu_version: "externalized", "percept"
         - reference: str "bipolar_to_lowermost" or "no"
     """
+
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     if reference == "bipolar_to_lowermost":
         reference_name = "_bipolar_to_lowermost"
 
@@ -435,31 +612,56 @@ def percept_vs_externalized(
         reference_name = ""
 
     if strelow_level_first == "level_first":
-        methods_for_spearman = ["JLB_directional", "euclidean_directional"]
-        methods_without_spearman = ["best_bssu_contacts", "detec_strelow_contacts"]
+        methods_for_spearman = [f"JLB_directional{external_extension}", f"euclidean_directional{external_extension}"]
+        methods_without_spearman = [
+            f"best_bssu_contacts{external_extension}",
+            f"detec_strelow_contacts{external_extension}",
+        ]
 
     elif strelow_level_first == "all_directional":
-        methods_for_spearman = ["JLB_directional", "euclidean_directional", "detec_strelow_contacts"]
-        methods_without_spearman = ["best_bssu_contacts"]
+        methods_for_spearman = [
+            f"JLB_directional{external_extension}",
+            f"euclidean_directional{external_extension}",
+            f"detec_strelow_contacts{external_extension}",
+        ]
+        methods_without_spearman = [f"best_bssu_contacts{external_extension}"]
 
     # get only postop data from method
-    if method == "JLB_directional":
-        method_data = helpers.load_JLB_method(fooof_version=fooof_version)
-        method_data = method_data.loc[method_data.session == percept_session]
+    if method == f"JLB_directional{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_JLB_method(fooof_version=fooof_version)
+            method_data = method_data.loc[method_data.session == percept_session]
 
-    elif method == "euclidean_directional":
-        method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
-        method_data = method_data.loc[method_data.session == percept_session]
+        elif bssu_version == "externalized":
+            method_data = helpers.load_JLB_externalized_bssu(fooof_version=fooof_version)
 
-    elif method == "detec_strelow_contacts":
-        method_data = helpers.load_detec_strelow_beta_ranks(
-            fooof_version=fooof_version, level_first_or_all_directional=strelow_level_first
-        )
-        method_data = method_data.loc[method_data.session == percept_session]
+    elif method == f"euclidean_directional{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+            method_data = method_data.loc[method_data.session == percept_session]
 
-    elif method == "best_bssu_contacts":
-        method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
-        method_data = method_data.loc[method_data.session == percept_session]
+        elif bssu_version == "externalized":
+            method_data = helpers.load_euclidean_externalized_bssu(fooof_version=fooof_version)
+
+    elif method == f"detec_strelow_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_detec_strelow_beta_ranks(
+                fooof_version=fooof_version, level_first_or_all_directional=strelow_level_first
+            )
+            method_data = method_data.loc[method_data.session == percept_session]
+
+        elif bssu_version == "externalized":
+            method_data = helpers.load_detec_strelow_beta_ranks_externalized_bssu(
+                fooof_version=fooof_version, level_first_or_all_directional=strelow_level_first
+            )
+
+    elif method == f"best_bssu_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+            method_data = method_data.loc[method_data.session == percept_session]
+
+        elif bssu_version == "externalized":
+            method_data = helpers.load_best_externalized_bssu(fooof_version=fooof_version)
 
     # get data from externalized LFP
     if externalized_version == "externalized_fooof":
@@ -469,8 +671,13 @@ def percept_vs_externalized(
         externalized_data = helpers.load_externalized_ssd_data(reference=reference)
 
     # exclude subject hemispheres without beta
-    method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT_OR_PERCEPT)
-    externalized_data = exclude_subjects(df=externalized_data, exclude_list=EXCLUDED_NO_BETA_EXT_OR_PERCEPT)
+    if bssu_version == "percept":
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT_OR_PERCEPT)
+        externalized_data = exclude_subjects(df=externalized_data, exclude_list=EXCLUDED_NO_BETA_EXT_OR_PERCEPT)
+
+    elif bssu_version == "externalized":
+        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT)
+        externalized_data = exclude_subjects(df=externalized_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
     # Perform comparison for every session separately and within each STN
     if method in methods_for_spearman:
@@ -495,7 +702,7 @@ def percept_vs_externalized(
         # save as Excel
         helpers.save_result_excel(
             result_df=results_DF_copy,
-            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}{external_extension}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
@@ -562,21 +769,22 @@ def percept_vs_externalized(
             method_1_df=externalized_data,
             method_2_df=method_data,
             ses="postop",
+            bssu_version=bssu_version,
         )
 
         # save as Excel
         helpers.save_result_excel(
             result_df=result_df,
-            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}",
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}{external_extension}",
             sheet_name="fooof_monopol_best_contacts",
         )
 
         results_DF_copy = result_df.copy()
 
         # get sample size
-        if method == "best_bssu_contacts":
+        if method == f"best_bssu_contacts{external_extension}":
             rank_1_exists = "no"
-        elif method == "detec_strelow_contacts":
+        elif method == f"detec_strelow_contacts{external_extension}":
             rank_1_exists = "no"
 
         sample_size_df = helpers.get_sample_size_percept_methods(
@@ -722,12 +930,16 @@ def externalized_versions_comparison(
     return {"single_stn_results": results_DF_copy, "rank": sample_size_df, "correlation": corr_ses_df}
 
 
+############## TODO: ISSUE HERE ADD BSSU_VERSION ##############
+
+
 def methods_vs_best_clinical_contacts(
     clinical_session: str,
     percept_session: str,
     method: str,
     rank_or_rel_above_70: str,
     fooof_version: str,
+    bssu_version: str,
     reference=None,
 ):
     """
@@ -742,10 +954,18 @@ def methods_vs_best_clinical_contacts(
         - rank_or_rel_above_70: "rank" if you want to compare to ranked 1 and 2, OR "rel_above_70" if you want to compare to rel contacts above 70
             "rank" does NOT work with best_bssu_contacts as method
         - fooof_version: "v2"
+        - bssu_version: "externalized", "percept"
         - reference: "bipolar_to_lowermost"
 
 
     """
+    if bssu_version == "percept":
+        external_extension = ""
+        exclude = EXCLUDED_NO_BETA_PERCEPT
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+        exclude = EXCLUDED_NO_BETA_EXT
 
     if reference == "bipolar_to_lowermost":
         reference_name = "_bipolar_to_lowermost"
@@ -767,27 +987,57 @@ def methods_vs_best_clinical_contacts(
         method_data = helpers.load_externalized_ssd_data(reference=reference)
         method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
-    elif method == "JLB_directional":
-        method_data = helpers.load_JLB_method(fooof_version=fooof_version)
-        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    elif method == f"JLB_directional{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_JLB_method(fooof_version=fooof_version)
+            method_data = method_data.loc[method_data.session == percept_session]
 
-    elif method == "euclidean_directional":
-        method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
-        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+        elif bssu_version == "externalized":
+            method_data = helpers.load_JLB_externalized_bssu(fooof_version=fooof_version)
 
-    elif method == "best_bssu_contacts":
-        method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
-        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+        method_data = exclude_subjects(df=method_data, exclude_list=exclude)
 
-    elif method == "detec_strelow_contacts":
-        method_data = helpers.load_detec_strelow_beta_ranks(
-            fooof_version=fooof_version, level_first_or_all_directional="level_first"
-        )
-        method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_PERCEPT)
+    elif method == f"euclidean_directional{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_euclidean_method(fooof_version=fooof_version)
+            method_data = method_data.loc[method_data.session == percept_session]
+
+        elif bssu_version == "externalized":
+            method_data = helpers.load_euclidean_externalized_bssu(fooof_version=fooof_version)
+
+        method_data = exclude_subjects(df=method_data, exclude_list=exclude)
+
+    elif method == f"best_bssu_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_best_bssu_method(fooof_version=fooof_version)
+            method_data = method_data.loc[method_data.session == percept_session]
+
+        elif bssu_version == "externalized":
+            method_data = helpers.load_best_externalized_bssu(fooof_version=fooof_version)
+
+        method_data = exclude_subjects(df=method_data, exclude_list=exclude)
+
+    elif method == f"detec_strelow_contacts{external_extension}":
+        if bssu_version == "percept":
+            method_data = helpers.load_detec_strelow_beta_ranks(
+                fooof_version=fooof_version, level_first_or_all_directional="level_first"
+            )
+
+        elif bssu_version == "externalized":
+            method_data = helpers.load_detec_strelow_beta_ranks_externalized_bssu(
+                fooof_version=fooof_version, level_first_or_all_directional="level_first"
+            )
+
+        method_data = exclude_subjects(df=method_data, exclude_list=exclude)
         print("Strelow method: level first, 3 directional ranks of level rank 1")
 
     # select the session of the method data
-    percept_methods = ["JLB_directional", "euclidean_directional", "best_bssu_contacts", "detec_strelow_contacts"]
+    percept_methods = [
+        f"JLB_directional{external_extension}",
+        f"euclidean_directional{external_extension}",
+        f"best_bssu_contacts{external_extension}",
+        f"detec_strelow_contacts{external_extension}",
+    ]
 
     if method in percept_methods:
         method_session = percept_session
@@ -831,7 +1081,7 @@ def methods_vs_best_clinical_contacts(
         number_clinical_contacts = len(clinical_contact_selection)
 
         # from method: get contact selection in 2 versions: beta_rank_1_and_2 OR beta relative_to_max_above_70
-        if method == "best_bssu_contacts":
+        if method == f"best_bssu_contacts{external_extension}":
             method_rank_1_and_2 = stn_method["selected_2_contacts"].values[0]
 
             method_rel_to_max_above_70 = "n.a."
@@ -839,7 +1089,7 @@ def methods_vs_best_clinical_contacts(
             compare_rel_above_70_contacts = "n.a."
             common_rel_above_70_at_least_2 = "n.a."
 
-        elif method == "detec_strelow_contacts":
+        elif method == f"detec_strelow_contacts{external_extension}":
             method_rank_1_and_2 = stn_method[stn_method["beta_rank"].isin([1.0, 2.0])]
             if len(method_rank_1_and_2.contact.values) == 0:
                 print(f"Sub-{sub_hem} has no rank 1 or rank 2 contacts with method {method}.")
@@ -947,7 +1197,7 @@ def methods_vs_best_clinical_contacts(
     # save tables as Excel
     helpers.save_result_excel(
         result_df=results_DF,
-        filename=f"fooof_monopol_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
+        filename=f"fooof_monopol{external_extension}_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
         sheet_name="fooof_monopol_beta_correlations",
     )
 
@@ -961,30 +1211,40 @@ def methods_vs_best_clinical_contacts(
 
 
 def group_rank_comparison_externalized_percept_clinical(
-    clinical_session: str,
-    percept_session: str,
-    fooof_version: str,
+    clinical_session: str, percept_session: str, fooof_version: str, bssu_version: str
 ):  # sourcery skip: use-itertools-product
     """ """
+
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     list_of_methods = [
         "externalized_ssd",
         "externalized_fooof",
-        "JLB_directional",
-        "euclidean_directional",
-        "best_bssu_contacts",
-        "detec_strelow_contacts",
+        f"JLB_directional{external_extension}",
+        f"euclidean_directional{external_extension}",
+        f"best_bssu_contacts{external_extension}",
+        f"detec_strelow_contacts{external_extension}",
     ]
 
     rank_comparison_group = {}
 
-    percept_methods = ["euclidean_directional", "JLB_directional", "detec_strelow_contacts", "best_bssu_contacts"]
+    percept_methods = [
+        f"euclidean_directional{external_extension}",
+        f"JLB_directional{external_extension}",
+        f"detec_strelow_contacts{external_extension}",
+        f"best_bssu_contacts{external_extension}",
+    ]
     externalized_methods = ["externalized_fooof", "externalized_ssd"]
 
     # all percept methods vs. each of the percept methods
     for percept_m in percept_methods:
         for vs_percept_m in percept_methods:
             percept_vs_percept = rank_comparison_percept_methods(
-                method_1=percept_m, method_2=vs_percept_m, fooof_version=fooof_version
+                method_1=percept_m, method_2=vs_percept_m, fooof_version=fooof_version, bssu_version=bssu_version
             )
 
             percept_vs_percept = percept_vs_percept["rank"]
@@ -1001,6 +1261,7 @@ def group_rank_comparison_externalized_percept_clinical(
                 strelow_level_first="level_first",
                 externalized_version=ext_m,
                 fooof_version="v2",
+                bssu_version=bssu_version,
                 reference="bipolar_to_lowermost",
             )
 
@@ -1026,6 +1287,7 @@ def group_rank_comparison_externalized_percept_clinical(
             method=m,
             rank_or_rel_above_70="rank",
             fooof_version="v2",
+            bssu_version=bssu_version,
             reference="bipolar_to_lowermost",
         )
 
@@ -1039,12 +1301,12 @@ def group_rank_comparison_externalized_percept_clinical(
 
     # save session Dataframes as Excel files
     helpers.save_result_as_pickle(
-        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{fooof_version}",
+        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{fooof_version}",
         data=rank_comparison_group_copy,
     )
 
     helpers.save_result_excel(
-        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}_{fooof_version}",
+        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{fooof_version}",
         result_df=rank_comparison_group_copy,
         sheet_name="rank",
     )
@@ -1055,28 +1317,40 @@ def group_rank_comparison_externalized_percept_clinical(
 def group_correlation_comparison_externalized_percept_clinical(
     percept_session: str,
     fooof_version: str,
+    bssu_version: str,
 ):  # sourcery skip: use-itertools-product
     """
     Watch out: detec strelow method -> here there is no 2 step procedure of level, then direction used! Instead all directional weighted beta values
     """
+
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
+
     list_of_methods = [
         "externalized_ssd",
         "externalized_fooof",
-        "JLB_directional",
-        "euclidean_directional",
-        "detec_strelow_contacts",
+        f"JLB_directional{external_extension}",
+        f"euclidean_directional{external_extension}",
+        f"detec_strelow_contacts{external_extension}",
     ]
 
     correlation_comparison_group = {}
 
-    percept_methods = ["euclidean_directional", "JLB_directional", "detec_strelow_contacts"]
+    percept_methods = [
+        f"euclidean_directional{external_extension}",
+        f"JLB_directional{external_extension}",
+        f"detec_strelow_contacts{external_extension}",
+    ]
     externalized_methods = ["externalized_fooof", "externalized_ssd"]
 
     # all percept methods vs. each of the percept methods
     for percept_m in percept_methods:
         for vs_percept_m in percept_methods:
             percept_vs_percept = correlation_monopol_fooof_beta_methods(
-                method_1=percept_m, method_2=vs_percept_m, fooof_version=fooof_version
+                method_1=percept_m, method_2=vs_percept_m, fooof_version=fooof_version, bssu_version=bssu_version
             )
             percept_vs_percept = percept_vs_percept["correlation"]
             percept_vs_percept = percept_vs_percept.loc[percept_vs_percept.session == percept_session]
@@ -1092,12 +1366,12 @@ def group_correlation_comparison_externalized_percept_clinical(
                 strelow_level_first="all_directional",
                 externalized_version=ext_m,
                 fooof_version="v2",
+                bssu_version=bssu_version,
                 reference="bipolar_to_lowermost",
             )
 
             correlation_comparison_group[f"{percept_m}_{ext_m}"] = percept_vs_externalized_fooof["correlation"]
 
-    # compare externalized with each other
     # compare externalized with each other
     for ext_1 in externalized_methods:
         for ext_2 in externalized_methods:
@@ -1118,12 +1392,12 @@ def group_correlation_comparison_externalized_percept_clinical(
 
     # save session Dataframes as Excel files
     helpers.save_result_as_pickle(
-        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}_{fooof_version}",
+        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{fooof_version}",
         data=correlation_comparison_group,
     )
 
     helpers.save_result_excel(
-        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}_{fooof_version}",
+        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{fooof_version}",
         result_df=correlation_comparison_group,
         sheet_name="correlation",
     )
@@ -1132,7 +1406,12 @@ def group_correlation_comparison_externalized_percept_clinical(
 
 
 def heatmap_method_comparison(
-    value_to_plot: str, clinical_session: str, percept_session: str, rank_or_correlation: str, fooof_version: str
+    value_to_plot: str,
+    clinical_session: str,
+    percept_session: str,
+    rank_or_correlation: str,
+    fooof_version: str,
+    bssu_version: str,
 ):
     """
     methods: "externalized_ssd", "externalized_fooof", "JLB_directional", "euclidean_directional", "best_bssu_contacts", "detec_strelow_contacts", "best_clinical_contacts"
@@ -1151,7 +1430,14 @@ def heatmap_method_comparison(
 
         - rank_or_correlation: "rank" or "correlation"
 
+        - bssu_version: "percept" or "externalized"
+
     """
+    if bssu_version == "percept":
+        external_extension = ""
+
+    elif bssu_version == "externalized":
+        external_extension = "_externalized_bssu"
 
     # load the comparison matrix for the value to plot
     loaded_comparison_matrix = helpers.get_comparison_matrix_for_heatmap_from_DF(
@@ -1160,6 +1446,7 @@ def heatmap_method_comparison(
         percept_session=percept_session,
         rank_or_correlation=rank_or_correlation,
         fooof_version=fooof_version,
+        bssu_version=bssu_version,
     )
 
     comparison_matrix = loaded_comparison_matrix["comparison_matrix"]
@@ -1184,7 +1471,7 @@ def heatmap_method_comparison(
 
     ax.set_xticks(range(len(list_of_methods)))
     ax.set_yticks(range(len(list_of_methods)))
-    ax.set_xticklabels(list_of_methods, rotation=45)
+    ax.set_xticklabels(list_of_methods, rotation=90)
     ax.set_yticklabels(list_of_methods)
     ax.grid(False)
 
@@ -1214,7 +1501,7 @@ def heatmap_method_comparison(
             ax.text(j, i, text_for_cell, ha='center', va='center', color='black', fontsize=10)
 
     helpers.save_fig_png_and_svg(
-        filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}_{rank_or_correlation}_{fooof_version}",
+        filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{rank_or_correlation}_{fooof_version}",
         figure=fig,
     )
 

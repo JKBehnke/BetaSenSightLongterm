@@ -28,12 +28,12 @@ PATIENT_METADATA = load_data.load_excel_data(filename="patient_metadata")
 HEMISPHERES = ["Right", "Left"]
 DIRECTIONAL_CONTACTS = ["1A", "1B", "1C", "2A", "2B", "2C"]
 BSSU_CHANNELS = [
-    # "01",
-    # "02",
-    # "03",
-    # "12",
-    # "13",
-    # "23",
+    "01",
+    "02",
+    "03",
+    "12",
+    "13",
+    "23",
     "1A2A",
     "1B2B",
     "1C2C",
@@ -822,6 +822,10 @@ def re_reference_BSSU_externalized(incl_bids_id: list, reference: str):
 
                 contact_lfp_dict[str(contact)] = unfiltered_lfp_250  # dictionary with LFP of each contact
 
+            # calculate the power for contact 1 (1A+1B+1C) and 2 (2A+2B+2C)
+            contact_lfp_dict["1"] = (contact_lfp_dict["1A"] + contact_lfp_dict["1B"] + contact_lfp_dict["1C"]) / 3
+            contact_lfp_dict["2"] = (contact_lfp_dict["2A"] + contact_lfp_dict["2B"] + contact_lfp_dict["2C"]) / 3
+
             # re-reference the LFP data of each contact to the 15 bipolar channels
             for bssu_chan in BSSU_CHANNELS:
                 # get the 2 contacts of the bipolar channel
@@ -1033,7 +1037,7 @@ def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bip
 
             helpers.save_fig_png_and_svg(
                 path=figures_path,
-                filename=f"One_plot_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}",
+                filename=f"One_plot_with_rings_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}",
                 figure=fig,
             )
 
@@ -1586,7 +1590,7 @@ def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bip
     if monopolar_or_bipolar == "monopolar":
         helpers.save_result_dataframe_as_pickle(
             data=common_reference_group_DF,
-            filename=f"externalized_contacts_common_reference{bssu}{reference_name}_{fooof_version}",
+            filename=f"externalized_contacts_common_reference{reference_name}_{fooof_version}",
         )
 
     return fooof_results_df

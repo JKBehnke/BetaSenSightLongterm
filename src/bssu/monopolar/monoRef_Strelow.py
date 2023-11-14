@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from ..utils import loadResults as loadResults
 from ..utils import find_folders as find_folders
 from ..utils import percept_helpers as helpers
+from ..utils import load_data_files as load_data
 
 GROUP_RESULTS_PATH = find_folders.get_local_path(folder="GroupResults")
 INCL_SESSIONS = ["postop", "fu3m", "fu12m", "fu18or24m"]
@@ -253,6 +254,162 @@ def detec_rank_level_and_direction(fooof_version: str):
 
     helpers.save_result_dataframe_as_pickle(
         data=beta_level_dir_ranks, filename=f"fooof_detec_beta_levels_and_directions_ranks_{fooof_version}"
+    )
+
+    return beta_all_directional_ranks, beta_level_dir_ranks
+
+
+################ externalized BSSU ################
+
+
+def fooof_detec_weight_power_externalised_bssu(fooof_version: str):
+    """
+
+    Weight FOOOF power spectra using the DETEC method.
+
+    Parameters:
+        - fooof_version: The version of FOOOF to use. Currently, only "v2" is supported.
+
+    Returns:
+        A pandas DataFrame containing the weighted FOOOF power spectra for each subject, session, and contact.
+        The DataFrame includes columns for 'subject_hemisphere', 'session', 'contact', and 'weighted_fooof_power_spectrum'.
+
+    Notes:
+        - The function relies on the 'loadResults.load_fooof_beta_ranks' function to load the FOOOF dataframe.
+        - The function uses the 'weight_power_by_distance' function to weight the power spectra based on distance.
+        - The 'DISTANCE_DICT' dictionary is used to provide the distance information for weighting.
+        - The function assumes the existence of the 'INCL_SESSIONS' list.
+        - The function calculates the beta average from the weighted FOOOF power spectra.
+
+
+    """
+
+    # result
+    weighted_group_results = pd.DataFrame()
+
+    ############# Load the FOOOF dataframe #############
+    beta_average_DF = load_data.load_externalized_pickle(
+        filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+        fooof_version=fooof_version,
+        reference="bipolar_to_lowermost",
+    )
+
+    # rename column "contact" to "bipolar_channel"
+    beta_average_DF = beta_average_DF.rename(columns={"contact": "bipolar_channel"})
+
+    # copying session_Dataframe to add new columns
+    Dataframe_copy = beta_average_DF.copy()
+
+    stn_unique = list(Dataframe_copy.subject_hemisphere.unique())
+
+    ##################### for every STN: get the relevant FOOOF power spectra and weight depending on distance between contact pair of bipolar LFP #####################
+    for stn in stn_unique:
+        stn_data = Dataframe_copy.loc[Dataframe_copy.subject_hemisphere == stn]
+
+        # weight the power for each level and directional contact
+        weighted_power_dict = {
+            level_or_direc: weight_power_by_distance(
+                stn_data=stn_data,
+                distance_dict=DISTANCE_DICT[level_or_direc],
+            )
+            for level_or_direc in DISTANCE_DICT
+        }
+
+        for cont in weighted_power_dict:
+            stn_weighted_dict = {
+                "subject_hemisphere": [stn],
+                "session": ["postop"],
+                "contact": [cont],
+                "weighted_fooof_power_spectrum": [weighted_power_dict[cont]],
+            }
+
+            stn_weighted_results = pd.DataFrame(stn_weighted_dict)
+            weighted_group_results = pd.concat([weighted_group_results, stn_weighted_results], ignore_index=True)
+
+    # calculate beta average from weighted fooof power spectra
+    weighted_group_results_copy = weighted_group_results.copy()
+    weighted_group_results_copy["estimated_monopolar_beta_psd"] = weighted_group_results_copy[
+        "weighted_fooof_power_spectrum"
+    ]
+    weighted_group_results_copy["estimated_monopolar_beta_psd"] = weighted_group_results_copy[
+        "estimated_monopolar_beta_psd"
+    ].apply(lambda row: np.mean(row[13:36]))
+
+    return weighted_group_results_copy
+
+
+def detec_rank_level_and_direction_externalized_bssu(fooof_version: str):
+    """ """
+
+    # result
+    beta_level_dir_ranks = pd.DataFrame()
+    beta_all_directional_ranks = pd.DataFrame()
+
+    weighted_group_results = fooof_detec_weight_power_externalised_bssu(fooof_version=fooof_version)
+
+    stn_unique = list(weighted_group_results.subject_hemisphere.unique())
+
+    ##################### for every STN: first rank beta average of levels, then rank beta average of directions of level rank 1 #####################
+    for stn in stn_unique:
+        stn_data = weighted_group_results.loc[weighted_group_results.subject_hemisphere == stn]
+
+        ################# weighted power #################
+        # rank beta average of 6 directional contacts
+        all_directional_data = stn_data[stn_data["contact"].isin(DIRECTIONAL_CONTACTS)]
+        all_directional_data_copy = all_directional_data.copy()
+        all_directional_data_copy["beta_rank"] = all_directional_data_copy["estimated_monopolar_beta_psd"].rank(
+            ascending=False
+        )
+
+        # normalize to maximal beta
+        max_value_dir = all_directional_data_copy["estimated_monopolar_beta_psd"].max()
+        all_directional_data_copy["beta_relative_to_max"] = (
+            all_directional_data_copy["estimated_monopolar_beta_psd"] / max_value_dir
+        )
+
+        # cluster values into 3 categories: <40%, 40-70% and >70%
+        all_directional_data_copy["beta_cluster"] = all_directional_data_copy["beta_relative_to_max"].apply(
+            helpers.assign_cluster
+        )
+
+        # save
+        beta_all_directional_ranks = pd.concat(
+            [beta_all_directional_ranks, all_directional_data_copy],
+            ignore_index=True,
+        )
+
+        ################# strategy 1st rank level, 2nd rank directions #################
+        # 1st step: rank levels
+        level_data = stn_data[stn_data["contact"].isin(LEVELS)]
+        level_data_copy = level_data.copy()
+        level_data_copy["beta_rank"] = level_data_copy["estimated_monopolar_beta_psd"].rank(ascending=False)
+        level_data_copy["level_or_direction"] = "level"
+
+        level_rank_1 = level_data_copy.loc[level_data_copy["beta_rank"] == 1.0]
+        level_rank_1 = level_rank_1.contact.values[0]  # level 1 or 2
+
+        # 2nd step: rank directions of the level with rank 1
+        direction_contacts_level_rank_1 = [f"{level_rank_1}A", f"{level_rank_1}B", f"{level_rank_1}C"]
+        direction_data = stn_data[stn_data["contact"].isin(direction_contacts_level_rank_1)]
+        direction_data_copy = direction_data.copy()
+        direction_data_copy["beta_rank"] = direction_data_copy["estimated_monopolar_beta_psd"].rank(ascending=False)
+        direction_data_copy["level_or_direction"] = "direction"
+
+        # save to group dataframe
+        beta_level_dir_ranks = pd.concat(
+            [beta_level_dir_ranks, level_data_copy, direction_data_copy],
+            ignore_index=True,
+        )
+
+    # save dataframe
+    helpers.save_result_dataframe_as_pickle(
+        data=beta_all_directional_ranks,
+        filename=f"fooof_detec_externalized_bssu_beta_all_directional_ranks_{fooof_version}",
+    )
+
+    helpers.save_result_dataframe_as_pickle(
+        data=beta_level_dir_ranks,
+        filename=f"fooof_detec_externalized_bssu_beta_levels_and_directions_ranks_{fooof_version}",
     )
 
     return beta_all_directional_ranks, beta_level_dir_ranks

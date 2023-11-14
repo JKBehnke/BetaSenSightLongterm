@@ -1171,7 +1171,13 @@ def load_pickle_group_result(filename: str, fooof_version: str):
         "permutation_beta_ranks_fooof_spectra"
         "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance",
         "fooof_detec_beta_all_directional_ranks",
-        "fooof_detec_beta_levels_and_directions_ranks"
+        "fooof_detec_beta_levels_and_directions_ranks",
+        "fooof_externalized_BSSU_monoRef_only_segmental_weight_beta_psd_by_inverse_distance"
+        "fooof_externalized_BSSU_euclidean_weighted_power_spectra_only_segmental_inverse_distance",
+        "MonoRef_JLB_fooof_externalized_BSSU_beta",
+        "best_2_contacts_from_directional_externalized_bssu"
+        "fooof_detec_externalized_bssu_beta_all_directional_ranks"
+        "fooof_detec_externalized_bssu_beta_levels_and_directions_ranks"
 
 
     The pickle file: "{filename}.pickle"
@@ -1187,6 +1193,12 @@ def load_pickle_group_result(filename: str, fooof_version: str):
         "fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance",
         "fooof_detec_beta_all_directional_ranks",
         "fooof_detec_beta_levels_and_directions_ranks",
+        "fooof_externalized_BSSU_monoRef_only_segmental_weight_beta_psd_by_inverse_distance",
+        "fooof_externalized_BSSU_euclidean_weighted_power_spectra_only_segmental_inverse_distance",
+        "MonoRef_JLB_fooof_externalized_BSSU_beta",
+        "best_2_contacts_from_directional_externalized_bssu",
+        "fooof_detec_externalized_bssu_beta_all_directional_ranks",
+        "fooof_detec_externalized_bssu_beta_levels_and_directions_ranks",
     ]
 
     # find the path to the results folder
