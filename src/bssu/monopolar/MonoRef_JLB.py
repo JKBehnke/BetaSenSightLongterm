@@ -14,6 +14,7 @@ import pickle
 from ..utils import find_folders as find_folders
 from ..utils import loadResults as loadResults
 from ..utils import percept_helpers as helpers
+from ..utils import externalized_helpers as externalized_helpers
 from ..utils import load_data_files as load_data
 
 
@@ -687,13 +688,170 @@ def fooof_monoRef_JLB(fooof_version: str):
 ############## externalized BSSU ##############
 
 
-def fooof_externalized_bssu_monoRef_JLB(fooof_version: str):
+# def fooof_externalized_bssu_monoRef_JLB(fooof_version: str):
+#     """
+#     FIRST WEIGHT POWER SPECTRA, THEN AVERAGE BETA AFTERWARDS!
+#     Calculate the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C)
+
+#     Input:
+#         - power_range: "beta", "low_beta", "high_beta" (TODO: for this I have to rewrite the original FOOOF JSON files!)
+#         - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
+
+#     Load the fooof Dataframe and edit it:
+
+
+#     1) Calculate the percentage of each direction A, B and C:
+#         - proxy of direction:
+#             A = 1A2A
+#             B = 1B2B
+#             C = 1C2C
+
+#         - Percentage of direction = Mean beta power of one direction divided by total mean beta power of all directions
+
+#     2) Weight each segmented level 1 and 2 with percentage of direction:
+#         - proxy of hight:
+#             1 = 02
+#             2 = 13
+
+#         - Percentage of direction multiplied with mean beta power of each level
+#         - e.g. 1A = Percentage of direction(A) * mean beta power (02)
+
+
+#     """
+
+#     results_path = find_folders.get_local_path(folder="GroupResults")
+
+#     segmental_contacts = ["1A", "1B", "1C", "2A", "2B", "2C"]
+
+#     monopolar_results_single = {}
+#     monopolar_results_all = pd.DataFrame()
+
+#     ############# Load the FOOOF dataframe #############
+
+#     externalized_bssu_fooof = load_data.load_externalized_pickle(
+#         filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+#         fooof_version=fooof_version,
+#         reference="bipolar_to_lowermost",
+#     )
+
+#     # rename column "contact" to "bipolar_channel"
+#     externalized_bssu_fooof.rename(columns={"contact": "bipolar_channel"}, inplace=True)
+
+#     stn_unique = list(externalized_bssu_fooof.subject_hemisphere.unique())
+
+#     ##################### for every STN: get directional percentage of beta power and weight every monopolar contact #####################
+#     for stn in stn_unique:
+#         stn_data = externalized_bssu_fooof.loc[externalized_bssu_fooof.subject_hemisphere == stn]
+
+#         # get FOOOF power from the relevant directional channels and level channels
+#         ### direction ###
+#         beta_1A2A = stn_data.loc[stn_data.bipolar_channel == "1A2A"]
+#         beta_1A2A = beta_1A2A["fooof_power_spectrum"].values[0]
+
+#         beta_1B2B = stn_data.loc[stn_data.bipolar_channel == "1B2B"]
+#         beta_1B2B = beta_1B2B["fooof_power_spectrum"].values[0]
+
+#         beta_1C2C = stn_data.loc[stn_data.bipolar_channel == "1C2C"]
+#         beta_1C2C = beta_1C2C["fooof_power_spectrum"].values[0]
+
+#         # percentage of each direction
+#         sum_directions = np.sum([beta_1A2A, beta_1B2B, beta_1C2C], axis=0)
+#         sum_directions[sum_directions == 0] = np.nan  # replace 0 by NaN, so division by zero won't happen
+
+#         direction_A = beta_1A2A / (sum_directions / 3)
+#         direction_B = beta_1B2B / (sum_directions / 3)
+#         direction_C = beta_1C2C / (sum_directions / 3)
+
+#         ### level ###
+#         level_1 = stn_data.loc[stn_data.bipolar_channel == "02"]
+#         level_1 = level_1["fooof_power_spectrum"].values[0]
+
+#         level_2 = stn_data.loc[stn_data.bipolar_channel == "13"]
+#         level_2 = level_2["fooof_power_spectrum"].values[0]
+
+#         ### calculate the monopolar estimate of spectral FOOOF power for all segmental contacts ###
+#         for s, segment in enumerate(segmental_contacts):
+#             # get level
+#             if "1" in segment:
+#                 level = level_1
+
+#             elif "2" in segment:
+#                 level = level_2
+
+#             # get direction
+#             if "A" in segment:
+#                 direction = direction_A
+
+#             elif "B" in segment:
+#                 direction = direction_B
+
+#             elif "C" in segment:
+#                 direction = direction_C
+
+#             weighted_power = direction * level
+
+#             # store monopolar references in a dictionary
+#             monopolar_results_single[f"{stn}_{segment}"] = ["postop", stn, segment, weighted_power]
+
+#     #################### WRITE DATAFRAMES seperately for each STN to also rank within an STN and session ####################
+
+#     monopolar_dataframe = pd.DataFrame(monopolar_results_single)
+#     monopolar_dataframe.rename(
+#         index={0: "session", 1: "subject_hemisphere", 2: "contact", 3: "weighted_fooof_power_spectrum"}, inplace=True
+#     )  # rename the rows
+#     monopolar_dataframe = monopolar_dataframe.transpose()
+
+#     # average of beta band from weighted power spectrum
+#     monopolar_dataframe_copy = monopolar_dataframe.copy()
+#     monopolar_dataframe_copy["estimated_monopolar_beta_psd"] = monopolar_dataframe_copy["weighted_fooof_power_spectrum"]
+#     monopolar_dataframe_copy["estimated_monopolar_beta_psd"] = monopolar_dataframe_copy[
+#         "estimated_monopolar_beta_psd"
+#     ].apply(lambda row: np.mean(row[13:36]))
+
+#     # rank monopolar estimates for every session and stn
+
+#     # copying session_Dataframe to add new columns
+#     stn_unique_2 = list(monopolar_dataframe_copy.subject_hemisphere.unique())
+
+#     for stn in stn_unique_2:
+#         stn_data_2 = monopolar_dataframe_copy.loc[monopolar_dataframe_copy.subject_hemisphere == stn]
+#         stn_data_2_copy = stn_data_2.copy()
+#         stn_data_2_copy["rank"] = stn_data_2_copy["estimated_monopolar_beta_psd"].rank(
+#             ascending=False
+#         )  # rank monopolar estimates per stn and session
+
+#         # normalize to maximal beta
+#         max_value_dir = stn_data_2_copy["estimated_monopolar_beta_psd"].max()
+#         stn_data_2_copy["beta_relative_to_max"] = stn_data_2_copy["estimated_monopolar_beta_psd"] / max_value_dir
+
+#         # cluster values into 3 categories: <40%, 40-70% and >70%
+#         stn_data_2_copy["beta_cluster"] = stn_data_2_copy["beta_relative_to_max"].apply(helpers.assign_cluster)
+
+#         # merge all dataframes (per session per STN)
+#         monopolar_results_all = pd.concat([monopolar_results_all, stn_data_2_copy])
+
+#     # save monopolar psd estimate Dataframes as pickle files
+#     MonoRef_JLB_result_filepath = os.path.join(
+#         results_path, f"MonoRef_JLB_fooof_externalized_BSSU_beta_{fooof_version}.pickle"
+#     )
+#     with open(MonoRef_JLB_result_filepath, "wb") as file:
+#         pickle.dump(monopolar_results_all, file)
+
+#     print(f"MonoRef_JLB_fooof_externalized_BSSU_beta_{fooof_version}.pickle", f"\nwritten in: {results_path}")
+
+#     return monopolar_results_all
+
+
+def externalized_bssu_monoRef_JLB(fooof_version: str, data_type: str):
     """
     FIRST WEIGHT POWER SPECTRA, THEN AVERAGE BETA AFTERWARDS!
     Calculate the monopolar average of beta power (13-35 Hz) for segmented contacts (1A,1B,1C and 2A,2B,2C)
 
     Input:
         - power_range: "beta", "low_beta", "high_beta" (TODO: for this I have to rewrite the original FOOOF JSON files!)
+        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
 
     Load the fooof Dataframe and edit it:
 
@@ -725,34 +883,42 @@ def fooof_externalized_bssu_monoRef_JLB(fooof_version: str):
 
     monopolar_results_single = {}
     monopolar_results_all = pd.DataFrame()
+    weighted_power_spectra = {}
 
     ############# Load the FOOOF dataframe #############
 
-    externalized_bssu_fooof = load_data.load_externalized_pickle(
-        filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
-        fooof_version=fooof_version,
-        reference="bipolar_to_lowermost",
-    )
+    loaded_data = load_data.load_data_to_weight(data_type=data_type)
+    externalized_data = loaded_data["loaded_data"]
 
-    # rename column "contact" to "bipolar_channel"
-    externalized_bssu_fooof.rename(columns={"contact": "bipolar_channel"}, inplace=True)
+    # rename column contact to bipolar_channel
+    # externalized_data.rename(
+    #     columns={loaded_data["contact_channel"]: "bipolar_channel"}, inplace=True
+    # )
+    spectra_column = loaded_data["spectra"]
 
-    stn_unique = list(externalized_bssu_fooof.subject_hemisphere.unique())
+    # get frequencies for power plots
+    if data_type != "fooof":
+        frequencies = externalized_data["frequencies"].values[0]
+
+    elif data_type == "fooof":
+        frequencies = np.arange(2, 46)  # fooof model v2: 2-45 Hz
+
+    stn_unique = list(externalized_data.subject_hemisphere.unique())
 
     ##################### for every STN: get directional percentage of beta power and weight every monopolar contact #####################
     for stn in stn_unique:
-        stn_data = externalized_bssu_fooof.loc[externalized_bssu_fooof.subject_hemisphere == stn]
+        stn_data = externalized_data.loc[externalized_data.subject_hemisphere == stn]
 
         # get FOOOF power from the relevant directional channels and level channels
         ### direction ###
         beta_1A2A = stn_data.loc[stn_data.bipolar_channel == "1A2A"]
-        beta_1A2A = beta_1A2A["fooof_power_spectrum"].values[0]
+        beta_1A2A = beta_1A2A[f"{spectra_column}"].values[0]
 
         beta_1B2B = stn_data.loc[stn_data.bipolar_channel == "1B2B"]
-        beta_1B2B = beta_1B2B["fooof_power_spectrum"].values[0]
+        beta_1B2B = beta_1B2B[f"{spectra_column}"].values[0]
 
         beta_1C2C = stn_data.loc[stn_data.bipolar_channel == "1C2C"]
-        beta_1C2C = beta_1C2C["fooof_power_spectrum"].values[0]
+        beta_1C2C = beta_1C2C[f"{spectra_column}"].values[0]
 
         # percentage of each direction
         sum_directions = np.sum([beta_1A2A, beta_1B2B, beta_1C2C], axis=0)
@@ -764,12 +930,13 @@ def fooof_externalized_bssu_monoRef_JLB(fooof_version: str):
 
         ### level ###
         level_1 = stn_data.loc[stn_data.bipolar_channel == "02"]
-        level_1 = level_1["fooof_power_spectrum"].values[0]
+        level_1 = level_1[f"{spectra_column}"].values[0]
 
         level_2 = stn_data.loc[stn_data.bipolar_channel == "13"]
-        level_2 = level_2["fooof_power_spectrum"].values[0]
+        level_2 = level_2[f"{spectra_column}"].values[0]
 
         ### calculate the monopolar estimate of spectral FOOOF power for all segmental contacts ###
+        weighted_power_spectra_single_stn = {}
         for s, segment in enumerate(segmental_contacts):
             # get level
             if "1" in segment:
@@ -792,6 +959,9 @@ def fooof_externalized_bssu_monoRef_JLB(fooof_version: str):
 
             # store monopolar references in a dictionary
             monopolar_results_single[f"{stn}_{segment}"] = ["postop", stn, segment, weighted_power]
+            weighted_power_spectra_single_stn[segment] = weighted_power
+
+        weighted_power_spectra[stn] = {"weighted_power": weighted_power_spectra_single_stn, "frequencies": frequencies}
 
     #################### WRITE DATAFRAMES seperately for each STN to also rank within an STN and session ####################
 
@@ -831,12 +1001,14 @@ def fooof_externalized_bssu_monoRef_JLB(fooof_version: str):
         monopolar_results_all = pd.concat([monopolar_results_all, stn_data_2_copy])
 
     # save monopolar psd estimate Dataframes as pickle files
-    MonoRef_JLB_result_filepath = os.path.join(
-        results_path, f"MonoRef_JLB_fooof_externalized_BSSU_beta_{fooof_version}.pickle"
+    helpers.save_result_dataframe_as_pickle(
+        data=monopolar_results_all,
+        filename=f"MonoRef_JLB_{data_type}_externalized_BSSU_beta_{fooof_version}",
     )
-    with open(MonoRef_JLB_result_filepath, "wb") as file:
-        pickle.dump(monopolar_results_all, file)
 
-    print(f"MonoRef_JLB_fooof_externalized_BSSU_beta_{fooof_version}.pickle", f"\nwritten in: {results_path}")
+    helpers.save_result_dataframe_as_pickle(
+        data=weighted_power_spectra,
+        filename=f"MonoRef_JLB_{data_type}_externalized_BSSU_weighted_power_spectra_{fooof_version}",
+    )
 
-    return monopolar_results_all
+    return monopolar_results_all, weighted_power_spectra

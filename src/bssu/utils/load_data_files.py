@@ -258,3 +258,54 @@ def load_externalized_pickle(filename: str, fooof_version=None, reference=None):
         data = pickle.load(file)
 
     return data
+
+
+def load_data_to_weight(data_type: str):
+    """
+    Input:
+        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
+    """
+
+    # load the correct data type
+    if data_type == "fooof":
+        loaded_data = load_externalized_pickle(
+            filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+            fooof_version="v2",
+            reference="bipolar_to_lowermost",
+        )
+
+        contact_channel = "contact"
+        spectra_column = "fooof_power_spectrum"
+
+    elif data_type == "notch_and_band_pass_filtered":
+        loaded_data = load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
+            reference="bipolar_to_lowermost",
+        )
+        loaded_data = loaded_data.loc[loaded_data.filtered == "notch_and_band_pass_filtered"]
+        contact_channel = "channel"
+        spectra_column = "power_average_over_time"
+
+    elif data_type == "unfiltered":
+        loaded_data = load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
+            reference="bipolar_to_lowermost",
+        )
+        loaded_data = loaded_data.loc[loaded_data.filtered == "unfiltered"]
+        contact_channel = "channel"
+        spectra_column = "power_average_over_time"
+
+    elif data_type == "only_high_pass_filtered":
+        loaded_data = load_externalized_pickle(
+            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
+            reference="bipolar_to_lowermost",
+        )
+        loaded_data = loaded_data.loc[loaded_data.filtered == "only_high_pass_filtered"]
+        contact_channel = "channel"
+        spectra_column = "power_average_over_time"
+
+    # rename columns
+    loaded_data.rename(columns={contact_channel: "bipolar_channel"}, inplace=True)
+
+    return {"loaded_data": loaded_data, "spectra": spectra_column}

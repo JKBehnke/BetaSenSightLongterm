@@ -54,10 +54,7 @@ DISTANCE_DICT = {
 }
 
 
-def weight_power_by_distance(
-    stn_data: pd.DataFrame,
-    distance_dict: dict,
-):
+def weight_power_by_distance(stn_data: pd.DataFrame, distance_dict: dict, spectra_column: str):
     """
 
     Calculate the weighted average power of LFPs based on distance.
@@ -80,7 +77,7 @@ def weight_power_by_distance(
     weighted_power_list = []
     for channel in distance_dict:  # loops through keys e.g. ("1A1B", "1A1C")
         lfp_data = stn_data.loc[stn_data.bipolar_channel == channel]  # select the channel of interest e.g. "1A1B"
-        lfp_data = lfp_data["fooof_power_spectrum"].values[0]  # get the FOOOF power spectrum from this channel
+        lfp_data = lfp_data[spectra_column].values[0]  # get the FOOOF power spectrum from this channel
         # TODO: instead of only beta, weight the whole power spectrum!
         lfp_data = lfp_data / distance_dict[channel]  # weighted power, distance between 0 and 1 = 2 mm
 
@@ -149,6 +146,7 @@ def fooof_detec_weight_power(fooof_version: str):
                 level_or_direc: weight_power_by_distance(
                     stn_data=stn_data,
                     distance_dict=DISTANCE_DICT[level_or_direc],
+                    spectra_column="fooof_power_spectrum",
                 )
                 for level_or_direc in DISTANCE_DICT
             }
@@ -262,13 +260,14 @@ def detec_rank_level_and_direction(fooof_version: str):
 ################ externalized BSSU ################
 
 
-def fooof_detec_weight_power_externalised_bssu(fooof_version: str):
+def fooof_detec_weight_power_externalised_bssu(fooof_version: str, data_type: str):
     """
 
     Weight FOOOF power spectra using the DETEC method.
 
     Parameters:
         - fooof_version: The version of FOOOF to use. Currently, only "v2" is supported.
+        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
 
     Returns:
         A pandas DataFrame containing the weighted FOOOF power spectra for each subject, session, and contact.
@@ -286,19 +285,30 @@ def fooof_detec_weight_power_externalised_bssu(fooof_version: str):
 
     # result
     weighted_group_results = pd.DataFrame()
+    weighted_power_spectra = {}
 
     ############# Load the FOOOF dataframe #############
-    beta_average_DF = load_data.load_externalized_pickle(
-        filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
-        fooof_version=fooof_version,
-        reference="bipolar_to_lowermost",
-    )
+    # beta_average_DF = load_data.load_externalized_pickle(
+    #     filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
+    #     fooof_version=fooof_version,
+    #     reference="bipolar_to_lowermost",
+    # )
+    loaded_data = load_data.load_data_to_weight(data_type=data_type)
+    externalized_data = loaded_data["loaded_data"]
+    spectra_column = loaded_data["spectra"]
+
+    # get frequencies for power plots
+    if data_type != "fooof":
+        frequencies = externalized_data["frequencies"].values[0]
+
+    elif data_type == "fooof":
+        frequencies = np.arange(2, 46)  # fooof model v2: 2-45 Hz
 
     # rename column "contact" to "bipolar_channel"
-    beta_average_DF = beta_average_DF.rename(columns={"contact": "bipolar_channel"})
+    # beta_average_DF = beta_average_DF.rename(columns={"contact": "bipolar_channel"})
 
     # copying session_Dataframe to add new columns
-    Dataframe_copy = beta_average_DF.copy()
+    Dataframe_copy = externalized_data.copy()
 
     stn_unique = list(Dataframe_copy.subject_hemisphere.unique())
 
@@ -307,10 +317,13 @@ def fooof_detec_weight_power_externalised_bssu(fooof_version: str):
         stn_data = Dataframe_copy.loc[Dataframe_copy.subject_hemisphere == stn]
 
         # weight the power for each level and directional contact
+        weighted_power_spectra_single_stn = {}
+
         weighted_power_dict = {
             level_or_direc: weight_power_by_distance(
                 stn_data=stn_data,
                 distance_dict=DISTANCE_DICT[level_or_direc],
+                spectra_column=spectra_column,
             )
             for level_or_direc in DISTANCE_DICT
         }
@@ -325,6 +338,15 @@ def fooof_detec_weight_power_externalised_bssu(fooof_version: str):
 
             stn_weighted_results = pd.DataFrame(stn_weighted_dict)
             weighted_group_results = pd.concat([weighted_group_results, stn_weighted_results], ignore_index=True)
+            weighted_power_spectra_single_stn[cont] = weighted_power_dict[cont]
+
+        weighted_power_spectra[stn] = {"weighted_power": weighted_power_spectra_single_stn, "frequencies": frequencies}
+
+    # save weighted power spectra
+    helpers.save_result_dataframe_as_pickle(
+        data=weighted_power_spectra,
+        filename=f"detec_strelow_{data_type}_externalized_BSSU_weighted_power_spectra_{fooof_version}",
+    )
 
     # calculate beta average from weighted fooof power spectra
     weighted_group_results_copy = weighted_group_results.copy()
@@ -338,14 +360,21 @@ def fooof_detec_weight_power_externalised_bssu(fooof_version: str):
     return weighted_group_results_copy
 
 
-def detec_rank_level_and_direction_externalized_bssu(fooof_version: str):
-    """ """
+def detec_rank_level_and_direction_externalized_bssu(fooof_version: str, data_type: str):
+    """
+    Input:
+        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
+
+
+    """
 
     # result
     beta_level_dir_ranks = pd.DataFrame()
     beta_all_directional_ranks = pd.DataFrame()
 
-    weighted_group_results = fooof_detec_weight_power_externalised_bssu(fooof_version=fooof_version)
+    weighted_group_results = fooof_detec_weight_power_externalised_bssu(
+        fooof_version=fooof_version, data_type=data_type
+    )
 
     stn_unique = list(weighted_group_results.subject_hemisphere.unique())
 
@@ -404,12 +433,12 @@ def detec_rank_level_and_direction_externalized_bssu(fooof_version: str):
     # save dataframe
     helpers.save_result_dataframe_as_pickle(
         data=beta_all_directional_ranks,
-        filename=f"fooof_detec_externalized_bssu_beta_all_directional_ranks_{fooof_version}",
+        filename=f"{data_type}_detec_externalized_bssu_beta_all_directional_ranks_{fooof_version}",
     )
 
     helpers.save_result_dataframe_as_pickle(
         data=beta_level_dir_ranks,
-        filename=f"fooof_detec_externalized_bssu_beta_levels_and_directions_ranks_{fooof_version}",
+        filename=f"{data_type}_detec_externalized_bssu_beta_levels_and_directions_ranks_{fooof_version}",
     )
 
     return beta_all_directional_ranks, beta_level_dir_ranks

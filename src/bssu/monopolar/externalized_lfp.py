@@ -958,7 +958,6 @@ def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bip
             subject_hemisphere = f"{sub}_{hem}"
 
             # Figure of one subject_hemisphere with all 9 directional channels
-            # 4 columns, 2 rows
             fig = plt.figure(figsize=(20, 20), layout="tight")
 
             for chan in channel_list:

@@ -1845,55 +1845,7 @@ def fooof_monoRef_weight_psd_by_distance_all_contacts(similarity_calculation: st
 ########################## externalized re-referenced BSSU ##########################
 
 
-def load_data_to_weight(data_type: str):
-    """
-    Input:
-        - data_type: "fooof", "notch_and_band_pass_filtered", "unfiltered", "only_high_pass_filtered"
-
-    """
-
-    # load the correct data type
-    if data_type == "fooof":
-        loaded_data = load_data.load_externalized_pickle(
-            filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
-            fooof_version="v2",
-            reference="bipolar_to_lowermost",
-        )
-
-        contact_channel = "contact"
-        spectra_column = "fooof_power_spectrum"
-
-    elif data_type == "notch_and_band_pass_filtered":
-        loaded_data = load_data.load_externalized_pickle(
-            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
-            reference="bipolar_to_lowermost",
-        )
-        loaded_data = loaded_data.loc[loaded_data.filtered == "notch_and_band_pass_filtered"]
-        contact_channel = "channel"
-        spectra_column = "power_average_over_time"
-
-    elif data_type == "unfiltered":
-        loaded_data = load_data.load_externalized_pickle(
-            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
-            reference="bipolar_to_lowermost",
-        )
-        loaded_data = loaded_data.loc[loaded_data.filtered == "unfiltered"]
-        contact_channel = "channel"
-        spectra_column = "power_average_over_time"
-
-    elif data_type == "only_high_pass_filtered":
-        loaded_data = load_data.load_externalized_pickle(
-            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free",
-            reference="bipolar_to_lowermost",
-        )
-        loaded_data = loaded_data.loc[loaded_data.filtered == "only_high_pass_filtered"]
-        contact_channel = "channel"
-        spectra_column = "power_average_over_time"
-
-    return {"loaded_data": loaded_data, "contact_channel": contact_channel, "spectra": spectra_column}
-
-
-def fooof_externalized_bssu_weight_psd_by_euclidean_distance(
+def externalized_bssu_weight_psd_by_euclidean_distance(
     fooof_version: str,
     data_type: str,
     only_segmental: str,
@@ -1991,7 +1943,7 @@ def fooof_externalized_bssu_weight_psd_by_euclidean_distance(
     plot_coordinates(contact_coordinates)
 
     #####################  Loading the Data #####################
-    loaded_data = load_data_to_weight(data_type=data_type)
+    loaded_data = load_data.load_data_to_weight(data_type=data_type)
     externalized_data = loaded_data["loaded_data"]
     # fooof_externalized_dataframe = load_data.load_externalized_pickle(
     #     filename="fooof_externalized_group_BSSU_only_high_pass_filtered",
@@ -2000,11 +1952,18 @@ def fooof_externalized_bssu_weight_psd_by_euclidean_distance(
     # )
 
     # rename column contact to bipolar_channel
-    externalized_data = externalized_data.rename(columns={loaded_data["contact_channel"]: "bipolar_channel"})
+    # externalized_data = externalized_data.rename(columns={loaded_data["contact_channel"]: "bipolar_channel"})
     spectra_column = loaded_data["spectra"]
 
     # only take rows of channels of interest
     externalized_data = externalized_data.loc[externalized_data.bipolar_channel.isin(channels)]
+
+    # get frequencies for power plots
+    if data_type != "fooof":
+        frequencies = externalized_data["frequencies"].values[0]
+
+    elif data_type == "fooof":
+        frequencies = np.arange(2, 46)  # fooof model v2: 2-45 Hz
 
     session_data = {}
     weighted_power_spectra = {}
@@ -2048,7 +2007,11 @@ def fooof_externalized_bssu_weight_psd_by_euclidean_distance(
 
         session_data["monopolar_Dataframe"] = pd.concat([session_data["monopolar_Dataframe"], mono_data_copy])
 
-        weighted_power_spectra[stn] = weighted_power
+        # weighted_power_spectra[stn] = weighted_power
+        weighted_power_spectra[stn] = {
+            "weighted_power": weighted_power,
+            "frequencies": frequencies,
+        }
 
     if only_segmental == "yes":
         filename = "only_segmental_"

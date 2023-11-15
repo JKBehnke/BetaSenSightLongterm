@@ -1178,6 +1178,13 @@ def load_pickle_group_result(filename: str, fooof_version: str):
         "best_2_contacts_from_directional_externalized_bssu"
         "fooof_detec_externalized_bssu_beta_all_directional_ranks"
         "fooof_detec_externalized_bssu_beta_levels_and_directions_ranks"
+        "notch_and_band_pass_filtered_externalized_BSSU_monoRef_only_segmental_weight_beta_psd_by_inverse_distance_v2" # externalized bssu euclidean method NO FOOOOF
+        "notch_and_band_pass_filtered_externalized_BSSU_euclidean_weighted_power_spectra_only_segmental_inverse_distance_v2" # only weighted power spectra
+        "MonoRef_JLB_notch_and_band_pass_filtered_externalized_BSSU_beta_v2"
+        "MonoRef_JLB_notch_and_band_pass_filtered_externalized_BSSU_weighted_power_spectra_v2"
+        "detec_strelow_notch_and_band_pass_filtered_externalized_BSSU_weighted_power_spectra_v2"
+        "notch_and_band_pass_filtered_detec_externalized_bssu_beta_all_directional_ranks_v2"
+        "notch_and_band_pass_filtered_detec_externalized_bssu_beta_levels_and_directions_ranks_v2"
 
 
     The pickle file: "{filename}.pickle"
