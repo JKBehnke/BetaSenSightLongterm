@@ -589,6 +589,7 @@ def percept_vs_externalized(
     fooof_version: str,
     strelow_level_first: str,
     externalized_version: str,
+    new_reference: str,
     bssu_version: str,
     reference=None,
 ):
@@ -617,6 +618,12 @@ def percept_vs_externalized(
 
     else:
         reference_name = ""
+
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
 
     if strelow_level_first == "level_first":
         methods_for_spearman = [f"JLB_directional{external_extension}", f"euclidean_directional{external_extension}"]
@@ -672,7 +679,9 @@ def percept_vs_externalized(
 
     # get data from externalized LFP
     if externalized_version == "externalized_fooof":
-        externalized_data = helpers.load_externalized_fooof_data(fooof_version=fooof_version, reference=reference)
+        externalized_data = helpers.load_externalized_fooof_data(
+            fooof_version=fooof_version, new_reference=new_reference, reference=reference
+        )
 
     elif externalized_version == "externalized_ssd":
         externalized_data = helpers.load_externalized_ssd_data(reference=reference)
@@ -709,7 +718,7 @@ def percept_vs_externalized(
         # save as Excel
         helpers.save_result_excel(
             result_df=results_DF_copy,
-            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}{external_extension}",
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{ext_fooof_re_ref}{reference_name}_{fooof_version}_{percept_session}{external_extension}",
             sheet_name="fooof_monopol_beta_correlations",
         )
 
@@ -782,7 +791,7 @@ def percept_vs_externalized(
         # save as Excel
         helpers.save_result_excel(
             result_df=result_df,
-            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{reference_name}_{fooof_version}_{percept_session}{external_extension}",
+            filename=f"fooof_monopol_beta_correlations_per_stn_{method}_{externalized_version}{ext_fooof_re_ref}{reference_name}_{fooof_version}_{percept_session}{external_extension}",
             sheet_name="fooof_monopol_best_contacts",
         )
 
@@ -813,7 +822,7 @@ def percept_vs_externalized(
 
 
 def externalized_versions_comparison(
-    externalized_version_1: str, externalized_version_2: str, fooof_version: str, reference=None
+    externalized_version_1: str, externalized_version_2: str, fooof_version: str, new_reference: str, reference=None
 ):
     """
     Spearman correlation between monopolar beta power estimations between 2 methods
@@ -824,6 +833,7 @@ def externalized_versions_comparison(
         - externalized_version_2: "externalized_ssd", "externalized_fooof"
         - fooof_version: "v1", "v2"
         - reference: "bipolar_to_lowermost" or "no"
+        - new_reference: "no", "one_to_zero_two_to_three"
     """
 
     if reference == "bipolar_to_lowermost":
@@ -832,6 +842,12 @@ def externalized_versions_comparison(
     else:
         reference_name = ""
 
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
+
     # results
     # spearman_result = {}
 
@@ -839,14 +855,18 @@ def externalized_versions_comparison(
 
     # get data from externalized LFP version 1
     if externalized_version_1 == "externalized_fooof":
-        externalized_data_1 = helpers.load_externalized_fooof_data(fooof_version=fooof_version, reference=reference)
+        externalized_data_1 = helpers.load_externalized_fooof_data(
+            fooof_version=fooof_version, new_reference=new_reference, reference=reference
+        )
 
     elif externalized_version_1 == "externalized_ssd":
         externalized_data_1 = helpers.load_externalized_ssd_data(reference=reference)
 
     # get data from externalized LFP version 2
     if externalized_version_2 == "externalized_fooof":
-        externalized_data_2 = helpers.load_externalized_fooof_data(fooof_version=fooof_version, reference=reference)
+        externalized_data_2 = helpers.load_externalized_fooof_data(
+            fooof_version=fooof_version, new_reference=new_reference, reference=reference
+        )
 
     elif externalized_version_2 == "externalized_ssd":
         externalized_data_2 = helpers.load_externalized_ssd_data(reference=reference)
@@ -877,7 +897,7 @@ def externalized_versions_comparison(
     # save as Excel
     helpers.save_result_excel(
         result_df=results_DF_copy,
-        filename=f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{reference_name}_{fooof_version}",
+        filename=f"fooof_monopol_beta_correlations_per_stn_{externalized_version_1}_{externalized_version_2}{ext_fooof_re_ref}{reference_name}_{fooof_version}",
         sheet_name="fooof_monopol_beta_correlations",
     )
 
@@ -947,6 +967,7 @@ def methods_vs_best_clinical_contacts(
     rank_or_rel_above_70: str,
     fooof_version: str,
     bssu_version: str,
+    new_reference: str,
     reference=None,
 ):
     """
@@ -961,6 +982,7 @@ def methods_vs_best_clinical_contacts(
         - rank_or_rel_above_70: "rank" if you want to compare to ranked 1 and 2, OR "rel_above_70" if you want to compare to rel contacts above 70
             "rank" does NOT work with best_bssu_contacts as method
         - fooof_version: "v2"
+        - new_reference: "no", "one_to_zero_two_to_three"
         - bssu_version: "externalized", "percept"
         - reference: "bipolar_to_lowermost"
 
@@ -980,6 +1002,12 @@ def methods_vs_best_clinical_contacts(
     else:
         reference_name = ""
 
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
+
     results_DF = pd.DataFrame()
 
     best_clinical_contacts = helpers.load_best_clinical_contacts()
@@ -987,7 +1015,9 @@ def methods_vs_best_clinical_contacts(
 
     # get data from the method
     if method == "externalized_fooof":
-        method_data = helpers.load_externalized_fooof_data(fooof_version=fooof_version, reference=reference)
+        method_data = helpers.load_externalized_fooof_data(
+            fooof_version=fooof_version, new_reference=new_reference, reference=reference
+        )
         method_data = exclude_subjects(df=method_data, exclude_list=EXCLUDED_NO_BETA_EXT)
 
     elif method == "externalized_ssd":
@@ -1204,7 +1234,7 @@ def methods_vs_best_clinical_contacts(
     # save tables as Excel
     helpers.save_result_excel(
         result_df=results_DF,
-        filename=f"fooof_monopol{external_extension}_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{reference_name}_{fooof_version}{ses_add_filename}",
+        filename=f"fooof_monopol{external_extension}_beta_correlations_per_stn_{clinical_session}_best_clinical_contacts_{method}{ext_fooof_re_ref}{reference_name}_{fooof_version}{ses_add_filename}",
         sheet_name="fooof_monopol_beta_correlations",
     )
 
@@ -1218,7 +1248,7 @@ def methods_vs_best_clinical_contacts(
 
 
 def group_rank_comparison_externalized_percept_clinical(
-    clinical_session: str, percept_session: str, fooof_version: str, bssu_version: str
+    clinical_session: str, percept_session: str, fooof_version: str, bssu_version: str, new_reference: str
 ):  # sourcery skip: use-itertools-product
     """ """
 
@@ -1227,6 +1257,12 @@ def group_rank_comparison_externalized_percept_clinical(
 
     elif bssu_version == "externalized":
         external_extension = "_externalized_bssu"
+
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
 
     list_of_methods = [
         "externalized_ssd",
@@ -1268,6 +1304,7 @@ def group_rank_comparison_externalized_percept_clinical(
                 strelow_level_first="level_first",
                 externalized_version=ext_m,
                 fooof_version="v2",
+                new_reference=new_reference,
                 bssu_version=bssu_version,
                 reference="bipolar_to_lowermost",
             )
@@ -1280,6 +1317,7 @@ def group_rank_comparison_externalized_percept_clinical(
             ext_1_vs_ext_2 = externalized_versions_comparison(
                 externalized_version_1=ext_1,
                 externalized_version_2=ext_2,
+                new_reference=new_reference,
                 fooof_version="v2",
                 reference="bipolar_to_lowermost",
             )
@@ -1294,6 +1332,7 @@ def group_rank_comparison_externalized_percept_clinical(
             method=m,
             rank_or_rel_above_70="rank",
             fooof_version="v2",
+            new_reference=new_reference,
             bssu_version=bssu_version,
             reference="bipolar_to_lowermost",
         )
@@ -1308,12 +1347,12 @@ def group_rank_comparison_externalized_percept_clinical(
 
     # save session Dataframes as Excel files
     helpers.save_result_as_pickle(
-        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{fooof_version}",
+        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{ext_fooof_re_ref}{fooof_version}",
         data=rank_comparison_group_copy,
     )
 
     helpers.save_result_excel(
-        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{fooof_version}",
+        filename=f"rank_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{ext_fooof_re_ref}{fooof_version}",
         result_df=rank_comparison_group_copy,
         sheet_name="rank",
     )
@@ -1324,6 +1363,7 @@ def group_rank_comparison_externalized_percept_clinical(
 def group_correlation_comparison_externalized_percept_clinical(
     percept_session: str,
     fooof_version: str,
+    new_reference: str,
     bssu_version: str,
 ):  # sourcery skip: use-itertools-product
     """
@@ -1335,6 +1375,12 @@ def group_correlation_comparison_externalized_percept_clinical(
 
     elif bssu_version == "externalized":
         external_extension = "_externalized_bssu"
+
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
 
     list_of_methods = [
         "externalized_ssd",
@@ -1374,6 +1420,7 @@ def group_correlation_comparison_externalized_percept_clinical(
                 externalized_version=ext_m,
                 fooof_version="v2",
                 bssu_version=bssu_version,
+                new_reference=new_reference,
                 reference="bipolar_to_lowermost",
             )
 
@@ -1385,6 +1432,7 @@ def group_correlation_comparison_externalized_percept_clinical(
             ext_1_vs_ext_2 = externalized_versions_comparison(
                 externalized_version_1=ext_1,
                 externalized_version_2=ext_2,
+                new_reference=new_reference,
                 fooof_version="v2",
                 reference="bipolar_to_lowermost",
             )
@@ -1399,12 +1447,12 @@ def group_correlation_comparison_externalized_percept_clinical(
 
     # save session Dataframes as Excel files
     helpers.save_result_as_pickle(
-        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{fooof_version}",
+        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{ext_fooof_re_ref}{fooof_version}",
         data=correlation_comparison_group,
     )
 
     helpers.save_result_excel(
-        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{fooof_version}",
+        filename=f"correlation_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{ext_fooof_re_ref}{fooof_version}",
         result_df=correlation_comparison_group,
         sheet_name="correlation",
     )
@@ -1418,6 +1466,7 @@ def heatmap_method_comparison(
     percept_session: str,
     rank_or_correlation: str,
     fooof_version: str,
+    new_reference: str,
     bssu_version: str,
 ):
     """
@@ -1446,6 +1495,12 @@ def heatmap_method_comparison(
     elif bssu_version == "externalized":
         external_extension = "_externalized_bssu"
 
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
+
     # load the comparison matrix for the value to plot
     loaded_comparison_matrix = helpers.get_comparison_matrix_for_heatmap_from_DF(
         value_to_plot=value_to_plot,
@@ -1453,6 +1508,7 @@ def heatmap_method_comparison(
         percept_session=percept_session,
         rank_or_correlation=rank_or_correlation,
         fooof_version=fooof_version,
+        new_reference=new_reference,
         bssu_version=bssu_version,
     )
 
@@ -1508,7 +1564,7 @@ def heatmap_method_comparison(
             ax.text(j, i, text_for_cell, ha='center', va='center', color='black', fontsize=10)
 
     helpers.save_fig_png_and_svg(
-        filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{rank_or_correlation}_{fooof_version}",
+        filename=f"heatmap_method_comparison_{value_to_plot}_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{rank_or_correlation}_{ext_fooof_re_ref}{fooof_version}",
         figure=fig,
     )
 

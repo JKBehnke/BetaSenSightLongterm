@@ -27,6 +27,7 @@ GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigure
 PATIENT_METADATA = load_data.load_excel_data(filename="patient_metadata")
 HEMISPHERES = ["Right", "Left"]
 DIRECTIONAL_CONTACTS = ["1A", "1B", "1C", "2A", "2B", "2C"]
+ALL_CONTACTS = ["0", "1A", "1B", "1C", "2A", "2B", "2C", "3"]
 BSSU_CHANNELS = [
     "01",
     "02",
@@ -44,6 +45,7 @@ BSSU_CHANNELS = [
     "2A2C",
     "2B2C",
 ]
+
 
 # list of subjects with no BIDS transformation yet -> load these via poly5reader instead of BIDS
 SUBJECTS_NO_BIDS = ["24", "28", "29", "48", "49", "56"]
@@ -773,21 +775,23 @@ def fourier_transform_to_psd(reference=None):
     return power_spectra_df
 
 
-def re_reference_BSSU_externalized(incl_bids_id: list, reference: str):
+def re_reference_externalized(incl_bids_id: list, reference: str, new_reference: str):
     """
     Simulating the segmental BSSU Percept channels with the externalized LFP data
     Input:
         - reference: "bipolar_to_lowermost" or "no"
+        - new_reference: "bssu", "one_to_zero_two_to_three"
 
 
     """
 
-    bssu_channels_group_data = pd.DataFrame()
+    channels_group_data = pd.DataFrame()
 
     # load the dataframe with all filtered LFP data
     preprocessed_data = load_data.load_externalized_pickle(
         filename="externalized_preprocessed_data_artefact_free", reference=reference
     )
+
     if reference == "bipolar_to_lowermost":
         reference_name = "_bipolar_to_lowermost"
     elif reference == "no":
@@ -826,71 +830,123 @@ def re_reference_BSSU_externalized(incl_bids_id: list, reference: str):
             contact_lfp_dict["1"] = (contact_lfp_dict["1A"] + contact_lfp_dict["1B"] + contact_lfp_dict["1C"]) / 3
             contact_lfp_dict["2"] = (contact_lfp_dict["2A"] + contact_lfp_dict["2B"] + contact_lfp_dict["2C"]) / 3
 
-            # re-reference the LFP data of each contact to the 15 bipolar channels
-            for bssu_chan in BSSU_CHANNELS:
-                # get the 2 contacts of the bipolar channel
-                if len(bssu_chan) == 2:
-                    contact1 = bssu_chan[0]
-                    contact2 = bssu_chan[1]
+            if new_reference == "BSSU":
+                # re-reference the LFP data of each contact to the 15 bipolar channels
+                for bssu_chan in BSSU_CHANNELS:
+                    # get the 2 contacts of the bipolar channel
+                    if len(bssu_chan) == 2:
+                        contact1 = bssu_chan[0]
+                        contact2 = bssu_chan[1]
 
-                elif len(bssu_chan) == 4:
-                    contact1 = bssu_chan[:2]
-                    contact2 = bssu_chan[2:]
+                    elif len(bssu_chan) == 4:
+                        contact1 = bssu_chan[:2]
+                        contact2 = bssu_chan[2:]
 
-                # get the LFP data of the 2 contacts
-                contact1_lfp = contact_lfp_dict[str(contact1)]
-                contact2_lfp = contact_lfp_dict[str(contact2)]
+                    # get the LFP data of the 2 contacts
+                    contact1_lfp = contact_lfp_dict[str(contact1)]
+                    contact2_lfp = contact_lfp_dict[str(contact2)]
 
-                # bipolar re-referencing
-                bipolar_lfp = contact1_lfp - contact2_lfp
+                    # bipolar re-referencing
+                    bipolar_lfp = contact1_lfp - contact2_lfp
 
-                # FILTER
-                # only high-pass filter 1 Hz
-                only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=250, signal=bipolar_lfp)
+                    # FILTER
+                    # only high-pass filter 1 Hz
+                    only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=250, signal=bipolar_lfp)
 
-                # notch filter 50 Hz
-                notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=250, signal=bipolar_lfp)
+                    # notch filter 50 Hz
+                    notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=250, signal=bipolar_lfp)
 
-                # band pass filter 5-95 Hz, Butter worth filter order 3
-                filtered_lfp_250 = helpers.band_pass_filter_externalized(fs=250, signal=notch_filtered_lfp_250)
+                    # band pass filter 5-95 Hz, Butter worth filter order 3
+                    filtered_lfp_250 = helpers.band_pass_filter_externalized(fs=250, signal=notch_filtered_lfp_250)
 
-                # number of samples
-                n_samples_250 = len(filtered_lfp_250)
+                    # number of samples
+                    n_samples_250 = len(filtered_lfp_250)
 
-                # save the bipolar LFP data into the dictionary
+                    # save the bipolar LFP data into the dictionary
 
-                bssu_channels_dict = {
-                    "BIDS_id": [BIDS_id],
-                    "subject": [sub],
-                    "hemisphere": [hem],
-                    "session": ["pre-IPG"],
-                    "subject_hemisphere": [sub_hem],
-                    "bipolar_channel": [bssu_chan],
-                    "time_stamps_250Hz": [time_stamps_250Hz],
-                    "lfp_resampled_250Hz": [bipolar_lfp],
-                    "filtered_lfp_250Hz": [filtered_lfp_250],
-                    "only_high_pass_lfp_250Hz": [only_high_pass_lfp_250],
-                    "n_samples_250Hz": [n_samples_250],
-                }
-                bssu_channels_single = pd.DataFrame(bssu_channels_dict)
+                    channels_dict = {
+                        "BIDS_id": [BIDS_id],
+                        "subject": [sub],
+                        "hemisphere": [hem],
+                        "session": ["pre-IPG"],
+                        "subject_hemisphere": [sub_hem],
+                        "bipolar_channel": [bssu_chan],
+                        "time_stamps_250Hz": [time_stamps_250Hz],
+                        "lfp_resampled_250Hz": [bipolar_lfp],
+                        "filtered_lfp_250Hz": [filtered_lfp_250],
+                        "only_high_pass_lfp_250Hz": [only_high_pass_lfp_250],
+                        "n_samples_250Hz": [n_samples_250],
+                    }
+                    channels_single = pd.DataFrame(channels_dict)
 
-                # save the bipolar LFP data into a dataframe
-                bssu_channels_group_data = pd.concat([bssu_channels_group_data, bssu_channels_single])
+                    # save the bipolar LFP data into a dataframe
+                    channels_group_data = pd.concat([channels_group_data, channels_single])
+
+            elif new_reference == "one_to_zero_two_to_three":
+                for re_ref_chan in ALL_CONTACTS:
+                    # reference all directional contacts from level 1 to 0
+                    if re_ref_chan[0] == "1":
+                        re_referenced_channel = contact_lfp_dict[re_ref_chan] - contact_lfp_dict["0"]
+
+                    elif re_ref_chan[0] == "2":
+                        re_referenced_channel = contact_lfp_dict[re_ref_chan] - contact_lfp_dict["3"]
+
+                    elif re_ref_chan[0] == "0":
+                        re_referenced_channel = contact_lfp_dict["0"]
+
+                    elif re_ref_chan[0] == "3":
+                        re_referenced_channel = contact_lfp_dict["3"]
+
+                    # FILTER
+                    # only high-pass filter 1 Hz
+                    only_high_pass_lfp_250 = helpers.high_pass_filter_externalized(fs=250, signal=re_referenced_channel)
+
+                    # notch filter 50 Hz
+                    notch_filtered_lfp_250 = helpers.notch_filter_externalized(fs=250, signal=re_referenced_channel)
+
+                    # band pass filter 5-95 Hz, Butter worth filter order 3
+                    filtered_lfp_250 = helpers.band_pass_filter_externalized(fs=250, signal=notch_filtered_lfp_250)
+
+                    # number of samples
+                    n_samples_250 = len(filtered_lfp_250)
+
+                    # save the bipolar LFP data into the dictionary
+
+                    channels_dict = {
+                        "BIDS_id": [BIDS_id],
+                        "subject": [sub],
+                        "hemisphere": [hem],
+                        "session": ["pre-IPG"],
+                        "subject_hemisphere": [sub_hem],
+                        "bipolar_channel": [re_ref_chan],
+                        "time_stamps_250Hz": [time_stamps_250Hz],
+                        "lfp_resampled_250Hz": [re_referenced_channel],
+                        "filtered_lfp_250Hz": [filtered_lfp_250],
+                        "only_high_pass_lfp_250Hz": [only_high_pass_lfp_250],
+                        "n_samples_250Hz": [n_samples_250],
+                    }
+                    channels_single = pd.DataFrame(channels_dict)
+
+                    # save the bipolar LFP data into a dataframe
+                    channels_group_data = pd.concat([channels_group_data, channels_single])
 
     # save dataframe
     helpers.save_result_dataframe_as_pickle(
-        data=bssu_channels_group_data, filename=f"externalized_directional_bssu_channels{reference_name}"
+        data=channels_group_data, filename=f"externalized_directional_{new_reference}_channels{reference_name}"
     )
 
-    return bssu_channels_group_data
+    return channels_group_data
 
 
-def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bipolar: str, reference=None):
+def fourier_transform_to_psd_re_ref_externalized(
+    incl_BIDS: list, monopolar_or_bipolar: str, new_reference: str, reference=None
+):
     """
     Input:
         - reference, "bipolar_to_lowermost" or "no"
         - incl_BIDS: list of bids_id ["L001", "L013"] or ["all"]
         - monopol_or_bipol: "monopolar" or "bipolar"
+        - new_reference: "bssu", "one_to_zero_two_to_three"
 
     Load the artefact free data (only the sfreq=250 Hz data is artefact-free!!):
         - 2 min rest
@@ -918,17 +974,21 @@ def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bip
 
     if monopolar_or_bipolar == "bipolar":
         artefact_free_lfp = load_data.load_externalized_pickle(
-            filename="externalized_directional_bssu_channels", reference=reference
+            filename=f"externalized_directional_{new_reference}_channels", reference=reference
         )
-        fig_title = "BSSU re-referenced externalized LFP"
-        bssu = "BSSU_"
+        fig_title = f"{new_reference} re-referenced externalized LFP"
+
+        if new_reference == "BSSU":
+            fname_extension = "BSSU_"
+        elif new_reference == "one_to_zero_two_to_three":
+            fname_extension = "one_to_zero_two_to_three_"
 
     elif monopolar_or_bipolar == "monopolar":
         artefact_free_lfp = load_data.load_externalized_pickle(
             filename="externalized_preprocessed_data_artefact_free", reference=reference
         )
         fig_title = "Directional externalized LFP, common reference=lowermost contact ipsilateral"
-        bssu = ""
+        fname_extension = ""
 
     # get all subject_hemispheres
     if "all" in incl_BIDS:
@@ -1036,7 +1096,7 @@ def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bip
 
             helpers.save_fig_png_and_svg(
                 path=figures_path,
-                filename=f"One_plot_with_rings_Power_spectrum_{bssu}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}",
+                filename=f"One_plot_with_rings_Power_spectrum_{fname_extension}sub{sub}_{hem}_filtered_250Hz_resampled_artefact_free_reference_{reference}",
                 figure=fig,
             )
 
@@ -1072,7 +1132,7 @@ def fourier_transform_to_psd_bssu_externalized(incl_BIDS: list, monopolar_or_bip
 
     helpers.save_result_dataframe_as_pickle(
         data=power_spectra_df,
-        filename=f"fourier_transform_externalized_{bssu}power_spectra_250Hz_artefact_free{reference_name}",
+        filename=f"fourier_transform_externalized_{fname_extension}power_spectra_250Hz_artefact_free{reference_name}",
     )
 
     return power_spectra_df
@@ -1146,6 +1206,7 @@ def fooof_model_settings(
     power_spectra_data: pd.DataFrame,
     filtered: str,
     monopolar_or_bipolar: str,
+    new_reference: str,
     reference=None,
 ):
     """
@@ -1212,6 +1273,11 @@ def fooof_model_settings(
             power_spectrum = contact_data.power_average_over_time.values[0]
             freqs = contact_data.frequencies.values[0]
 
+            # whenever there are only 0 values, FOOOF won't work, so skip this channel
+            if np.all(power_spectrum == 0):
+                print(f"Sub-{sub}, {hem}: contact {contact} is used as common reference.")
+                continue
+
             ############ SET PLOT LAYOUT ############
             fig, ax = plt.subplots(4, 1, figsize=(7, 20))
 
@@ -1271,12 +1337,16 @@ def fooof_model_settings(
 
             # save figures
             if monopolar_or_bipolar == "monopolar":
-                bssu = ""
+                fname_extension = ""
             elif monopolar_or_bipolar == "bipolar":
-                bssu = "BSSU_"
+                if new_reference == "BSSU":
+                    fname_extension = "BSSU_"
+                elif new_reference == "one_to_zero_two_to_three":
+                    fname_extension = "one_to_zero_two_to_three_"
+
             helpers.save_fig_png_and_svg(
                 path=figures_path,
-                filename=f"fooof_externalized_{bssu}sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}_{fooof_version}",
+                filename=f"fooof_externalized_{fname_extension}sub{sub}_{hem}_{contact}_250Hz_clean_{filtered}{reference_name}_{fooof_version}",
                 figure=fig,
             )
 
@@ -1455,6 +1525,7 @@ def externalized_fooof_fit(fooof_version: str, filtered: str, reference=None):
             bids_id=bids_id,
             power_spectra_data=power_spectra_data,
             filtered=filtered,
+            new_reference="no",
             reference=reference,
         )
 
@@ -1478,12 +1549,15 @@ def externalized_fooof_fit(fooof_version: str, filtered: str, reference=None):
     return fooof_results_df
 
 
-def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bipolar: str, reference=None):
+def externalized_fooof_fit_2(
+    fooof_version: str, filtered: str, monopolar_or_bipolar: str, new_reference: str, reference=None
+):
     """
     Input:
         - fooof_version: str "v1" or "v2"
         - filtered: str, "unfiltered", "only_high_pass_filtered"
         - reference: str "bipolar_to_lowermost" or "no"
+        - new_reference: "bssu", "one_to_zero_two_to_three"
 
     Load the Power Spectra data
         - externalized_power_spectra_250Hz_artefact_free.pickle
@@ -1546,16 +1620,21 @@ def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bip
     common_reference_group_DF = pd.DataFrame()
 
     if monopolar_or_bipolar == "bipolar":
+        if new_reference == "bssu":
+            fname_extension = "BSSU_"
+        elif new_reference == "one_to_zero_two_to_three":
+            fname_extension = "one_to_zero_two_to_three_"
+
         power_spectra_data = load_data.load_externalized_pickle(
-            filename="fourier_transform_externalized_BSSU_power_spectra_250Hz_artefact_free", reference=reference
+            filename=f"fourier_transform_externalized_{fname_extension}power_spectra_250Hz_artefact_free",
+            reference=reference,
         )
-        bssu = "BSSU_"
 
     elif monopolar_or_bipolar == "monopolar":
         power_spectra_data = load_data.load_externalized_pickle(
             filename="externalized_power_spectra_250Hz_artefact_free", reference=reference
         )  # make sure to use this one and not "fourier_transform_externalized..." because original channel names will be needed for the FOOOF function above
-        bssu = ""
+        fname_extension = ""
 
     # first select only the rows with UNFILTERED OR ONLY HIGH-PASS-FILTERED DATA
     power_spectra_data = power_spectra_data.loc[power_spectra_data.filtered == filtered]
@@ -1570,6 +1649,7 @@ def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bip
             power_spectra_data=power_spectra_data,
             filtered=filtered,
             monopolar_or_bipolar=monopolar_or_bipolar,
+            new_reference=new_reference,
             reference=reference,
         )
 
@@ -1584,7 +1664,8 @@ def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bip
 
     # save DF as pickle
     helpers.save_result_dataframe_as_pickle(
-        data=fooof_results_df, filename=f"fooof_externalized_group_{bssu}{filtered}{reference_name}_{fooof_version}"
+        data=fooof_results_df,
+        filename=f"fooof_externalized_group_{fname_extension}{filtered}{reference_name}_{fooof_version}",
     )
     if monopolar_or_bipolar == "monopolar":
         helpers.save_result_dataframe_as_pickle(
@@ -1595,12 +1676,14 @@ def externalized_fooof_fit_2(fooof_version: str, filtered: str, monopolar_or_bip
     return fooof_results_df
 
 
-def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=None):
+def calculate_periodic_beta_power(fooof_version: str, filtered: str, new_reference: str, reference=None):
     """
     Input:
         - fooof_version: str "v1" or "v2"
         - filtered: str, "unfiltered", "only_high_pass_filtered"
         - reference: str "bipolar_to_lowermost" or "no"
+        - new_reference: "no", "one_to_zero_two_to_three"
+
 
     Load the Fooof group data:
         - fooof_externalized_group_notch-filtered.pickle
@@ -1625,12 +1708,20 @@ def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=N
     else:
         reference_name = ""
 
+    if new_reference == "one_to_zero_two_to_three":
+        fname_extension = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        fname_extension = ""
+
     # dataframes with beta ranks:
     beta_rank_all_contacts = pd.DataFrame()
     beta_rank_directional_contacts = pd.DataFrame()
 
     group_fooof_data = load_data.load_externalized_pickle(
-        filename=f"fooof_externalized_group_{filtered}", fooof_version=fooof_version, reference=reference
+        filename=f"fooof_externalized_group_{fname_extension}{filtered}",
+        fooof_version=fooof_version,
+        reference=reference,
     )
 
     # new column beta_average
@@ -1660,7 +1751,7 @@ def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=N
     # save DF
     helpers.save_result_dataframe_as_pickle(
         data=beta_rank_all_contacts,
-        filename=f"fooof_externalized_beta_ranks_all_contacts_{filtered}{reference_name}_{fooof_version}",
+        filename=f"fooof_externalized_beta_ranks_all_contacts_{fname_extension}{filtered}{reference_name}_{fooof_version}",
     )
 
     ########## RANK DIRECTIONAL CONTACTS ONLY ##########
@@ -1686,7 +1777,7 @@ def calculate_periodic_beta_power(fooof_version: str, filtered: str, reference=N
     # save DF
     helpers.save_result_dataframe_as_pickle(
         data=beta_rank_directional_contacts,
-        filename=f"fooof_externalized_beta_ranks_directional_contacts_{filtered}{reference_name}_{fooof_version}",
+        filename=f"fooof_externalized_beta_ranks_directional_contacts_{fname_extension}{filtered}{reference_name}_{fooof_version}",
     )
 
     return {

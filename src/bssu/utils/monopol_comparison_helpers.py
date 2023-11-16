@@ -22,17 +22,24 @@ GROUP_FIGURES_PATH = find_folders.get_monopolar_project_path(folder="GroupFigure
 ################## FOOOF ##################
 
 
-def load_externalized_fooof_data(fooof_version: str, reference=None):
+def load_externalized_fooof_data(fooof_version: str, new_reference: str, reference=None):
     """
     Input:
         - fooof_version: str "v1" or "v2"
         - reference: str "bipolar_to_lowermost" or "no"
+        - new_reference: "no", "one_to_zero_two_to_three"
 
     """
+    if new_reference == "one_to_zero_two_to_three":
+        fname_extension = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        fname_extension = ""
+
     # only directional contacts
     # FOOOF version: only 1 Hz high-pass filtered
     externalized_fooof_beta_ranks = load_data.load_externalized_pickle(
-        filename="fooof_externalized_beta_ranks_directional_contacts_only_high_pass_filtered",
+        filename=f"fooof_externalized_beta_ranks_directional_contacts_{fname_extension}only_high_pass_filtered",
         fooof_version=fooof_version,
         reference=reference,
     )
@@ -446,37 +453,50 @@ def correlation_tests_percept_methods(
         stn_method_2 = stn_comparison.loc[stn_comparison.method == method_2]
 
         # Spearman correlation between estimated beta average
+        # set a default value for the correlation tests
+
+        spearman_statistic = np.nan
+        spearman_pval = np.nan
+        pearson_normalized_statistic = np.nan
+        pearson_normalized_pval = np.nan
+        spearman_cluster_statistic = np.nan
+        spearman_cluster_pval = np.nan
+
         ####### CHECK IF THERE ARE NANS IN THE DATAFRAME ########
         if (
             np.isnan(stn_method_1["estimated_monopolar_beta_psd"].values).any()
             or np.isnan(stn_method_2["estimated_monopolar_beta_psd"].values).any()
         ):
             print(f"Sub-{sub_hem} has NaN values in the estimated beta average.")
-            continue
 
         elif (
             np.isnan(stn_method_1["beta_relative_to_max"].values).any()
             or np.isnan(stn_method_2["beta_relative_to_max"].values).any()
         ):
             print(f"Sub-{sub_hem} has NaN values in beta_relative_to_max.")
-            continue
 
         elif np.isnan(stn_method_1["beta_cluster"].values).any() or np.isnan(stn_method_2["beta_cluster"].values).any():
             print(f"Sub-{sub_hem} has NaN values in beta_relative_to_max.")
-            continue
 
-        spearman_beta_stn = stats.spearmanr(
-            stn_method_1["estimated_monopolar_beta_psd"].values, stn_method_2["estimated_monopolar_beta_psd"].values
-        )
+        else:  # correlation tests only work if there is no NaN value
+            spearman_beta_stn = stats.spearmanr(
+                stn_method_1["estimated_monopolar_beta_psd"].values, stn_method_2["estimated_monopolar_beta_psd"].values
+            )
+            spearman_statistic = spearman_beta_stn.statistic
+            spearman_pval = spearman_beta_stn.pvalue
 
-        # Pearson correlation between normalized beta to maximum within each electrode
-        pearson_normalized_beta_stn = stats.pearsonr(
-            stn_method_1["beta_relative_to_max"].values, stn_method_2["beta_relative_to_max"].values
-        )
+            # Pearson correlation between normalized beta to maximum within each electrode
+            pearson_normalized_beta_stn = stats.pearsonr(
+                stn_method_1["beta_relative_to_max"].values, stn_method_2["beta_relative_to_max"].values
+            )
+            pearson_normalized_statistic = pearson_normalized_beta_stn.statistic
+            pearson_normalized_pval = pearson_normalized_beta_stn.pvalue
 
-        spearman_beta_cluster_stn = stats.spearmanr(
-            stn_method_1["beta_cluster"].values, stn_method_2["beta_cluster"].values
-        )
+            spearman_beta_cluster_stn = stats.spearmanr(
+                stn_method_1["beta_cluster"].values, stn_method_2["beta_cluster"].values
+            )
+            spearman_cluster_statistic = spearman_beta_cluster_stn.statistic
+            spearman_cluster_pval = spearman_beta_cluster_stn.pvalue
 
         # contacts with beta rank 1 and 2
         ############## method 1: ##############
@@ -542,12 +562,12 @@ def correlation_tests_percept_methods(
             "method_2": [method_2],
             "session": [ses],
             "subject_hemisphere": [sub_hem],
-            "estimated_beta_spearman_r": [spearman_beta_stn.statistic],
-            "estimated_beta_spearman_pval": [spearman_beta_stn.pvalue],
-            "normalized_beta_pearson_r": [pearson_normalized_beta_stn.statistic],
-            "normalized_beta_pearson_pval": [pearson_normalized_beta_stn.pvalue],
-            "cluster_beta_spearman_r": [spearman_beta_cluster_stn.statistic],
-            "cluster_beta_spearman_pval": [spearman_beta_cluster_stn.pvalue],
+            "estimated_beta_spearman_r": [spearman_statistic],
+            "estimated_beta_spearman_pval": [spearman_pval],
+            "normalized_beta_pearson_r": [pearson_normalized_statistic],
+            "normalized_beta_pearson_pval": [pearson_normalized_pval],
+            "cluster_beta_spearman_r": [spearman_cluster_statistic],
+            "cluster_beta_spearman_pval": [spearman_cluster_pval],
             "contact_rank_1_method_1": [rank1_method_1],
             "contact_rank_1_method_2": [rank1_method_2],
             "contacts_rank_1_2_method_1": [rank_1_and_2_method_1],
@@ -766,6 +786,7 @@ def load_comparison_result_DF(
     clinical_session: str,
     percept_session: str,
     fooof_version: str,
+    new_reference: str,
     bssu_version: str,
 ):
     """
@@ -776,6 +797,11 @@ def load_comparison_result_DF(
         - percept_session:
 
     """
+    if new_reference == "one_to_zero_two_to_three":
+        ext_fooof_re_ref = "one_to_zero_two_to_three_"
+
+    elif new_reference == "no":
+        ext_fooof_re_ref = ""
 
     if bssu_version == "percept":
         external_extension = ""
@@ -784,10 +810,10 @@ def load_comparison_result_DF(
         external_extension = "_externalized_bssu"
 
     if comparison_file == "rank":
-        filename = f"{comparison_file}_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{fooof_version}.pickle"
+        filename = f"{comparison_file}_group_comparison_all_clinical_{clinical_session}_percept_{percept_session}{external_extension}_{ext_fooof_re_ref}{fooof_version}.pickle"
 
     elif comparison_file == "correlation":
-        filename = f"{comparison_file}_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{fooof_version}.pickle"
+        filename = f"{comparison_file}_group_comparison_all_externalized_percept_{percept_session}{external_extension}_{ext_fooof_re_ref}{fooof_version}.pickle"
 
     filepath = os.path.join(GROUP_RESULTS_PATH, filename)
 
@@ -806,6 +832,7 @@ def get_comparison_matrix_for_heatmap_from_DF(
     percept_session: str,
     rank_or_correlation: str,
     fooof_version: str,
+    new_reference: str,
     bssu_version: str,
 ):
     """
@@ -927,6 +954,7 @@ def get_comparison_matrix_for_heatmap_from_DF(
             clinical_session=clinical_session,
             percept_session=percept_session,
             fooof_version=fooof_version,
+            new_reference=new_reference,
             bssu_version=bssu_version,
         )
 
