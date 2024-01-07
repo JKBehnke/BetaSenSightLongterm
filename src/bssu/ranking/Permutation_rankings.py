@@ -6,6 +6,7 @@ import pandas as pd
 import scipy
 from scipy import stats
 from scipy.stats import norm
+from scipy.stats import ttest_ind
 import statistics
 import os
 import pickle
@@ -1253,6 +1254,9 @@ def fooof_bip_channel_groups_beta_spearman(
             median_spearman_comp_group = np.median(spearman_r_list)
             std_spearman_comp_group = np.std(spearman_r_list)
 
+            # Fisher transformation of spearman r
+            fisher_transformation_spearman_r = np.arctanh(spearman_r_list)
+
             # spearman pval
             mean_pval_comp_group = np.mean(spearman_pval_list)
             median_pval_comp_group = np.median(spearman_pval_list)
@@ -1268,6 +1272,7 @@ def fooof_bip_channel_groups_beta_spearman(
                 std_spearman_comp_group,
                 mean_spearman_comp_group,
                 median_spearman_comp_group,
+                fisher_transformation_spearman_r,
                 std_pval_comp_group,
                 mean_pval_comp_group,
                 median_pval_comp_group,
@@ -1313,6 +1318,9 @@ def fooof_bip_channel_groups_beta_spearman(
                 median_spearman_comp_group = np.median(spearman_r_list)
                 std_spearman_comp_group = np.std(spearman_r_list)
 
+                # Fisher transformation of spearman r
+                fisher_transformation_spearman_r = np.arctanh(spearman_r_list)
+
                 # spearman pval
                 mean_pval_comp_group = np.mean(spearman_pval_list)
                 median_pval_comp_group = np.median(spearman_pval_list)
@@ -1328,6 +1336,7 @@ def fooof_bip_channel_groups_beta_spearman(
                     std_spearman_comp_group,
                     mean_spearman_comp_group,
                     median_spearman_comp_group,
+                    fisher_transformation_spearman_r,
                     std_pval_comp_group,
                     mean_pval_comp_group,
                     median_pval_comp_group,
@@ -1388,9 +1397,10 @@ def fooof_bip_channel_groups_beta_spearman(
             3: "standard_deviation_spearman_values",
             4: "mean_spearman_values",
             5: "median_spearman_values",
-            6: "standard_deviation_pval",
-            7: "mean_pval",
-            8: "median_pval",
+            6: "fisher_transformation_spearman_r",
+            7: "standard_deviation_pval",
+            8: "mean_pval",
+            9: "median_pval",
         },
         inplace=True,
     )
@@ -1548,3 +1558,103 @@ def fooof_bip_channel_groups_beta_spearman(
             )
 
     return {"spearman_result_df": spearman_result_df, "single_stn_spearman_DF_copy": single_stn_spearman_DF_copy}
+
+
+def t_test_fisher_transformed_correlation_coeff(fooof_spectrum: str, fooof_version: str, all_groups_together: str):
+    """
+    Calculate the t-test of the fisher transformed correlation coefficients
+
+    Input:
+        - fooof_spectrum: "periodic_spectrum"
+        - fooof_version: "v2"
+        - all_groups_together: "yes" or "no"    -> "yes" will calculate the beta correlation of all LFPs of each subject
+                                                -> "no" will calculate the beta correlation of each LFP group seperately of each subject
+
+
+
+    """
+    # store result in a dictionary
+    t_test_results = {}
+
+    # load the data
+    loaded_data = fooof_bip_channel_groups_beta_spearman(
+        fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
+        spearman_mean_or_median="mean",
+        all_groups_together=all_groups_together,
+    )
+
+    spearman_result_df = loaded_data["spearman_result_df"]
+
+    # get the fisher transformed correlation coefficients
+    filter_comparisons = [
+        "fu3m_postop",
+        "fu12m_postop",
+        "fu18or24m_postop",
+        "fu12m_fu3m",
+        "fu18or24m_fu3m",
+        "fu18or24m_fu12m",
+    ]
+
+    # filter from dataframe only the comparisons that are needed for the t-test
+    spearman_result_df = spearman_result_df[spearman_result_df["comparison"].isin(filter_comparisons)]
+
+    # Create a 6x6 matrix filled with zeros
+    comparison_matrix = np.zeros((len(filter_comparisons), len(filter_comparisons)))
+
+    # Populate the matrix with comparison values
+    for i in range(len(filter_comparisons)):
+        for j in range(len(filter_comparisons)):
+            if i != j:
+                # Compare values and update the matrix
+                # get the fisher transformed correlation coefficients for i and j
+                fisher_i = spearman_result_df[spearman_result_df["comparison"] == filter_comparisons[i]]
+                fisher_i = fisher_i["fisher_transformation_spearman_r"].values[0]
+
+                fisher_j = spearman_result_df[spearman_result_df["comparison"] == filter_comparisons[j]]
+                fisher_j = fisher_j["fisher_transformation_spearman_r"].values[0]
+
+                # perform a t-test on the transformed correlation coefficients
+                statistic, p_val = stats.ttest_ind(fisher_i, fisher_j)
+
+                # store the p-value in the matrix
+                comparison_matrix[i, j] = p_val
+
+                # and store the statistic and p_val in a dictionary
+                t_test_results[f"{filter_comparisons[i]}_vs_{filter_comparisons[j]}"] = [statistic, p_val]
+
+            elif i == j:
+                comparison_matrix[i, j] = 1
+
+    # plot the matrix in a heatmap
+    fig, ax = plt.subplots()
+
+    heatmap = ax.pcolor(comparison_matrix, cmap=plt.cm.YlOrRd)
+
+    # Set the x and y ticks to show the indices of the matrix
+    ax.set_xticks(np.arange(comparison_matrix.shape[1]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(comparison_matrix.shape[0]) + 0.5, minor=False)
+
+    # Set the tick labels to show the values of the matrix
+    ax.set_xticklabels(filter_comparisons, minor=False, rotation=45)
+    ax.set_yticklabels(filter_comparisons, minor=False)
+
+    # Add a colorbar to the right of the heatmap
+    cbar = plt.colorbar(heatmap)
+    cbar.set_label("p-value")
+
+    # Add the cell values to the heatmap
+    for i in range(comparison_matrix.shape[0]):
+        for j in range(comparison_matrix.shape[1]):
+            plt.text(
+                j + 0.5, i + 0.5, str("{: .2f}".format(comparison_matrix[i, j])), ha='center', va='center'
+            )  # only show 2 numbers after the comma of a float
+
+    # Add a title
+    plt.title(f"t-test of fisher transformed correlation coefficients")
+
+    fig.tight_layout()
+
+    plt.show()
+
+    return t_test_results
