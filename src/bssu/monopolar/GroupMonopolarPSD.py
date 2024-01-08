@@ -552,6 +552,7 @@ def fooof_monopol_psd_spearman_betw_sessions(
     # from the list of all existing sub_hem STNs, get only the STNs with existing sessions 1 + 2
     session_pair_stn_list = {}
     sample_size_dict = {}
+    spearman_r_dict = {}
 
     # for each session comparison select STNs that have recordings for both
     for comparison in session_comparison:
@@ -794,6 +795,137 @@ def fooof_monopol_psd_spearman_betw_sessions(
     )
 
     return {"results_DF": results_DF_copy, "sample_size_df": sample_size_df, "spearman_m_df": spearman_m_df}
+
+
+def t_test_fisher_transformed_spearman_monopolar(similarity_calculation: str, fooof_version: str):
+    """ """
+
+    results_path = findfolders.get_local_path(folder="GroupResults")
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+
+    t_test_results = {}
+
+    # load Excel file with Spearman correlations
+    data_filename = f"fooof_monopol_{similarity_calculation}_beta_correlations_per_stn_{fooof_version}.xlsx"
+    spearman_m_df = pd.read_excel(
+        os.path.join(results_path, data_filename), keep_default_na=True, sheet_name="monopolar_beta_correlations"
+    )
+    print("Excel file loaded: ", data_filename, "\nloaded from: ", results_path)
+
+    # in the column "spearman_r" replace all values 1 by 0.99
+    spearman_m_df["spearman_r"] = spearman_m_df["spearman_r"].replace(1, 0.99)  # otherwise the t test won't work
+
+    # list of relevant comparisons
+    filter_comparisons = [
+        "postop_fu3m",
+        "postop_fu12m",
+        "postop_fu18or24m",
+        "fu3m_fu12m",
+        "fu3m_fu18or24m",
+        "fu12m_fu18or24m",
+    ]
+
+    # Create a 6x6 matrix with zeros
+    comparison_matrix = np.zeros((len(filter_comparisons), len(filter_comparisons)))
+
+    # Populate the matrix with comparison values
+    for i in range(len(filter_comparisons)):
+        for j in range(len(filter_comparisons)):
+            if i != j:
+                # Compare values and update the matrix
+
+                # get a list of spearman r values for i and j
+                spearman_list_i = spearman_m_df[spearman_m_df["session_comparison"] == filter_comparisons[i]]
+                spearman_list_i = spearman_list_i["spearman_r"].values.tolist()
+
+                spearman_list_j = spearman_m_df[spearman_m_df["session_comparison"] == filter_comparisons[j]]
+                spearman_list_j = spearman_list_j["spearman_r"].values.tolist()
+
+                # get the fisher transformed correlation coefficients for i and j
+                fisher_i = np.arctanh(spearman_list_i)
+
+                fisher_j = np.arctanh(spearman_list_j)
+
+                # perform a t-test on the transformed correlation coefficients
+                statistic, p_val = stats.ttest_ind(fisher_i, fisher_j)
+
+                # store the p-value in the matrix
+                comparison_matrix[i, j] = p_val
+
+                # and store the statistic and p_val in a dictionary
+                t_test_results[f"{filter_comparisons[i]}_vs_{filter_comparisons[j]}"] = [
+                    filter_comparisons[i],
+                    filter_comparisons[j],
+                    fisher_i,
+                    fisher_j,
+                    statistic,
+                    p_val,
+                ]
+
+            elif i == j:
+                comparison_matrix[i, j] = 1
+
+    # write Dataframe from dictionary
+    t_test_results_df = pd.DataFrame(t_test_results)
+    t_test_results_df.rename(
+        index={
+            0: "comparison_1",
+            1: "comparison_2",
+            2: "fisher_comparison_1",
+            3: "fisher_comparison_2",
+            4: "statistic",
+            5: "p-value",
+        },
+        inplace=True,
+    )
+    t_test_results_df = t_test_results_df.transpose()
+
+    # save as Excel
+    t_test_results_df.to_excel(
+        os.path.join(
+            results_path,
+            f"monoolar_LFPs_Spearman_correlations_t-test_fisher_transformed_{similarity_calculation}_{fooof_version}.xlsx",
+        ),
+        sheet_name="t-test_fisher_transformed",
+        index=False,
+    )
+
+    # plot the matrix in a heatmap
+    fig, ax = plt.subplots()
+
+    heatmap = ax.pcolor(comparison_matrix, cmap=plt.cm.YlOrRd)
+
+    # Set the x and y ticks to show the indices of the matrix
+    ax.set_xticks(np.arange(comparison_matrix.shape[1]) + 0.5, minor=False)
+    ax.set_yticks(np.arange(comparison_matrix.shape[0]) + 0.5, minor=False)
+
+    # Set the tick labels to show the values of the matrix
+    ax.set_xticklabels(filter_comparisons, minor=False, rotation=45)
+    ax.set_yticklabels(filter_comparisons, minor=False)
+
+    # Add a colorbar to the right of the heatmap
+    cbar = plt.colorbar(heatmap)
+    cbar.set_label("p-value")
+
+    # Add the cell values to the heatmap
+    for i in range(comparison_matrix.shape[0]):
+        for j in range(comparison_matrix.shape[1]):
+            plt.text(
+                j + 0.5, i + 0.5, str("{: .2f}".format(comparison_matrix[i, j])), ha='center', va='center'
+            )  # only show 2 numbers after the comma of a float
+
+    # Add a title
+    plt.title(f"t-test of fisher transformed Spearman correlation coefficients \nmonopolar LFPs")
+
+    fig.tight_layout()
+
+    helpers.save_fig_png_and_svg(
+        path=figures_path,
+        filename=f"t-test_fisher_transformed_Spearman_coeff_monoolar_{similarity_calculation}_{fooof_version}",
+        figure=fig,
+    )
+
+    return spearman_m_df, t_test_results_df
 
 
 def mono_rank_differences(freq_band: str, normalization: str, filter_signal: str, level_or_direction: str):

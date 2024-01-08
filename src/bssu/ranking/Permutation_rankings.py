@@ -22,6 +22,7 @@ import seaborn as sns
 ######### PRIVATE PACKAGES #########
 from ..utils import find_folders as find_folders
 from ..utils import loadResults as loadResults
+from ..utils import percept_helpers as helpers
 
 
 def PermutationTest_BIPchannelGroups(
@@ -1573,8 +1574,12 @@ def t_test_fisher_transformed_correlation_coeff(fooof_spectrum: str, fooof_versi
 
 
     """
+    results_path = find_folders.get_local_path(folder="GroupResults")
+    figures_path = find_folders.get_local_path(folder="GroupFigures")
+
     # store result in a dictionary
     t_test_results = {}
+    all_groups_yes_no = {"yes": "all_LFPs", "no": "each_LFP_group"}
 
     # load the data
     loaded_data = fooof_bip_channel_groups_beta_spearman(
@@ -1621,10 +1626,30 @@ def t_test_fisher_transformed_correlation_coeff(fooof_spectrum: str, fooof_versi
                 comparison_matrix[i, j] = p_val
 
                 # and store the statistic and p_val in a dictionary
-                t_test_results[f"{filter_comparisons[i]}_vs_{filter_comparisons[j]}"] = [statistic, p_val]
+                t_test_results[f"{filter_comparisons[i]}_vs_{filter_comparisons[j]}"] = [
+                    filter_comparisons[i],
+                    filter_comparisons[j],
+                    statistic,
+                    p_val,
+                ]
 
             elif i == j:
                 comparison_matrix[i, j] = 1
+
+    # write Dataframe from dictionary
+    t_test_results_df = pd.DataFrame(t_test_results)
+    t_test_results_df.rename(index={0: "comparison_1", 1: "comparison_2", 2: "statistic", 3: "p-value"}, inplace=True)
+    t_test_results_df = t_test_results_df.transpose()
+
+    # save as Excel
+    t_test_results_df.to_excel(
+        os.path.join(
+            results_path,
+            f"bipolar_LFPs_Spearman_correlations_t-test_fisher_transformed_{fooof_spectrum}_{fooof_version}_{all_groups_yes_no[all_groups_together]}.xlsx",
+        ),
+        sheet_name="t-test_fisher_transformed",
+        index=False,
+    )
 
     # plot the matrix in a heatmap
     fig, ax = plt.subplots()
@@ -1651,10 +1676,14 @@ def t_test_fisher_transformed_correlation_coeff(fooof_spectrum: str, fooof_versi
             )  # only show 2 numbers after the comma of a float
 
     # Add a title
-    plt.title(f"t-test of fisher transformed correlation coefficients")
+    plt.title(f"t-test of fisher transformed Spearman correlation coefficients \nbipolar LFPs")
 
     fig.tight_layout()
 
-    plt.show()
+    helpers.save_fig_png_and_svg(
+        path=figures_path,
+        filename=f"t-test_fisher_transformed_Spearman_coeff_bipolar_{fooof_spectrum}_{fooof_version}_{all_groups_yes_no[all_groups_together]}",
+        figure=fig,
+    )
 
-    return t_test_results
+    return t_test_results_df
