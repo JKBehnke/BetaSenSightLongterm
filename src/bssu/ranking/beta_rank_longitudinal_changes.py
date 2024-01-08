@@ -63,6 +63,7 @@ def write_df_xy_changes_of_beta_ranks(similarity_calculation: str, fooof_version
 
     coord_difference_data = {}
     sample_size = {}
+    sample_size_rank_2 = {}
 
     loaded_fooof_monopolar_data = loadResults.load_fooof_monopolar_weighted_psd(
         fooof_spectrum="periodic_spectrum",
@@ -206,6 +207,22 @@ def write_df_xy_changes_of_beta_ranks(similarity_calculation: str, fooof_version
 
         sample_size[f"{comp}_beta_rank_1"] = [comp, size, percentage_stable_level, percentage_stable_direction]
 
+        # rank 2
+        comp_data_rank_2 = comp_data.loc[comp_data.beta_rank == 2]
+
+        size_2 = comp_data_rank_2.count()
+        size_2 = size_2["subject_hemisphere"]
+
+        percentage_rank_2_stable_level = (comp_data_rank_2.y_difference.value_counts()[0]) / size_2
+        percentage_rank_2_stable_direction = (comp_data_rank_2.x_difference.value_counts()[0]) / size_2
+
+        sample_size_rank_2[f"{comp}_beta_rank_2"] = [
+            comp,
+            size_2,
+            percentage_rank_2_stable_level,
+            percentage_rank_2_stable_direction,
+        ]
+
     # save as dataframe
     sample_size_dataframe = pd.DataFrame(sample_size)
     sample_size_dataframe.rename(
@@ -219,10 +236,23 @@ def write_df_xy_changes_of_beta_ranks(similarity_calculation: str, fooof_version
     )
     sample_size_dataframe = sample_size_dataframe.transpose()
 
+    sample_size_dataframe_rank_2 = pd.DataFrame(sample_size_rank_2)
+    sample_size_dataframe_rank_2.rename(
+        index={
+            0: "session_comparison",
+            1: "sample_size",
+            2: "percentage_stable_level",
+            3: "percentage_stable_direction",
+        },
+        inplace=True,
+    )
+    sample_size_dataframe_rank_2 = sample_size_dataframe_rank_2.transpose()
+
     return {
         "fooof_monopolar_df_copy": fooof_monopolar_df_copy,
         "coord_difference_dataframe": coord_difference_dataframe,
         "sample_size_dataframe": sample_size_dataframe,
+        "sample_size_dataframe_rank_2": sample_size_dataframe_rank_2,
     }
 
 

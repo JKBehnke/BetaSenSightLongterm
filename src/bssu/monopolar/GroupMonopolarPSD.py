@@ -552,7 +552,6 @@ def fooof_monopol_psd_spearman_betw_sessions(
     # from the list of all existing sub_hem STNs, get only the STNs with existing sessions 1 + 2
     session_pair_stn_list = {}
     sample_size_dict = {}
-    spearman_r_dict = {}
 
     # for each session comparison select STNs that have recordings for both
     for comparison in session_comparison:
