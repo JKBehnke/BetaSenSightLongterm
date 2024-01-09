@@ -1154,8 +1154,9 @@ def change_beta_peak_power_or_cf_violinplot(
 
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
 
-        - absolute_change: "yes" or "no" -> if absolute: the change is quantified independent of what direction this change was
-
+        - absolute_change: "yes" or "no"
+                            -> if "yes": the change is quantified independent of what direction this change was
+                            -> if "no": the change is quantified as session 2 - session 1
         - session_comparisons: list ["0_3", "0_12", "0_18", "3_12", "3_18", "12_18"] or ["0_3", "3_12", "12_18"]
 
     """
@@ -1300,12 +1301,12 @@ def change_beta_peak_power_or_cf_violinplot(
                     session_1_data_of_interest = session_1_data.high_beta_power_auc.values[0]
                     session_2_data_of_interest = session_2_data.high_beta_power_auc.values[0]
 
-                # calculate difference between two sessions: session 1 - session 2
+                # calculate difference between two sessions: session 2 - session 1
                 if absolute_change == "yes":
-                    difference_ses1_ses2 = abs(session_1_data_of_interest - session_2_data_of_interest)
+                    difference_ses1_ses2 = abs(session_2_data_of_interest - session_1_data_of_interest)
 
                 else:
-                    difference_ses1_ses2 = session_1_data_of_interest - session_2_data_of_interest
+                    difference_ses1_ses2 = session_2_data_of_interest - session_1_data_of_interest
 
                 # store data in dataframe
                 difference_session_comparison_dict[f"{group}_{stn}_{comparison}"] = [
