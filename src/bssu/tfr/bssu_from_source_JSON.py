@@ -94,6 +94,13 @@ channel_map = {
     'ONE_C_AND_TWO_C_RIGHT_SEGMENT': "1C2C",
 }
 
+HEMISPHERE = ["Right", "Left"]
+
+RING_GROUP = ["RingR", "RingL"]
+SEGM_INTER_GROUP = ["SegmInterR", "SegmInterL"]
+SEGM_INTRA_GROUP = ["SegmIntraR", "SegmIntraL"]
+
+
 
 def write_source_df_from_JSON(sub: str, session: str, condition: str, json_filename: str):
     """ "
@@ -194,6 +201,136 @@ def write_source_df_from_JSON(sub: str, session: str, condition: str, json_filen
     PSD_dataframe = PSD_dataframe.transpose()
 
     return PSD_dataframe
+
+
+def time_frequency_plot(sub: str, 
+                   session: str, 
+                   condition: str, 
+                   json_filename: str,
+                   filter_signal:str):
+    """
+    """
+
+    PSD_dataframe = write_source_df_from_JSON(sub=sub, session=session, condition=condition, json_filename=json_filename)
+
+    figures_path = find_folders.get_local_path(folder="figures", sub=sub)
+    results_path = find_folders.get_local_path(folder="results", sub=sub)
+
+    for hem in HEMISPHERE:
+
+        if hem == "Right":
+            
+            hem_df = PSD_dataframe[PSD_dataframe["subject_hemisphere"] == f"{sub}_Right"]
+            incl_contact = ["RingR", "SegmIntraR", "SegmInterR"]
+        
+        elif hem == "Left":
+            hem_df = PSD_dataframe[PSD_dataframe["subject_hemisphere"] == f"{sub}_Left"]
+            incl_contact = ["RingL", "SegmIntraL", "SegmInterL"]
+        
+        for group in incl_contact:
+
+            if group in RING_GROUP:
+                pickChannels = ['03', '13', '02', '12', '01', '23']
+            
+            elif group in SEGM_INTER_GROUP:
+                pickChannels = ['1A2A', '1B2B', '1C2C']
+
+            elif group in SEGM_INTRA_GROUP:
+                pickChannels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+            
+            
+            group_df = hem_df[hem_df["bipolar_channel"].isin(pickChannels)]
+            
+            
+            # set layout for figures: using the object-oriented interface
+            #cols = ['Session {}'.format(col) for col in [session]]
+            rows = ['Channel {}'.format(row) for row in pickChannels]
+
+            fig, axes = plt.subplots(len(pickChannels), 1, figsize=(15, 15)) # subplot(rows, columns, panel number)
+                
+            plt.setp(axes.flat, xlabel='Time [sec]', ylabel='Frequency [Hz]')
+
+            pad = 5 # in points
+
+            # for ax, col in zip(axes[0], cols):
+            #         ax.annotate(col, xy=(0.5, 1), xytext=(0, pad),
+            #                     xycoords='axes fraction', textcoords='offset points',
+            #                     size='large', ha='center', va='baseline')
+
+            # for ax, row in zip(axes[:,0], rows):
+            #     ax.annotate(row, xy=(0, 0.5), xytext=(-ax.yaxis.labelpad - pad, 0),
+            #                 xycoords=ax.yaxis.label, textcoords='offset points',
+            #                 size='large', ha='right', va='center')
+
+            fig.tight_layout()
+            # tight_layout doesn't take these labels into account. We'll need 
+            # to make some room. These numbers are are manually tweaked. 
+            # You could automatically calculate them, but it's a pain.
+            fig.subplots_adjust(left=0.15, top=0.95)
+            fig.suptitle(f"sub{sub}, {hem} hemisphere, {group} group, {filter_signal}")
+
+
+            for cont, contact in enumerate(pickChannels): 
+
+                temp_data = group_df[group_df["bipolar_channel"] == contact]
+                temp_data = temp_data.reset_index(drop=True)
+
+                temp_data = temp_data["raw_time_series"].values[0]
+
+                #################### CREATE A BUTTERWORTH FILTER ####################
+
+                # sample frequency: 250 Hz
+                fs = 250
+
+                # set filter parameters for band-pass filter
+                filter_order = 5 # in MATLAB spm_eeg_filter default=5 Butterworth
+                frequency_cutoff_low = 5 # 5Hz high-pass filter
+                frequency_cutoff_high = 95 # 95 Hz low-pass filter
+                
+                # create the filter
+                b, a = scipy.signal.butter(filter_order, (frequency_cutoff_low, frequency_cutoff_high), btype='bandpass', output='ba', fs=fs)
+
+        
+                #################### FILTER ####################
+
+                # filter the signal by using the above defined butterworth filter
+                filtered = scipy.signal.filtfilt(b, a, temp_data) 
+
+                # unfiltered data
+                unfiltered = temp_data
+
+                # settings for window
+                noverlap = 0 # 0
+                win_samp = 250 # window for fft in samples e.g. 250 for 1 sec
+                # window = hann(win_samp, sym=False)
+
+                # calculate Time Frequency using scipy
+                # freq,time,Sxx = scipy.signal.spectrogram(x=filtered, fs=fs, window=window, noverlap=noverlap)
+
+                # plot in subplot row=channel, column=timepoint
+                # axes[i, t].pcolormesh(time, freq, Sxx, cmap='viridis', shading="gouraud", vmin=0, vmax=5)
+                
+                ### calculate and plot a spectogram using matplotlib
+                if filter_signal == "band-pass":
+                    axes[cont].specgram(x = filtered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                
+                if filter_signal == "unfiltered":
+                    axes[cont].specgram(x = unfiltered, Fs = fs, noverlap = noverlap, cmap = 'viridis', vmin = -25, vmax = 10)
+                
+                axes[cont].grid(False)
+
+
+            fig.savefig(os.path.join(figures_path, f"time_frequency_sub{sub}_{hem}_{session}_{group}_{filter_signal}.png"))
+        
+
+
+
+
+
+
+
+
+
 
 
 def write_missing_FOOOF_data_add_to_old_FOOOF(
