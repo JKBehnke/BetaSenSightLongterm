@@ -294,10 +294,6 @@ def plot_raw_time_series(incl_sub: list, incl_session: list, incl_condition: lis
 
 
 
-
-
-
-
 def clean_time_series_move_artifact(
 ):
     """ 
