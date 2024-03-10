@@ -95,10 +95,91 @@ channel_map = {
 }
 
 HEMISPHERE = ["Right", "Left"]
+CHANNEL_GROUPS = ["RingL", "SegmIntraL", "SegmInterL", "RingR", "SegmIntraR", "SegmInterR"]
 
 RING_GROUP = ["RingR", "RingL"]
 SEGM_INTER_GROUP = ["SegmInterR", "SegmInterL"]
 SEGM_INTRA_GROUP = ["SegmIntraR", "SegmIntraL"]
+
+RING_CHANNELS = ["03", "13", "02", "12", "01", "23"]
+SEGM_INTER_CHANNELS = ["1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C"]
+SEGM_INTRA_CHANNELS = ["1A2A", "1B2B", "1C2C"]
+
+
+
+def load_json_data_if_perceive_error(sub: str, session: str, condition: str):
+    """
+    Load the json data
+    Find the BSSU raw data and channel names
+    Return the raw time series of BSSU in 2D arrays of each channel group for both hemispheres
+    
+    """
+    time_domain_2D = {}
+
+    json_path = find_folders.get_local_path(folder="data")
+    json_path = os.path.join(json_path, "source_json", f"sub-{sub}", f"{session}", f"{condition}")
+
+    # give the filenames in this path
+    json_file = os.listdir(json_path)
+
+    # load the json
+    with open(os.path.join(json_path, json_file[0]), 'r') as f:
+        json_object = json.loads(f.read())
+    
+    channel_numbers = list(np.arange(0, 30))  # list from 0-29, because 30 channels in total
+    json_data_dict = {}
+
+    for nb in channel_numbers:
+        channel_original = json_object["LfpMontageTimeDomain"][nb]["Channel"]
+        time_domain_original = np.array(json_object["LfpMontageTimeDomain"][nb]["TimeDomainData"])
+
+        # hemisphere
+        if "RIGHT" in channel_original:
+            hemisphere = "Right"
+
+        if "LEFT" in channel_original:
+            hemisphere = "Left"
+
+        # rename channel
+        if channel_original in channel_map:
+            new_ch_name = channel_map[channel_original]
+
+        else:
+            print("Channel name not in channel map")
+        
+        if new_ch_name in RING_CHANNELS and hemisphere == "Right":
+            group = "RingR"
+        elif new_ch_name in RING_CHANNELS and hemisphere == "Left":
+            group = "RingL"
+        elif new_ch_name in SEGM_INTER_CHANNELS and hemisphere == "Right":
+            group = "SegmInterR"
+        elif new_ch_name in SEGM_INTER_CHANNELS and hemisphere == "Left":
+            group = "SegmInterL"
+        elif new_ch_name in SEGM_INTRA_CHANNELS and hemisphere == "Right":
+            group = "SegmIntraR"
+        elif new_ch_name in SEGM_INTRA_CHANNELS and hemisphere == "Left":
+            group = "SegmIntraL"
+        
+
+        # store the data into a dictionary
+        json_data_dict[f"{group}_{new_ch_name}"] = time_domain_original
+    
+    # for each group, create a 2D array with the time series of all channels in that group
+    for chan_group in CHANNEL_GROUPS:
+
+        if "Ring" in chan_group:
+            chan_order = RING_CHANNELS
+        elif "SegmInter" in chan_group:
+            chan_order = SEGM_INTER_CHANNELS
+        elif "SegmIntra" in chan_group:
+            chan_order = SEGM_INTRA_CHANNELS
+
+        time_domain_arrays = [json_data_dict[f"{chan_group}_{chs}"] for chs in chan_order]
+
+        # create a 2D array with the time series of all channels in that group
+        time_domain_2D[f"{chan_group}"] = np.vstack(time_domain_arrays)
+    
+    return time_domain_2D
 
 
 

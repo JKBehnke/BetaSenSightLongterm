@@ -9,6 +9,21 @@ import json
 from ..utils import find_folders as find_folders
 
 
+def load_sub_pickle_file(sub: str, filename: str):
+    """
+    filenames: [f"cleaned_time_series"]
+    """
+
+    # find the path to the results folder of a subject
+    local_results_path = find_folders.get_local_path(folder="results", sub=sub)
+
+    # load the pickle file
+    with open(os.path.join(local_results_path, f"{filename}.pickle"), "rb") as file:
+        data = pickle.load(file)
+
+    return data
+
+
 def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
     """
     Reads result CSV file of the initial SPECTROGRAM method
