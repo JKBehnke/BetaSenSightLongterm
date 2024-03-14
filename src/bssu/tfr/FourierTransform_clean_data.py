@@ -214,13 +214,15 @@ def psd_average_and_peak(normalized_psd, f):
     return psdAverage_dict
 
 
-def plot_power_spectrum(sub: str, incl_session: list, normalization: str, filter: str):
+def plot_power_spectrum(sub: str, normalization: str, filter: str):
     """
     Plot the Power spectra of all channels of a subject for each timepoint
     """
     # set layout for figures: using the object-oriented interface
     figures_path = findfolders.get_local_path(folder="figures", sub=sub)
-    plt.style.use('seaborn-whitegrid')  
+    # get sessions of the subject
+    incl_session = sub_session_dict.get_sessions(sub) # list of existing sessions for the subject
+    #plt.style.use('seaborn-whitegrid')  
 
     for hem in HEMISPHERES:
         if hem == "Right":

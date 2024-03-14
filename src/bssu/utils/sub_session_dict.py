@@ -6,6 +6,7 @@ sub_session_dict = {
     "021": ["fu3m", "fu12m", "fu18m"],
     "024": ["postop", "fu3m", "fu12m", "fu18m"],
     "025": ["postop", "fu3m", "fu12m"],
+    "026": ["postop", "fu3m", "fu12m"],
     "028": ["postop", "fu12m", "fu24m"],
     "029": ["postop", "fu3m", "fu12m", "fu18m"],
     "030": ["postop", "fu3m", "fu12m", "fu24m"],
@@ -13,6 +14,7 @@ sub_session_dict = {
     "032": ["postop", "fu3m"],
     "033": ["fu3m", "fu12m", "fu18m"],
     "036": ["fu12m", "fu18m"],
+    "038": ["postop", "fu3m"],
     "040": ["fu3m", "fu12m"],
     "041": ["fu3m", "fu12m", "fu18m"],
     "045": ["fu3m", "fu12m"],
@@ -35,6 +37,7 @@ sub_session_perceive_error = {
     "030": ["fu24m"],
     "055": ["fu18m"],
     "062": ["fu12m"],
+    "033": ["fu3m", "fu12m", "fu18m"],
     }
 
 
