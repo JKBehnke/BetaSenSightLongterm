@@ -48,7 +48,14 @@ def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest
     """
 
     # load the group dataframe
-    fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version)
+    #fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version)
+    fooof_group_result = loadResults.load_fooof_beta_ranks(
+        fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
+        all_or_one_chan="beta_ranks_all",
+        all_or_one_longterm_ses="all_sessions",
+    )
+
 
     # create new column: first duplicate column fooof power spectrum, then apply calculation to each row -> average of indices [13:36] so averaging the beta range
     fooof_group_result_copy = fooof_group_result.copy()
@@ -192,7 +199,7 @@ def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest
                     elif group == "segm_intra":
                         channels = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
 
-                    group_data = stn_ses_data.loc[stn_ses_data["bipolar_channel"].isin(channels)].reset_index()
+                    group_data = stn_ses_data.loc[stn_ses_data["bipolar_channel"].isin(channels)].reset_index(drop=True)
 
                     # get channel name of rank 1 channel in fu3m in this channel group
                     fu3m_1_row = fu3m_rank1_channels.loc[fu3m_rank1_channels["bipolar_channel"].isin(channels)]

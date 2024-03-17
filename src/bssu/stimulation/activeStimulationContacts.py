@@ -1330,7 +1330,7 @@ def fooof_mono_beta_and_clinical_activity_write_dataframes(fooof_version: str):
 
     # load the fooof mono beta data
     loaded_fooof_mono_beta = loadResults.load_pickle_group_result(
-        filename="fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance", fooof_version=fooof_version
+        filename="fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_sq_distance_v2", fooof_version=fooof_version
     )
 
     # load Excel file with best clinical stimulation parameters

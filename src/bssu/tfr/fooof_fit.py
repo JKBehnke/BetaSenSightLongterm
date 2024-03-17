@@ -24,7 +24,15 @@ from ..utils import find_folders as findfolders
 from ..utils import loadResults as loadResults
 from ..tfr import bssu_from_source_JSON as bssu_json
 from ..utils import percept_helpers as helpers
+from .. utils import sub_session_dict as sub_session_dict
 
+
+HEMISPHERES = ["Right", "Left"]
+CHANNEL_GROUPS = ["RingL", "SegmIntraL", "SegmInterL", "RingR", "SegmIntraR", "SegmInterR"]
+RIGHT_CHANNEL_GROUPS = ["RingR", "SegmIntraR", "SegmInterR"]
+LEFT_CHANNEL_GROUPS = ["RingL", "SegmIntraL", "SegmInterL"]
+ALL_CHANNELS = ["03", "13", "02", "12", "01", "23", "1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C", "1A2A", "1B2B", "1C2C"]
+SFREQ = 250 # sampling frequency of the data
 
 def get_input_y_n(message: str) -> str:
     """Get `y` or `n` user input."""
@@ -106,9 +114,315 @@ def fooof_model_predefined(fooof_version: str):
     return {"freq_range": freq_range, "model": model}
 
 
+def fooof_fit_single_cleaned(subject: str, fooof_version: str):
+    """
+    Runs FOOOF for a single subject, all existing sessions.
+    Reads the clean Power Spectra pickle files: SPECTROGRAMPSD_clean.pickle in each subject folder
+
+    """
+
+    ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
+
+    fooof_results = {}
+
+    # get path to results folder of each subject
+    local_figures_path = findfolders.get_local_path(folder="figures", sub=subject)
+    local_results_path = findfolders.get_local_path(folder="results", sub=subject)
+
+    # get sessions of a subject
+    sessions = sub_session_dict.get_sessions(sub=subject)
+
+    for hemisphere in HEMISPHERES:
+        # get power spectrum and frequencies from each STN
+
+        clean_power_spectra_DF = loadResults.load_sub_pickle_file(sub=subject, filename="SPECTROGRAMPSD_clean")
+
+        hem_DF = clean_power_spectra_DF.loc[clean_power_spectra_DF["hemisphere"] == hemisphere]
+
+        # only take normalization rawPSD, filter unfiltered
+        unfiltered_hem_DF = hem_DF.loc[hem_DF["filter"] == "unfiltered"]
+        unfiltered_raw_hem_DF = unfiltered_hem_DF.loc[unfiltered_hem_DF["normalization"] == "rawPsd"]
+
+
+        for ses in sessions:
+
+            ses_DF = unfiltered_raw_hem_DF.loc[unfiltered_raw_hem_DF["session"] == ses]
+
+            for chan in ALL_CHANNELS:
+                # get the power spectra and frequencies from each channel
+                chan_DF = ses_DF.loc[ses_DF["bipolar_channel"] == chan]
+
+                power_spectrum = np.array(chan_DF.psd.values[0])
+                freqs = np.array(chan_DF.frequencies.values[0])
+
+                ############ SET PLOT LAYOUT ############
+                fig, ax = plt.subplots(4, 1, figsize=(7, 20))
+
+                # Plot the unfiltered Power spectrum in first ax
+                plot_spectrum(freqs, power_spectrum, log_freqs=False, log_powers=False, ax=ax[0])
+                ax[0].grid(False)
+
+                ############ SET FOOOF MODEL ############
+
+                model_version = fooof_model_predefined(fooof_version=fooof_version)
+                freq_range = model_version["freq_range"]
+                model = model_version["model"]
+
+                # always fit a large Frequency band, later you can select Peaks within specific freq bands
+                model.fit(freqs=freqs, power_spectrum=power_spectrum, freq_range=freq_range)
+
+                # Plot an example power spectrum, with a model fit in second ax
+                # model.plot(plot_peaks='shade', peak_kwargs={'color' : 'green'}, ax=ax[1])
+                model.plot(ax=ax[1], plt_log=True)  # to evaluate the aperiodic component
+                model.plot(
+                    ax=ax[2], plt_log=False
+                )  # To see the periodic component better without log in frequency axis
+                ax[1].grid(False)
+                ax[2].grid(False)
+
+                # check if fooof attributes are None:
+                if model._peak_fit is None:
+                    print(f"subject {subject}, session {ses}, {chan}: model peak fit is None.")
+                    continue
+
+                if model._ap_fit is None:
+                    print(f"subject {subject}, session {ses}, {chan}: model aperiodic fit is None.")
+                    continue
+
+                # plot only the fooof spectrum of the periodic component
+                fooof_power_spectrum = 10 ** (model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+                plot_spectrum(
+                    np.arange(1, (len(fooof_power_spectrum) + 1)),
+                    fooof_power_spectrum,
+                    log_freqs=False,
+                    log_powers=False,
+                    ax=ax[3],
+                )
+                # frequencies: 1-95 Hz with 1 Hz resolution
+
+                # titles
+                fig.suptitle(f"sub {subject}, {hemisphere} hemisphere, {ses}, bipolar channel: {chan}", fontsize=25)
+
+                ax[0].set_title("unfiltered, raw power spectrum", fontsize=20, y=0.97, pad=-20)
+                ax[3].set_title("power spectrum of periodic component", fontsize=20)
+
+                # mark beta band
+                x1 = 13
+                x2 = 35
+                ax[3].axvspan(x1, x2, color="whitesmoke")
+                ax[3].grid(False)
+
+                fig.tight_layout()
+                fig.savefig(
+                    os.path.join(
+                        local_figures_path,
+                        f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{fooof_version}.svg",
+                    ),
+                    bbox_inches="tight",
+                    format="svg",
+                )
+                fig.savefig(
+                    os.path.join(
+                        local_figures_path,
+                        f"fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_{fooof_version}.png",
+                    ),
+                    bbox_inches="tight",
+                )
+
+                # extract parameters from the chosen model
+                # model.print_results()
+
+                ############ SAVE APERIODIC PARAMETERS ############
+                # goodness of fit
+                err = model.get_params('error')
+                r_sq = model.r_squared_
+
+                # aperiodic components
+                exp = model.get_params('aperiodic_params', 'exponent')
+                offset = model.get_params('aperiodic_params', 'offset')
+
+                # periodic component
+                log_power_fooof_periodic_plus_aperiodic = (
+                    model._peak_fit + model._ap_fit
+                )  # periodic+aperiodic component in log Power axis
+                fooof_periodic_component = model._peak_fit  # just periodic component, flattened spectrum
+
+                ############ SAVE ALL PEAKS IN ALPHA; HIGH AND LOW BETA ############
+
+                number_peaks = model.n_peaks_
+
+                # get the highest Peak of each frequency band as an array: CF center frequency, Power, BandWidth
+                alpha_peak = fooof.analysis.get_band_peak_fm(
+                    model, band=(8.0, 12.0), select_highest=True, attribute="peak_params"
+                )
+
+                low_beta_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(13.0, 20.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                high_beta_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(21.0, 35.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                beta_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(13.0, 35.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                gamma_peak = fooof.analysis.get_band_peak_fm(
+                    model,
+                    band=(60.0, 90.0),
+                    select_highest=True,
+                    attribute="peak_params",
+                )
+
+                # save all results in dictionary
+                STN = "_".join([subject, hemisphere])
+
+                fooof_results[f"{subject}_{hemisphere}_{ses}_{chan}"] = [
+                    STN,
+                    ses,
+                    chan,
+                    err,
+                    r_sq,
+                    exp,
+                    offset,
+                    fooof_power_spectrum,
+                    log_power_fooof_periodic_plus_aperiodic,
+                    fooof_periodic_component,
+                    number_peaks,
+                    alpha_peak,
+                    low_beta_peak,
+                    high_beta_peak,
+                    beta_peak,
+                    gamma_peak,
+                ]
+    # store results in a DataFrame
+    fooof_results_df = pd.DataFrame(fooof_results)
+    fooof_results_df.rename(
+        index={
+            0: "subject_hemisphere",
+            1: "session",
+            2: "bipolar_channel",
+            3: "fooof_error",
+            4: "fooof_r_sq",
+            5: "fooof_exponent",
+            6: "fooof_offset",
+            7: "fooof_power_spectrum",
+            8: "periodic_plus_aperiodic_power_log",
+            9: "fooof_periodic_flat",
+            10: "fooof_number_peaks",
+            11: "alpha_peak_CF_power_bandWidth",
+            12: "low_beta_peak_CF_power_bandWidth",
+            13: "high_beta_peak_CF_power_bandWidth",
+            14: "beta_peak_CF_power_bandWidth",
+            15: "gamma_peak_CF_power_bandWidth",
+        },
+        inplace=True,
+    )
+
+    fooof_results_df = fooof_results_df.transpose()  # just one subject
+
+    return fooof_results_df
+
+def fooof_group_percept_clean(incl_sub: list, fooof_version: str):
+    """
+    FOOOF Percept, all included
+
+    Input:
+        - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029", "030", "031", "032", "033", "036",
+            "038", "040", "041", "045", "047", "048", "049", "050", "052", "055", "059", "060", "061", "062", "063", "065", "066"]
+
+        - fooof_version: str "v1", "v2"
+
+    1) Load the Power Spectrum from main Class:
+        - unfiltered
+        - rawPSD (not normalized)
+        - all channels: Ring: ['03', '13', '02', '12', '01', '23']
+                        SegmIntra: ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
+                        SegmInter: ['1A2A', '1B2B', '1C2C']
+        - condition: only ran m0s0 so far, if you also want to run m1s0, make sure you analyze data seperately!
+        - save the features Power Spectrum and Frequencies as variable for each subject, hemisphere, session, channel combination
+
+
+    2) First set and fit a FOOOF model without a knee -> within a frequency range from 1-95 Hz (broad frequency range for fitting the aperiodic component)
+        - peak_width_limits=[2, 15.0],  # must be a list, low limit should be more than twice as frequency resolution, usually not more than 15Hz bw
+        - max_n_peaks=6,                # 4, 5 sometimes misses important peaks, 6 better even though there might be more false positives in high frequencies
+        - min_peak_height=0.2,          # 0.2 detects false positives in gamma but better than 0.35 missing relevant peaks in low frequencies
+        - peak_threshold=2.0,           # default 2.0, lower if necessary to detect peaks more sensitively
+        - aperiodic_mode="fixed",       # fitting without knee component, because there are no knees found so far in the STN
+        - verbose=True,
+
+        frequency range for parameterization: 1-95 Hz
+
+        plot a figure with the raw Power spectrum and the fitted model
+
+    3) save figure into figure folder of each subject:
+        figure filename: fooof_model_sub{subject}_{hemisphere}_{ses}_{chan}_wo_knee.png
+
+
+
+    4) Extract following parameters and save as columns into DF
+        - 0: "subject_hemisphere",
+        - 1: "session",
+        - 2: "bipolar_channel",
+        - 3: "fooof_error",
+        - 4: "fooof_r_sq",
+        - 5: "fooof_exponent",
+        - 6: "fooof_offset",
+        - 7: "fooof_power_spectrum", # with 95 values, 1 Hz frequency resolution, so 1-95 Hz
+        - 8: "periodic_plus_aperiodic_power_log",
+        - 9: "fooof_periodic_flat",
+        - 10: "fooof_number_peaks",
+        - 11: "alpha_peak_CF_power_bandWidth",
+        - 12: "low_beta_peak_CF_power_bandWidth",
+        - 13: "high_beta_peak_CF_power_bandWidth",
+        - 14: "beta_peak_CF_power_bandWidth",
+        - 15: "gamma_peak_CF_power_bandWidth",
+
+
+    5) save Dataframe into results folder of each subject
+        - filename: "fooof_model_sub{subject}.json"
+
+    """
+
+    fooof_group_results_df = pd.DataFrame()
+
+    ################### Load an unfiltered Power Spectrum with their frequencies for each STN ###################
+
+    for subject in incl_sub:
+        fooof_single_subject_result = fooof_fit_single_cleaned(subject=subject, fooof_version=fooof_version)
+
+        fooof_group_results_df = pd.concat([fooof_group_results_df, fooof_single_subject_result], ignore_index=True)
+
+    helpers.save_result_dataframe_as_pickle(
+        data=fooof_group_results_df, filename=f"fooof_group_data_percept_{fooof_version}"
+    )
+
+    return fooof_group_results_df
+
+def exclude_unclean_data_fooof_group():
+    """ """
+    loaded_fooof_result = loadResults.load_pickle_group_result(filename="fooof_group_data_percept", fooof_version="v2")
+
+    # exclude uncleaned channels
+    # rename fu18m and fu24m to fu18o24m
+
+
 def fooof_fit_single_subject(subject: str, fooof_version: str):
     """
-    Input:
+
+    OLD --> this function takes the uncleaned power spectra, no ecg artifacts removed!
+    Input: 
+
         - subject: "024"
         - fooof_version: "v1" or "v2"
 
@@ -352,7 +666,7 @@ def fooof_fit_single_subject(subject: str, fooof_version: str):
 
 def fooof_fit_percept(incl_sub: list, fooof_version: str):
     """
-    FOOOF Percept, all included
+    FOOOF Percept, old version, this function takes the uncleaned power spectra, no ecg artifacts removed!
 
     Input:
         - incl_sub: list e.g. ["017", "019", "021", "024", "025", "026", "028", "029",

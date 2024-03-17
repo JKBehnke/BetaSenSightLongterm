@@ -830,7 +830,8 @@ def FOOOF_spectra_per_channel(incl_sub: str, fooof_version: str):
     segm_intra = ['1A1B', '1B1C', '1A1C', '2A2B', '2B2C', '2A2C']
 
     # load FOOOF group result
-    fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version)
+    # fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version) OLD unclean power spectra
+    fooof_group_result = loadResults.load_pickle_group_result(filename="fooof_group_data_percept", fooof_version="v2") 
 
     if incl_sub == "all":
         stn_list = list(fooof_group_result.subject_hemisphere.unique())

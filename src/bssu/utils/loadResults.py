@@ -11,7 +11,9 @@ from ..utils import find_folders as find_folders
 
 def load_sub_pickle_file(sub: str, filename: str):
     """
-    filenames: [f"cleaned_time_series"]
+    filenames: ["cleaned_time_series", 
+                "SPECTROGRAMPSD_clean"
+                ]
     """
 
     # find the path to the results folder of a subject
