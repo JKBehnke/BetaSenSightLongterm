@@ -2153,9 +2153,9 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
         hue="session_clinical_activity",
         ax=axes,
         jitter=True,  # delete
-        size=5,
+        size=8, #5
         color="grey",  # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
-        alpha=0.5,  # Transparency of dots
+        alpha=0.4,  # Transparency of dots 0.5
         dodge=True,  # datapoints of groups active, inactive are plotted next to each other
     )
 

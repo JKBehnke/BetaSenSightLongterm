@@ -1388,9 +1388,9 @@ def change_beta_peak_power_or_cf_violinplot(
             x="session_comp_group",
             y="difference_ses1-ses2",
             ax=ax,
-            size=6,
+            size=8, # 6
             color="black",
-            alpha=0.2,  # Transparency of dots
+            alpha=0.3,  # Transparency of dots
         )
 
         sns.despine(left=True, bottom=True)  # get rid of figure frame
