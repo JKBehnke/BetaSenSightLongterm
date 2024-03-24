@@ -113,6 +113,7 @@ def plot_ieeg_data(sub: str, session: str, channel_group: str, ieeg_data, fig_ti
     plt.show(block=False)
 
     # save figure
+    fig.savefig(os.path.join(figures_path, f"{fig_title}_sub-{sub}_{hem}_{session}_m0s0_{group_name}.svg"), bbox_inches="tight", format="svg")
     fig.savefig(os.path.join(figures_path, f"{fig_title}_sub-{sub}_{hem}_{session}_m0s0_{group_name}.png"), bbox_inches="tight")
 
     return {
@@ -208,6 +209,7 @@ def plot_raw_time_series_before_MNE(sub: str, session: str, channel_group: str):
     plt.show(block=False)
 
     # save figure
+    fig.savefig(os.path.join(figures_path, f"raw_time_series_sub-{sub}_{hem}_{session}_m0s0_{group_name}.svg"), bbox_inches="tight", format="svg")
     fig.savefig(os.path.join(figures_path, f"raw_time_series_sub-{sub}_{hem}_{session}_m0s0_{group_name}.png"), bbox_inches="tight")
 
     return {
@@ -468,6 +470,7 @@ def ecg_cleaning(sub: str):
             plot_ica = plot_ica_components(data)
 
             # save figure: 
+            plot_ica["fig_ecg_components"].savefig(os.path.join(figures_path, f"ica_components_sub-{sub}_{ses}_{group}.svg"), bbox_inches="tight", format="svg")
             plot_ica["fig_ecg_components"].savefig(os.path.join(figures_path, f"ica_components_sub-{sub}_{ses}_{group}.png"), bbox_inches="tight")
 
             # extract features from plot_ica
