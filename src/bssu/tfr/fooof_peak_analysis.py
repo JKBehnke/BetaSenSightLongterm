@@ -22,7 +22,11 @@ from fooof.plts.spectra import plot_spectrum
 from ..classes import mainAnalysis_class
 from ..utils import find_folders as findfolders
 from ..utils import loadResults as loadResults
+from ..utils import percept_helpers as percept_helpers
 
+
+
+CHANNEL_GROUPS = ["ring", "segm_inter", "segm_intra"]
 
 def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest_beta_session: str):
     """
@@ -1491,3 +1495,378 @@ def change_beta_peak_power_or_cf_violinplot(
         "statistics_dataframe": statistics_dataframe,
         "description_results": description_results,
     }
+
+
+
+
+##################################### POWER RELATIVE TO 3MFU PEAK POWER #####################################
+
+def drop_non_relevant_columns(data_to_analyze:str, group_data=None):
+    """
+    """
+
+    group_data_copy = group_data.copy()
+    
+    if data_to_analyze == "beta_center_frequency" or data_to_analyze == "beta_power_auc":
+        group_data_copy = group_data_copy.drop(
+            columns=[
+                "low_beta_peak_CF_power_bandWidth",
+                "high_beta_peak_CF_power_bandWidth",
+                "low_beta_center_frequency",
+                "high_beta_center_frequency",
+                "low_beta_peak_power",
+                "high_beta_peak_power",
+                "low_beta_band_width",
+                "high_beta_band_width",
+                "round_low_beta_cf",
+                "round_high_beta_cf",
+                "low_beta_power_auc",
+                "high_beta_power_auc",
+            ]
+        )
+        group_data_copy = group_data_copy.dropna()
+
+    elif data_to_analyze == "low_beta_center_frequency" or data_to_analyze == "low_beta_power_auc":
+        group_data_copy = group_data_copy.drop(
+            columns=[
+                "beta_peak_CF_power_bandWidth",
+                "high_beta_peak_CF_power_bandWidth",
+                "beta_center_frequency",
+                "high_beta_center_frequency",
+                "beta_peak_power",
+                "high_beta_peak_power",
+                "beta_band_width",
+                "high_beta_band_width",
+                "round_beta_cf",
+                "round_high_beta_cf",
+                "beta_power_auc",
+                "high_beta_power_auc",
+            ]
+        )
+        group_data_copy = group_data_copy.dropna()
+
+    elif data_to_analyze == "high_beta_center_frequency" or data_to_analyze == "high_beta_power_auc":
+        group_data_copy = group_data_copy.drop(
+            columns=[
+                "low_beta_peak_CF_power_bandWidth",
+                "beta_peak_CF_power_bandWidth",
+                "low_beta_center_frequency",
+                "beta_center_frequency",
+                "low_beta_peak_power",
+                "beta_peak_power",
+                "low_beta_band_width",
+                "beta_band_width",
+                "round_low_beta_cf",
+                "round_beta_cf",
+                "low_beta_power_auc",
+                "beta_power_auc",
+            ]
+        )
+        group_data_copy = group_data_copy.dropna()
+
+    return group_data_copy
+
+
+
+
+def rel_to_3mfu_change_beta_peak_power_or_cf(
+    fooof_spectrum: str,
+    fooof_version: str,
+    data_to_analyze: str,
+    around_cf: str,
+):
+    """
+    Load the fooof data of the selected highest beta channels
+
+    Input:
+        - fooof_spectrum:
+            "periodic_spectrum"         -> 10**(model._peak_fit + model._ap_fit) - (10**model._ap_fit)
+            "periodic_plus_aperiodic"   -> model._peak_fit + model._ap_fit (log(Power))
+            "periodic_flat"             -> model._peak_fit
+
+        - fooof_version: "v2"
+        - highest_beta_session: "highest_postop", "highest_fu3m", "highest_each_session"
+
+        - data_to_analyze: str e.g. "beta_average", "beta_peak_power", "beta_center_frequency", "beta_power_auc",
+                                    "low_beta_center_frequency", "low_beta_power_auc", "high_beta_center_frequency", "high_beta_power_auc"
+
+
+        - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
+    
+    This function calculates the difference of data_to_analyze relative to the data of interest at 3 MFU of the same lead
+
+
+    """
+    # Load the dataframe with only highest beta channels and calculated area under the curve of highest beta peaks
+    beta_data = calculate_auc_beta_power_fu18or24(
+        fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
+        highest_beta_session="highest_fu3m",
+        around_cf=around_cf,
+    )
+    # output is a dictionary with keys "ring", "segm_inter", "segm_intra"
+
+    relative_fu3m_data_endresult = pd.DataFrame()
+
+    ############################## calculate difference relative to 3MFU ##############################
+    for g, group in enumerate(CHANNEL_GROUPS):
+        group_data = beta_data[group]  # all data only from one channel group
+
+        group_data_copy = drop_non_relevant_columns(data_to_analyze=data_to_analyze, group_data=group_data)
+
+        stn_unique = list(group_data_copy.subject_hemisphere.unique())
+
+        for stn in stn_unique:
+            stn_data = group_data_copy.loc[group_data_copy.subject_hemisphere == stn]  # data only from one stn
+
+            ses_unique = list(stn_data.session.unique())  # sessions existing from this stn
+
+            # check if both sessions exist for this stn
+            if 3 not in ses_unique:
+                continue
+
+            # select only the data from session 3
+            session_3_data = stn_data.loc[stn_data.session == 3]
+            session_3_data = session_3_data[data_to_analyze].values[0]
+
+            channel = stn_data.bipolar_channel.values[0]
+
+            # depending on what you want to analyze, pick the data of interest
+            for ses in ses_unique:
+
+                session_data = stn_data.loc[stn_data.session == ses]
+                session_data = session_data[data_to_analyze].values[0]
+
+                # calculate difference relative to the 3MFU data: session - 3MFU session
+                session_data_rel_to_fu3m = session_data - session_3_data
+
+                # store data in dataframe
+                rel_to_fu3m_dict = {
+                    "channel_group": [group],
+                    "subject_hemisphere": [stn],
+                    "bipolar_channel": [channel],
+                    "session": [ses],
+                    f"absolute_{data_to_analyze}": [session_data],
+                    f"rel_to_fu3m_{data_to_analyze}": [session_data_rel_to_fu3m]
+                }
+
+                rel_df = pd.DataFrame(rel_to_fu3m_dict)
+
+                relative_fu3m_data_endresult = pd.concat([relative_fu3m_data_endresult, rel_df], ignore_index=True)
+
+    #relative_fu3m_data_endresult[f"rel_to_fu3m_{data_to_analyze}"] = relative_fu3m_data_endresult[f"rel_to_fu3m_{data_to_analyze}"].astype(float)
+
+    return relative_fu3m_data_endresult
+
+
+def plot_rel_to_fu3m_cf_or_power(
+    fooof_spectrum: str,
+    fooof_version: str,
+    data_to_analyze: str,
+    around_cf: str,
+):
+    """
+    This function plots a scatter and line plot
+        - for each hemisphere with existing session 3
+        - 
+
+
+    """
+    figures_path = findfolders.get_local_path(folder="GroupFigures")
+    fontdict = {"size": 25}
+    sessions_without_3 = [1,3,4]
+
+    rel_to_fu3m_data = rel_to_3mfu_change_beta_peak_power_or_cf(
+        fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
+        data_to_analyze=data_to_analyze,
+        around_cf=around_cf
+    )
+
+    rel_to_fu3m_data["session"] = rel_to_fu3m_data.session.replace(
+            to_replace=[0,3,12,18], value=[1, 2, 3, 4]
+        )
+
+    # for violinplots, take out 3MFU, because all zero
+    data_without_3 = rel_to_fu3m_data.loc[rel_to_fu3m_data.session.isin(sessions_without_3)]
+
+    fig, axes = plt.subplots(3, 1, figsize=(10, 15))
+
+    for g, group in enumerate(CHANNEL_GROUPS):
+
+        group_data = rel_to_fu3m_data.loc[rel_to_fu3m_data.channel_group == group]
+        
+        # for violinplots, take out 3MFU, because all zero
+        #data_without_3 = group_data.loc[group_data.session.isin(sessions_without_3)]
+        # group_data_2D_array = np.stack((group_data["session"].values, 
+        #                                 group_data[f"rel_to_fu3m_{data_to_analyze}"].values),
+        #                                 axis=-1)
+        
+        stacked_arrays = []
+        for ses in [1, 2, 3, 4]:
+            ses_data = group_data.loc[group_data.session == ses]
+            ses_data = ses_data[f"rel_to_fu3m_{data_to_analyze}"].values
+
+            stacked_arrays.append(ses_data)
+
+
+        # one subplot per channel group
+        axes[g].set_title(f"{group} channel group", fontdict=fontdict)
+
+        # sns.violinplot(
+        #     data=group_data,
+        #     x="session",
+        #     y=f"rel_to_fu3m_{data_to_analyze}",
+        #     palette="coolwarm",
+        #     inner="box",
+        #     ax=axes[g],
+        # )
+        axes[g].boxplot(
+            x=stacked_arrays,
+            positions=[1, 2, 3, 4]
+        )
+
+        ################## plot the result for each electrode ##################
+
+        stn_unique = group_data.subject_hemisphere.unique()
+
+        for id, stn in enumerate(stn_unique):
+            stn_data = group_data[group_data.subject_hemisphere == stn]
+
+            axes[g].scatter(
+                stn_data["session"], stn_data[f"rel_to_fu3m_{data_to_analyze}"], color=plt.cm.twilight_shifted((id + 1) * 10), alpha=0.3
+            )  # color=plt.cm.tab20(group_id)
+            # plot the predictions
+            # axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.5)
+            axes[g].plot(
+                stn_data["session"],
+                stn_data[f"rel_to_fu3m_{data_to_analyze}"],
+                color=plt.cm.twilight_shifted((id + 1) * 10),
+                linewidth=1,
+                alpha=0.3,
+            )
+
+        # axes[g].boxplot(
+        #     data_without_3["session"],
+        #     data_without_3[f"rel_to_fu3m_{data_to_analyze}"],
+        # )
+
+
+            #  # statistical test:
+            # # pairs = list(combinations(sessions, 2))
+
+            # # annotator = Annotator(axes, pairs, data=stn_data, x='session', y=f"rel_to_fu3m_{data_to_analyze}")
+            # # annotator.configure(test='Mann-Whitney', text_format='star')  # or t-test_ind ??
+            # # annotator.apply_and_annotate()
+
+
+        #sns.despine(left=True, bottom=True)  # get rid of figure frame
+        
+        for ax in axes:
+            ax.set_ylabel(f"relative {data_to_analyze}", fontsize=25)
+            ax.set_xlabel("months post-surgery", fontsize=25)
+
+            ax.tick_params(axis="x", labelsize=25)
+            ax.tick_params(axis="y", labelsize=25)
+            ax.grid(False)
+
+        ################## plot the MEAN per session connection line ##################
+      
+    fig.suptitle(f"{data_to_analyze} relative to session 3 per hemisphere", fontsize=30)
+    fig.subplots_adjust(wspace=0, hspace=0)
+
+    fig.tight_layout()
+
+    fig_filename = f"fooof_{data_to_analyze}_rel_to_session_3_{around_cf}"
+
+    fig.savefig(os.path.join(figures_path, f"{fig_filename}.png"), bbox_inches="tight")
+    fig.savefig(os.path.join(figures_path, f"{fig_filename}.svg"), bbox_inches="tight", format="svg")
+
+
+    #plt.xticks(range(len(session_comparisons)), session_comparisons)
+
+
+def get_description_of_data(
+    fooof_spectrum: str,
+    fooof_version: str,
+    data_to_analyze: str,
+    around_cf: str
+):
+    """
+    
+    
+    """
+    description_data_all = pd.DataFrame()
+    stn_all_list = pd.DataFrame()
+    statistics = pd.DataFrame()
+
+    rel_to_fu3m_data = rel_to_3mfu_change_beta_peak_power_or_cf(
+        fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
+        data_to_analyze=data_to_analyze,
+        around_cf=around_cf
+    )
+
+    sessions = [0,3,12,18]
+    pairs = list(combinations(sessions, 2))
+
+    for group in CHANNEL_GROUPS:
+        
+        group_data = rel_to_fu3m_data.loc[rel_to_fu3m_data.channel_group == group]
+
+        for ses in sessions:
+
+            ses_data = group_data.loc[group_data.session == ses]
+
+            ses_stn_list = ses_data.subject_hemisphere.unique()
+            stn_dict = {
+                "group": [group],
+                "session": [ses],
+                "stn_list": [ses_stn_list],
+                "sample_size": [len(ses_stn_list)]
+            }
+            stn_df = pd.DataFrame(stn_dict)
+            stn_all_list = pd.concat([stn_all_list, stn_df], ignore_index=True)
+
+            if ses == 3:
+                continue
+
+            data_description_ses = percept_helpers.get_statistics(data_info=data_to_analyze, data=ses_data[f"rel_to_fu3m_{data_to_analyze}"])
+
+            data_description_ses["group"] = group
+            data_description_ses["session"] = ses
+
+            description_data_all = pd.concat([description_data_all, data_description_ses], ignore_index=True)
+        
+
+        # statistical test
+        for pair in pairs: 
+            group_1 = pair[0]  # e.g. 3
+            group_2 = pair[1]  # e.g. 12
+
+            group_1_data = group_data.loc[group_data.session == group_1]
+            group_1_data = group_1_data[f"rel_to_fu3m_{data_to_analyze}"].values
+
+            group_2_data = group_data.loc[group_data.session == group_2]
+            group_2_data = group_2_data[f"rel_to_fu3m_{data_to_analyze}"].values
+
+            # mann-whitney U test
+            statistic, p_value = stats.mannwhitneyu(
+                group_1_data, group_2_data
+            )  # by default two-sided test, so testing for significant difference between two distributions regardless of the direction of the difference
+
+            statistics_dict = {
+                "group": [group],
+                "pair": [pair],
+                "statistic_mwu": [statistic],
+                "pval": ["{:.4f}".format(p_value)]
+            }
+            statistics_single = pd.DataFrame(statistics_dict)
+            statistics = pd.concat([statistics, statistics_single], ignore_index=True)
+  
+    
+    return {
+        "description": description_data_all, 
+        "STN_list": stn_all_list,
+        "statistics_MWU": statistics}
+
