@@ -1574,6 +1574,7 @@ def rel_to_3mfu_change_beta_peak_power_or_cf(
     fooof_version: str,
     data_to_analyze: str,
     around_cf: str,
+    percentage: str
 ):
     """
     Load the fooof data of the selected highest beta channels
@@ -1592,6 +1593,7 @@ def rel_to_3mfu_change_beta_peak_power_or_cf(
 
 
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
+        - percentage: "yes"
     
     This function calculates the difference of data_to_analyze relative to the data of interest at 3 MFU of the same lead
 
@@ -1637,8 +1639,13 @@ def rel_to_3mfu_change_beta_peak_power_or_cf(
                 session_data = stn_data.loc[stn_data.session == ses]
                 session_data = session_data[data_to_analyze].values[0]
 
-                # calculate difference relative to the 3MFU data: session - 3MFU session
-                session_data_rel_to_fu3m = session_data - session_3_data
+                if percentage == "yes":
+                    # percentage = (value / total) * 100
+                    session_data_rel_to_fu3m = (session_data / session_3_data) #* 100
+
+                else: 
+                    # calculate difference relative to the 3MFU data: session - 3MFU session
+                    session_data_rel_to_fu3m = session_data - session_3_data
 
                 # store data in dataframe
                 rel_to_fu3m_dict = {
@@ -1664,6 +1671,7 @@ def plot_rel_to_fu3m_cf_or_power(
     fooof_version: str,
     data_to_analyze: str,
     around_cf: str,
+    percentage: str
 ):
     """
     This function plots a scatter and line plot
@@ -1680,7 +1688,8 @@ def plot_rel_to_fu3m_cf_or_power(
         fooof_spectrum=fooof_spectrum,
         fooof_version=fooof_version,
         data_to_analyze=data_to_analyze,
-        around_cf=around_cf
+        around_cf=around_cf,
+        percentage=percentage
     )
 
     rel_to_fu3m_data["session"] = rel_to_fu3m_data.session.replace(
@@ -1713,14 +1722,6 @@ def plot_rel_to_fu3m_cf_or_power(
         # one subplot per channel group
         axes[g].set_title(f"{group} channel group", fontdict=fontdict)
 
-        # sns.violinplot(
-        #     data=group_data,
-        #     x="session",
-        #     y=f"rel_to_fu3m_{data_to_analyze}",
-        #     palette="coolwarm",
-        #     inner="box",
-        #     ax=axes[g],
-        # )
         axes[g].boxplot(
             x=stacked_arrays,
             positions=[1, 2, 3, 4]
@@ -1736,8 +1737,7 @@ def plot_rel_to_fu3m_cf_or_power(
             axes[g].scatter(
                 stn_data["session"], stn_data[f"rel_to_fu3m_{data_to_analyze}"], color=plt.cm.twilight_shifted((id + 1) * 10), alpha=0.3
             )  # color=plt.cm.tab20(group_id)
-            # plot the predictions
-            # axes[g].plot(sub_data["session"], sub_data["predictions"], color=plt.cm.twilight_shifted((id+1)*10), linewidth=1, alpha=0.5)
+            
             axes[g].plot(
                 stn_data["session"],
                 stn_data[f"rel_to_fu3m_{data_to_analyze}"],
@@ -1745,26 +1745,12 @@ def plot_rel_to_fu3m_cf_or_power(
                 linewidth=1,
                 alpha=0.3,
             )
-
-        # axes[g].boxplot(
-        #     data_without_3["session"],
-        #     data_without_3[f"rel_to_fu3m_{data_to_analyze}"],
-        # )
-
-
-            #  # statistical test:
-            # # pairs = list(combinations(sessions, 2))
-
-            # # annotator = Annotator(axes, pairs, data=stn_data, x='session', y=f"rel_to_fu3m_{data_to_analyze}")
-            # # annotator.configure(test='Mann-Whitney', text_format='star')  # or t-test_ind ??
-            # # annotator.apply_and_annotate()
-
-
-        #sns.despine(left=True, bottom=True)  # get rid of figure frame
         
         for ax in axes:
+
             ax.set_ylabel(f"relative {data_to_analyze}", fontsize=25)
             ax.set_xlabel("months post-surgery", fontsize=25)
+            ax.set_ylim(-0.1,2.5)
 
             ax.tick_params(axis="x", labelsize=25)
             ax.tick_params(axis="y", labelsize=25)
@@ -1777,20 +1763,23 @@ def plot_rel_to_fu3m_cf_or_power(
 
     fig.tight_layout()
 
-    fig_filename = f"fooof_{data_to_analyze}_rel_to_session_3_{around_cf}"
+    if percentage == "yes":
+        fig_filename = f"fooof_{data_to_analyze}_rel_to_session_3_{around_cf}_percentage_ylim"
+
+    else:
+        fig_filename = f"fooof_{data_to_analyze}_rel_to_session_3_{around_cf}"
 
     fig.savefig(os.path.join(figures_path, f"{fig_filename}.png"), bbox_inches="tight")
     fig.savefig(os.path.join(figures_path, f"{fig_filename}.svg"), bbox_inches="tight", format="svg")
 
-
-    #plt.xticks(range(len(session_comparisons)), session_comparisons)
 
 
 def get_description_of_data(
     fooof_spectrum: str,
     fooof_version: str,
     data_to_analyze: str,
-    around_cf: str
+    around_cf: str,
+    percentage: str
 ):
     """
     
@@ -1804,7 +1793,8 @@ def get_description_of_data(
         fooof_spectrum=fooof_spectrum,
         fooof_version=fooof_version,
         data_to_analyze=data_to_analyze,
-        around_cf=around_cf
+        around_cf=around_cf,
+        percentage=percentage
     )
 
     sessions = [0,3,12,18]
