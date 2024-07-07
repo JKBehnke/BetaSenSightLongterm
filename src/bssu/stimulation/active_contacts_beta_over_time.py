@@ -91,15 +91,62 @@ def hemispheres_active_beta_higher_than_inactive():
             summary_single_stn = pd.DataFrame(summary_dict)
             summary_all = pd.concat([summary_all, summary_single_stn], ignore_index=True)
 
-    # count how many hemispheres show higher beta average mean at active vs. inactive contacts
-    # first drop all rows with NaN because they don´t have beta values, collect the stn and session 
-    
-
-    
     return summary_all, no_beta
 
 
-        
+
+def count_hemispheres_beta_active_higher():
+    """
+    Count the hemispheres which have higher beta power mean at active contacts than inactive contacts
+    
+    """
+
+    stn_active_vs_inactive_data = hemispheres_active_beta_higher_than_inactive()
+    data_all_stns = stn_active_vs_inactive_data[0]
+    stn_sessions_without_beta = stn_active_vs_inactive_data[1]
+    stn_list_per_session = {}
+
+    summary_all = pd.DataFrame()
+
+    for ses in SESSIONS:
+
+        ses_data = data_all_stns.loc[data_all_stns.session == ses]
+        stn_list = ses_data.subject_hemisphere.unique()
+        stn_list_per_session[ses] = stn_list
+
+        # percentage of active mean beta above inactive
+        total_sample_size = len(ses_data.active_mean_beta_above_inactive.values)
+        mean_value_count = ses_data.active_mean_beta_above_inactive.value_counts()
+        mean_value_count_yes = mean_value_count["yes"]
+        percentage_mean_yes = mean_value_count_yes/total_sample_size
+
+        mean_rel_value_count = ses_data.active_mean_beta_above_inactive_rel.value_counts()
+        mean_rel_value_count_yes = mean_rel_value_count["yes"]
+        percentage_rel_mean_yes = mean_rel_value_count_yes/total_sample_size
+
+        summary_dict = {
+            "session": [ses],
+            "total_sample_size": [total_sample_size],
+            "stn_perc_beta_mean_active_higher": [percentage_mean_yes],
+            "stn_perc_beta_rel_mean_active_higher": [percentage_rel_mean_yes]
+        }
+
+        summary_single = pd.DataFrame(summary_dict)
+        summary_all = pd.concat([summary_all, summary_single])
+
+    return summary_all, stn_sessions_without_beta, stn_list_per_session
+
+    
+
+
+
+
+
+
+
+
+
+
 
 
 

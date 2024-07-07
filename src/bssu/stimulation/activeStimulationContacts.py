@@ -2117,19 +2117,39 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     # ax = fig.add_subplot()
 
     # sns.violinplot(data=data_MonoBeta8Ranks, x="session_clinicalUse", y=y_values, hue="clinicalUse", palette="Set2", inner="box", ax=ax)
-    sns.violinplot(
+    
+    sns.boxplot(
         data=data_to_analyze,
         x="session",
         y=y_values,
         hue="session_clinical_activity",
-        color="white",  # palette="coolwarm"
-        # split=True, # delete
-        inner="box",  # alternative: quart
-        ax=axes,
-        scale="count",
-        scale_hue=True,
-        dodge=True,
-    )  # scale="count" will scales the width of violins depending on their observations
+        showmeans=True,
+        meanprops={"marker": "+",
+                    "markeredgecolor": "black",
+                    "markersize": "13"},
+        ax=axes
+    )
+    
+    
+    # sns.violinplot(
+    #     data=data_to_analyze,
+    #     x="session",
+    #     y=y_values,
+    #     hue="session_clinical_activity",
+    #     color="white",  # palette="coolwarm"
+    #     # split=True, # delete
+    #     inner="box",  # alternative: quart
+    #     ax=axes,
+    #     scale="count",
+    #     scale_hue=True,
+    #     dodge=True,
+    #     showmeans=True,
+    #     meanprops={"marker": "+",
+    #                "markeredgecolor": "black",
+    #                "markersize": "10"},
+    # )  
+    
+    # scale="count" will scales the width of violins depending on their observations
 
     # statistical test
     # ses_clinicalUse= ["fu3m_active", "fu3m_inactive", "fu12m_active", "fu12m_inactive", "fu18m_active", "fu18m_inactive"]
@@ -2153,7 +2173,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
         hue="session_clinical_activity",
         ax=axes,
         jitter=True,  # delete
-        size=8, #5
+        size=9, #5
         color="grey",  # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
         alpha=0.4,  # Transparency of dots 0.5
         dodge=True,  # datapoints of groups active, inactive are plotted next to each other
