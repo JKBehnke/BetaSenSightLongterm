@@ -1,6 +1,5 @@
 """ Group all PSD monopolar averages and ranks """
 
-
 import os
 import pandas as pd
 import itertools
@@ -476,7 +475,7 @@ def fooof_monopol_psd_spearman_betw_sessions(
         - mean_or_median: str, e.g. "mean", "median"
         - only_segmental:str, "yes" -> will only included segmental contacts
         - values_to_correlate:str  "not_normalized", "rel_to_rank_1", "rel_range_0_to_1" (only "not_normalized" can be used for only segmental, because the relative values were calucalted with ring contacts included)
-        - similarity_calculation:str "inverse_distance", "exp_neg_distance"
+        - similarity_calculation:str "inverse_distance", "exp_neg_distance", "inverse_sq_distance"
         - fooof_version: "v2"
 
 
@@ -546,7 +545,8 @@ def fooof_monopol_psd_spearman_betw_sessions(
 
     # loaded_fooof_monopolar = loadResults.load_fooof_monoRef_all_contacts_weight_beta(similarity_calculation=similarity_calculation)
     loaded_fooof_monopolar = loadResults.load_pickle_group_result(
-        filename="fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_distance", fooof_version=fooof_version
+        filename=f"fooof_monoRef_all_contacts_weight_beta_psd_by_{similarity_calculation}_{fooof_version}",
+        fooof_version=fooof_version,
     )
 
     # from the list of all existing sub_hem STNs, get only the STNs with existing sessions 1 + 2

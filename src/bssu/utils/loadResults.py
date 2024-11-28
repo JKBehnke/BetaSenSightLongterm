@@ -1,6 +1,5 @@
 """ Load result files from results folder"""
 
-
 import os
 import pandas as pd
 import pickle
@@ -11,7 +10,7 @@ from ..utils import find_folders as find_folders
 
 def load_sub_pickle_file(sub: str, filename: str):
     """
-    filenames: ["cleaned_time_series", 
+    filenames: ["cleaned_time_series",
                 "SPECTROGRAMPSD_clean"
                 ]
     """
@@ -933,8 +932,10 @@ def load_fooof_beta_ranks(fooof_spectrum: str, fooof_version: str, all_or_one_ch
             # append stn dataframe to the longterm dataframe
             dataframe_longterm = pd.concat([dataframe_longterm, stn_data])
 
-        # replace all "fu18m" and "fu24m" by "longterm"
+        # replace all "fu18m" and "fu24m" by "fu18or24m"
         dataframe_longterm["session"] = dataframe_longterm["session"].replace(longterm_sessions, "fu18or24m")
+        # also replace all "fu36m" by "fu18or24m"
+        dataframe_longterm["session"] = dataframe_longterm["session"].replace(["fu36m"], "fu18or24m")
 
     ############## or keep all sessions ##############
     elif all_or_one_longterm_ses == "all_sessions":
