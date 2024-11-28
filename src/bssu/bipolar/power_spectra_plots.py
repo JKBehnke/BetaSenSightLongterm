@@ -822,7 +822,7 @@ def FOOOF_spectra_per_channel(incl_sub: str, fooof_version: str):
         save figure: "grand_average_FOOOF_{all_or_one}_{group}_{spectrum_to_plot}_{std_or_sem}.png"
     """
 
-    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m", "fu36m"]
     channel_group = ["ring", "segm_inter", "segm_intra"]
 
     ring = ['01', '12', '23', '02', '03', '13']
@@ -831,7 +831,7 @@ def FOOOF_spectra_per_channel(incl_sub: str, fooof_version: str):
 
     # load FOOOF group result
     # fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version) OLD unclean power spectra
-    fooof_group_result = loadResults.load_pickle_group_result(filename="fooof_group_data_percept", fooof_version="v2") 
+    fooof_group_result = loadResults.load_pickle_group_result(filename="fooof_group_data_percept", fooof_version="v2")
 
     if incl_sub == "all":
         stn_list = list(fooof_group_result.subject_hemisphere.unique())
@@ -912,7 +912,7 @@ def FOOOF_spectra_per_channel(incl_sub: str, fooof_version: str):
                     plt.xlabel("Frequency [Hz]", fontdict={"size": 30})
                     plt.xlim(2, 50)
                     plt.ylabel("Power [µV°2/Hz]", fontdict={"size": 30})
-                    plt.ylim(-0.02, 3.2)
+                    plt.ylim(-0.02, 5)
                     plt.xticks(fontsize=20), plt.yticks(fontsize=20)
                     plt.legend(loc='upper right', edgecolor="black", fontsize=20)
                     plt.grid(False)
@@ -925,11 +925,11 @@ def FOOOF_spectra_per_channel(incl_sub: str, fooof_version: str):
         # plt.tight_layout(pad=10, w_pad=10, h_pad=10)
 
         fig.savefig(
-            os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channel_y3.2_{fooof_version}.png"),
+            os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channel_y5_{fooof_version}.png"),
             bbox_inches="tight",
         )
         fig.savefig(
-            os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channel_y3.2_{fooof_version}.svg"),
+            os.path.join(subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channel_y5_{fooof_version}.svg"),
             bbox_inches="tight",
             format="svg",
         )
@@ -957,7 +957,7 @@ def fooof_spectra_per_channel_group(
         all_or_one_longterm_ses="all_sessions",
     )
 
-    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m", "fu36m"]
     group_channels = ["ring", "segm_intra", "segm_inter"]
 
     ring = ['01', '12', '23']
@@ -1008,6 +1008,9 @@ def fooof_spectra_per_channel_group(
                 elif ses == "fu24m":
                     plt.subplot(5, 3, s + g + 9, label=f"{group}_{ses}")  # e.g. 4+0+9, 4+1+9, 4+2+9 = row5
 
+                elif ses == "fu36m":
+                    plt.subplot(5, 3, 4 + g + 9, label=f"{group}_{ses}")  # e.g. 4+0+9, 4+1+9, 4+2+9 = row5
+
                 session_df = stn_df.loc[stn_df.session == ses]
 
                 # for each group, get all channels
@@ -1038,7 +1041,7 @@ def fooof_spectra_per_channel_group(
 
                     plt.xlabel("frequency [Hz]", fontdict={"size": 30})
                     plt.xlim(2, 50)
-                    plt.ylim(-0.05, 1.4)
+                    plt.ylim(-0.05, 4)
                     plt.ylabel("power [uV^2/Hz]", fontdict={"size": 30})
                     plt.xticks(fontsize=30), plt.yticks(fontsize=30)
                     plt.legend(loc='upper right', edgecolor="black", fontsize=20)
@@ -1053,7 +1056,7 @@ def fooof_spectra_per_channel_group(
 
         fig.savefig(
             os.path.join(
-                subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y1.4_{fooof_version}.svg"
+                subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y4_{fooof_version}.svg"
             ),
             bbox_inches="tight",
             format="svg",
@@ -1061,7 +1064,7 @@ def fooof_spectra_per_channel_group(
 
         fig.savefig(
             os.path.join(
-                subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y1.4_{fooof_version}.png"
+                subject_figures_path, f"sub_{stn}_fooof_power_spectra_per_channelgroup_y4_{fooof_version}.png"
             ),
             bbox_inches="tight",
         )

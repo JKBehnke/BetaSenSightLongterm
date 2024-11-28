@@ -1,6 +1,5 @@
 """ FOOOF Model """
 
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,15 +23,32 @@ from ..utils import find_folders as findfolders
 from ..utils import loadResults as loadResults
 from ..tfr import bssu_from_source_JSON as bssu_json
 from ..utils import percept_helpers as helpers
-from .. utils import sub_session_dict as sub_session_dict
+from ..utils import sub_session_dict as sub_session_dict
 
 
 HEMISPHERES = ["Right", "Left"]
 CHANNEL_GROUPS = ["RingL", "SegmIntraL", "SegmInterL", "RingR", "SegmIntraR", "SegmInterR"]
 RIGHT_CHANNEL_GROUPS = ["RingR", "SegmIntraR", "SegmInterR"]
 LEFT_CHANNEL_GROUPS = ["RingL", "SegmIntraL", "SegmInterL"]
-ALL_CHANNELS = ["03", "13", "02", "12", "01", "23", "1A1B", "1B1C", "1A1C", "2A2B", "2B2C", "2A2C", "1A2A", "1B2B", "1C2C"]
-SFREQ = 250 # sampling frequency of the data
+ALL_CHANNELS = [
+    "03",
+    "13",
+    "02",
+    "12",
+    "01",
+    "23",
+    "1A1B",
+    "1B1C",
+    "1A1C",
+    "2A2B",
+    "2B2C",
+    "2A2C",
+    "1A2A",
+    "1B2B",
+    "1C2C",
+]
+SFREQ = 250  # sampling frequency of the data
+
 
 def get_input_y_n(message: str) -> str:
     """Get `y` or `n` user input."""
@@ -142,7 +158,6 @@ def fooof_fit_single_cleaned(subject: str, fooof_version: str):
         # only take normalization rawPSD, filter unfiltered
         unfiltered_hem_DF = hem_DF.loc[hem_DF["filter"] == "unfiltered"]
         unfiltered_raw_hem_DF = unfiltered_hem_DF.loc[unfiltered_hem_DF["normalization"] == "rawPsd"]
-
 
         for ses in sessions:
 
@@ -333,6 +348,7 @@ def fooof_fit_single_cleaned(subject: str, fooof_version: str):
 
     return fooof_results_df
 
+
 def fooof_group_percept_clean(incl_sub: list, fooof_version: str):
     """
     FOOOF Percept, all included
@@ -409,6 +425,27 @@ def fooof_group_percept_clean(incl_sub: list, fooof_version: str):
 
     return fooof_group_results_df
 
+
+def add_fooof_singles_to_group_data(sub_list: list, fooof_version: str):
+    """
+    Add single subject fooof results to group data
+    - overwrites the old group data "fooof_group_data_percept_{fooof_version}"
+    """
+
+    group_fooof_data = loadResults.load_pickle_group_result(filename="fooof_group_data_percept", fooof_version="v2")
+
+    for subject in sub_list:
+        fooof_single_subject_result = fooof_fit_single_cleaned(subject=subject, fooof_version=fooof_version)
+
+        group_fooof_data = pd.concat([group_fooof_data, fooof_single_subject_result], ignore_index=True)
+
+    # delete duplicate rows
+    group_fooof_data.drop_duplicates(subset=["subject_hemisphere", "session", "bipolar_channel"], inplace=True)
+
+    helpers.save_result_dataframe_as_pickle(data=group_fooof_data, filename=f"fooof_group_data_percept_{fooof_version}")
+    return group_fooof_data
+
+
 def exclude_unclean_data_fooof_group():
     """ """
     loaded_fooof_result = loadResults.load_pickle_group_result(filename="fooof_group_data_percept", fooof_version="v2")
@@ -421,7 +458,7 @@ def fooof_fit_single_subject(subject: str, fooof_version: str):
     """
 
     OLD --> this function takes the uncleaned power spectra, no ecg artifacts removed!
-    Input: 
+    Input:
 
         - subject: "024"
         - fooof_version: "v1" or "v2"
@@ -430,7 +467,7 @@ def fooof_fit_single_subject(subject: str, fooof_version: str):
 
     # define variables
     hemispheres = ["Right", "Left"]
-    sessions = ['postop', 'fu3m', 'fu12m', 'fu18m', 'fu24m']
+    sessions = ['postop', 'fu3m', 'fu12m', 'fu18m', 'fu24m', 'fu36m']
     channels = [
         '03',
         '13',
@@ -803,7 +840,7 @@ def highest_beta_channels_fooof_percept(fooof_spectrum: str, fooof_version: str)
 
     ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m", "fu36m"]
 
     stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
 
