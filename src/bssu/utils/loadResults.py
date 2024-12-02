@@ -6,6 +6,7 @@ import pickle
 import json
 
 from ..utils import find_folders as find_folders
+from ..utils import sub_session_dict as sub_session_dict
 
 
 def load_sub_pickle_file(sub: str, filename: str):
@@ -76,6 +77,64 @@ def load_PSDjson(sub: str, result: str, hemisphere: str, filter: str):
         data = json.load(file)
 
     return data
+
+
+############ REVISION RELEVANT FILES ####################
+def select_fooof_data(dataset: str, cohort: str):
+    """
+    Select only data from a specific cohort of subjects
+
+    Input:
+    - data: str e.g. "fooof_all", "bipolar_beta", "bipolar_highest_beta", "monopolar_beta"
+    - cohort: str e.g. "all_included", "group_1", "group_2", "group_3"
+
+    """
+
+    if dataset == "fooof_all":
+        fooof_data = load_fooof_beta_ranks(
+            fooof_spectrum="periodic_spectrum",
+            fooof_version="v2",
+            all_or_one_chan="beta_all",
+            all_or_one_longterm_ses="one_longterm_session",
+        )
+    elif dataset == "bipolar_beta":
+        fooof_data = load_fooof_beta_ranks(
+            fooof_spectrum="periodic_spectrum",
+            fooof_version="v2",
+            all_or_one_chan="beta_ranks_all",
+            all_or_one_longterm_ses="one_longterm_session",
+        )
+
+    elif dataset == "bipolar_highest_beta":
+        fooof_data = load_fooof_beta_ranks(
+            fooof_spectrum="periodic_spectrum",
+            fooof_version="v2",
+            all_or_one_chan="highest_beta",
+            all_or_one_longterm_ses="one_longterm_session",
+        )
+
+    elif dataset == "monopolar_beta":
+        fooof_data = load_pickle_group_result(
+            filename=f"fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_sq_distance_v2",
+            fooof_version="v2",
+        )
+
+    # select only data from included recordings
+    included_sub_sessions = sub_session_dict.get_subs_sessions(cohort)  # other options: "group_1", "group_2", "group_3"
+    incl_subjects = list(included_sub_sessions["incl_subjects"])  # list of subjects
+    sub_sessions = included_sub_sessions["incl_sessions"]  # dict with keys subjects, sessions values
+
+    # Extract the subject ID from "subject_hemisphere"
+    fooof_data['subject'] = fooof_data['subject_hemisphere'].str.split('_').str[0]
+
+    selected_fooof_data = fooof_data[fooof_data["subject"].isin(incl_subjects)]
+
+    # Further filter by session using apply
+    selected_fooof_data = selected_fooof_data[
+        selected_fooof_data.apply(lambda row: row['session'] in sub_sessions[row['subject']], axis=1)
+    ]
+
+    return {"fooof_data": selected_fooof_data, "incl_subjects": incl_subjects, "sub_sessions": sub_sessions}
 
 
 def load_BIPChannelGroups_ALL(freqBand: str, normalization: str, signalFilter: str):
