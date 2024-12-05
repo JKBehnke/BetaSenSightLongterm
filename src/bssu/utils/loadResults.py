@@ -86,7 +86,7 @@ def select_fooof_data(dataset: str, cohort: str):
 
     Input:
     - data: str e.g. "fooof_all", "bipolar_beta", "bipolar_highest_beta", "monopolar_beta"
-    - cohort: str e.g. "all_included", "group_1", "group_2", "group_3"
+    - cohort: str e.g. "all_included", "group_0", "group_1", "group_2", "group_3"
 
     """
 
