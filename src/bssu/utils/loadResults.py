@@ -85,7 +85,7 @@ def select_fooof_data(dataset: str, cohort: str):
     Select only data from a specific cohort of subjects
 
     Input:
-    - data: str e.g. "fooof_all", "bipolar_beta", "bipolar_highest_beta", "monopolar_beta"
+    - data: str e.g. "fooof_all", "bipolar_beta", "bipolar_highest_beta", "monopolar_beta", monopolar_only_segmental
     - cohort: str e.g. "all_included", "group_0", "group_1", "group_2", "group_3"
 
     """
@@ -117,6 +117,23 @@ def select_fooof_data(dataset: str, cohort: str):
         fooof_data = load_pickle_group_result(
             filename=f"fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_sq_distance_v2",
             fooof_version="v2",
+        )
+
+    elif dataset == "monopolar_only_segmental":
+        fooof_data = load_fooof_monopolar_weighted_psd(
+            fooof_spectrum="periodic_spectrum",
+            fooof_version="v2",
+            segmental="yes",
+            similarity_calculation="inverse_sq_distance",
+        )
+
+        fooof_data = pd.concat(
+            [
+                fooof_data["postop_monopolar_Dataframe"],
+                fooof_data["fu3m_monopolar_Dataframe"],
+                fooof_data["fu12m_monopolar_Dataframe"],
+                fooof_data["fu18or24m_monopolar_Dataframe"],
+            ]
         )
 
     # select only data from included recordings

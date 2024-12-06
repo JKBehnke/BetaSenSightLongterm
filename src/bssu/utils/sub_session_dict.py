@@ -43,7 +43,7 @@ sub_session_dict = {
 # "026": "fu36m"
 # "040": "fu24m"
 # "059": "fu24m"
-# "060": "fu24m"
+# "060": "fu24m" # protocol only from 12MFU found but no data
 # "066": "fu12m"
 # "069": ["postop", "fu3m", "fu12m"]
 # "072": ["postop", "fu3m", "fu12m"]
@@ -58,7 +58,7 @@ included_sub_sessions = {
     "024": ["postop", "fu3m", "fu12m", "fu18or24m"],
     "025": ["postop", "fu3m", "fu12m"],
     "026": ["postop", "fu3m", "fu12m", "fu18or24m"],
-    "028": ["postop", "fu12m", "fu24m"],
+    "028": ["postop", "fu12m", "fu18or24m"],
     "029": ["postop", "fu3m", "fu12m", "fu18or24m"],
     "030": ["postop", "fu3m", "fu12m", "fu18or24m"],
     "031": ["postop", "fu3m"],
@@ -69,12 +69,12 @@ included_sub_sessions = {
     "040": ["fu3m", "fu12m", "fu18or24m"],
     "041": ["fu3m", "fu12m", "fu18or24m"],
     # "045": ["fu3m", "fu12m"],
-    "047": ["postop", "fu12m", "fu18m"],
-    "048": ["postop", "fu12m", "fu18m"],
+    "047": ["postop", "fu12m", "fu18or24m"],
+    "048": ["postop", "fu12m", "fu18or24m"],
     "049": ["postop", "fu12m"],
     "050": ["fu3m", "fu12m", "fu18or24m"],
-    "052": ["postop", "fu12m", "fu18m"],
-    "055": ["postop", "fu12m", "fu18m"],
+    "052": ["postop", "fu12m", "fu18or24m"],
+    "055": ["postop", "fu12m", "fu18or24m"],
     "059": ["postop", "fu3m", "fu12m", "fu18or24m"],
     "060": ["postop", "fu3m", "fu18or24m"],
     "061": ["postop", "fu3m", "fu12m"],
