@@ -1,6 +1,5 @@
 """ Best clinical stimulation contacts longitudinal change in levels and directions """
 
-
 import numpy as np
 import pandas as pd
 import os
@@ -1305,7 +1304,7 @@ def bestClinicalStimContacts_LevelsComparison():
     )
 
 
-def fooof_mono_beta_and_clinical_activity_write_dataframes(fooof_version: str):
+def fooof_mono_beta_and_clinical_activity_write_dataframes(fooof_version: str, cohort: str):
     """
     Combine the dataframes with fooof monopolar beta power estimates and best clinical stimulation parameters
 
@@ -1329,9 +1328,12 @@ def fooof_mono_beta_and_clinical_activity_write_dataframes(fooof_version: str):
     # 2) write a second dataframe with averaged beta power and beta ranks per group (electrode, active vs inactive)
 
     # load the fooof mono beta data
-    loaded_fooof_mono_beta = loadResults.load_pickle_group_result(
-        filename="fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_sq_distance_v2", fooof_version=fooof_version
-    )
+    # loaded_fooof_mono_beta = loadResults.load_pickle_group_result(
+    #     filename="fooof_monoRef_all_contacts_weight_beta_psd_by_inverse_sq_distance_v2", fooof_version=fooof_version
+    # )
+
+    loaded_fooof_mono_beta = loadResults.select_fooof_data(dataset="monopolar_beta", cohort=cohort)
+    loaded_fooof_mono_beta = loaded_fooof_mono_beta["fooof_data"]
 
     # load Excel file with best clinical stimulation parameters
     best_clinical_stimulation = loadResults.load_BestClinicalStimulation_excel()
@@ -1500,7 +1502,7 @@ def fooof_mono_beta_threshold_label(similarity_calculation: str, beta_threshold:
     """
 
     beta_and_clinical_activity_data = fooof_mono_beta_and_clinical_activity_write_dataframes(
-        similarity_calculation=similarity_calculation
+        fooof_version="v2", cohort="all_included"
     )
 
     data_to_analyze = beta_and_clinical_activity_data["single_contacts"]
@@ -1880,7 +1882,7 @@ def fooof_mono_beta_threshold_plot(similarity_calculation: str, beta_threshold: 
 
 
 def fooof_mono_beta_and_clinical_activity_statistical_test(
-    single_contacts_or_average: str, feature: str, similarity_calculation: str, fooof_version: str
+    single_contacts_or_average: str, feature: str, similarity_calculation: str, fooof_version: str, cohort: str
 ):
     """
 
@@ -1896,7 +1898,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     """
 
     beta_and_clinical_activity_data = fooof_mono_beta_and_clinical_activity_write_dataframes(
-        fooof_version=fooof_version
+        fooof_version=fooof_version, cohort=cohort
     )
 
     if single_contacts_or_average == "single_contacts":
@@ -2101,7 +2103,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     # save as pickle
     results_filepath = os.path.join(
         results_path,
-        f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.pickle",
+        f"revision_{cohort}_fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.pickle",
     )
     with open(results_filepath, "wb") as file:
         pickle.dump(results_dictionary, file)
@@ -2117,38 +2119,35 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     # ax = fig.add_subplot()
 
     # sns.violinplot(data=data_MonoBeta8Ranks, x="session_clinicalUse", y=y_values, hue="clinicalUse", palette="Set2", inner="box", ax=ax)
-    
-    sns.boxplot(
-        data=data_to_analyze,
-        x="session",
-        y=y_values,
-        hue="session_clinical_activity",
-        showmeans=True,
-        meanprops={"marker": "+",
-                    "markeredgecolor": "black",
-                    "markersize": "13"},
-        ax=axes
-    )
-    
-    
-    # sns.violinplot(
+
+    # sns.boxplot(
     #     data=data_to_analyze,
     #     x="session",
     #     y=y_values,
     #     hue="session_clinical_activity",
-    #     color="white",  # palette="coolwarm"
-    #     # split=True, # delete
-    #     inner="box",  # alternative: quart
-    #     ax=axes,
-    #     scale="count",
-    #     scale_hue=True,
-    #     dodge=True,
     #     showmeans=True,
     #     meanprops={"marker": "+",
-    #                "markeredgecolor": "black",
-    #                "markersize": "10"},
-    # )  
-    
+    #                 "markeredgecolor": "black",
+    #                 "markersize": "13"},
+    #     ax=axes
+    # )
+
+    sns.violinplot(
+        data=data_to_analyze,
+        x="session",
+        y=y_values,
+        hue="session_clinical_activity",
+        color="white",  # palette="coolwarm"
+        # split=True, # delete
+        inner="box",  # alternative: quart
+        ax=axes,
+        scale="count",
+        scale_hue=True,
+        dodge=True,
+        showmeans=True,
+        meanprops={"marker": "+", "markeredgecolor": "black", "markersize": "10"},
+    )
+
     # scale="count" will scales the width of violins depending on their observations
 
     # statistical test
@@ -2173,7 +2172,7 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
         hue="session_clinical_activity",
         ax=axes,
         jitter=True,  # delete
-        size=9, #5
+        size=9,  # 5
         color="grey",  # palette = "tab20c", "mako", "viridis", "cubehelix", "rocket_r", "vlag", "coolwarm"
         alpha=0.4,  # Transparency of dots 0.5
         dodge=True,  # datapoints of groups active, inactive are plotted next to each other
@@ -2194,14 +2193,14 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
     fig.savefig(
         os.path.join(
             figures_path,
-            f"fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.png",
+            f"revision_{cohort}_fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.png",
         ),
         bbox_inches="tight",
     )
     fig.savefig(
         os.path.join(
             figures_path,
-            f"fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.svg",
+            f"revision_{cohort}_fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.svg",
         ),
         bbox_inches="tight",
         format="svg",
@@ -2209,11 +2208,11 @@ def fooof_mono_beta_and_clinical_activity_statistical_test(
 
     print(
         "new files: ",
-        f"fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.pickle",
+        f"revision_{cohort}_fooof_beta_clinical_activity_statistics_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.pickle",
         "\nwritten in in: ",
         results_path,
-        f"\nnew figures: fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.png",
-        f"\nand fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.svg"
+        f"\nnew figures: revision_{cohort}_fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.png",
+        f"\nand revision_{cohort}_fooof_beta_clinical_activity_{feature}_{single_contacts_or_average}_{similarity_calculation}_{fooof_version}.svg"
         "\nwritten in: ",
         figures_path,
     )

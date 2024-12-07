@@ -1,7 +1,6 @@
 """ monopolar Referencing: weighting power by Euclidean coordinates and distance to the contact of interest 
 (Robert approach) """
 
-
 import os
 import json
 import pandas as pd
@@ -1502,9 +1501,9 @@ def weight_power_of_single_contacts(
         # compute similarity from distances
         if similarity_calculation == "inverse_distance":
             similarity = 1 / all_dists
-        
+
         elif similarity_calculation == "inverse_sq_distance":
-            similarity = 1 / (all_dists)**2
+            similarity = 1 / (all_dists) ** 2
 
         elif similarity_calculation == "exp_neg_distance":
             similarity = np.exp(-all_dists)  # alternative to 1/x, but exp^-x doesn´t reach 0

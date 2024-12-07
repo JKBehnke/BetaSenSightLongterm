@@ -307,7 +307,9 @@ def fooof_bip_channel_groups_beta_spearman(cohort: str, all_groups_together: str
             std_spearman_comp_group = np.std(spearman_r_list)
 
             # Fisher transformation of spearman r
-            fisher_transformation_spearman_r = np.arctanh(spearman_r_list)
+            fisher_transformation_spearman_r = np.arctanh(
+                spearman_r_list
+            )  # transform the list of r values of one comparison group (e.g. 0 vs 3) to fisher z
 
             # spearman pval
             mean_pval_comp_group = np.mean(spearman_pval_list)
@@ -526,6 +528,7 @@ def plot_boxplot_spearman_r_values(cohort: str, all_groups_together: str):
         plt.title(f"Spearman Correlation between sessions: {cohort}", fontsize=16)
         plt.xlabel("Comparison", fontsize=14)
         plt.ylabel("Spearman r", fontsize=14)
+        plt.ylim(-0.6, 1.1)
         plt.grid(axis="y", linestyle="--", alpha=0.7)
 
         # Show the plot
@@ -552,7 +555,23 @@ def plot_boxplot_spearman_r_values(cohort: str, all_groups_together: str):
         format="svg",
     )
 
-    return {"spearman_result_df": spearman_group_result, "single_stn_spearman_DF_copy": spearman_result_df}
+    # count how many significant correlations are in the data per comparison
+    significant_correlations = {}
+    session_comparison_unique = spearman_result_df["comparison"].unique()
+
+    for comparison in session_comparison_unique:
+        s_comp_df = spearman_result_df.loc[spearman_result_df.comparison == comparison]
+        significant = s_comp_df.loc[s_comp_df.significant_correlation == "yes"]
+        count_significant = len(significant)
+        percent_significant = (count_significant / len(s_comp_df)) * 100
+
+        significant_correlations[comparison] = count_significant, percent_significant
+
+    return {
+        "spearman_result_df": spearman_group_result,
+        "single_stn_spearman_DF_copy": spearman_result_df,
+        "significant_correlations": significant_correlations,
+    }
 
 
 def t_test_fisher_transformed_correlation_coeff(cohort: str, all_groups_together: str, correction: str = None):
@@ -572,6 +591,7 @@ def t_test_fisher_transformed_correlation_coeff(cohort: str, all_groups_together
     # store result in a dictionary
     t_test_results = {}
     all_groups_yes_no = {"yes": "all_LFPs", "no": "each_LFP_group"}
+    check_data = {}
 
     # load the data
     spearman_result = fooof_bip_channel_groups_beta_spearman(cohort=cohort, all_groups_together=all_groups_together)
@@ -1148,6 +1168,7 @@ def plot_boxplot_monopolar_spearman_r_values(cohort: str, only_segmental: str):
     plt.title(f"Spearman Correlation between sessions: {cohort}", fontsize=16)
     plt.xlabel("Comparison", fontsize=14)
     plt.ylabel("Spearman r", fontsize=14)
+    plt.ylim(-0.6, 1.1)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
     # Show the plot
