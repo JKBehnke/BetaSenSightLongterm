@@ -151,6 +151,10 @@ def select_fooof_data(dataset: str, cohort: str):
         selected_fooof_data.apply(lambda row: row['session'] in sub_sessions[row['subject']], axis=1)
     ]
 
+    # make sure only for group_0 to replace all sessions "fu12m" with "fu3m" (even though not true..) to create consistency
+    if cohort == "group_0":
+        selected_fooof_data["session"] = selected_fooof_data["session"].replace("fu12m", "fu3m")
+
     return {"fooof_data": selected_fooof_data, "incl_subjects": incl_subjects, "sub_sessions": sub_sessions}
 
 

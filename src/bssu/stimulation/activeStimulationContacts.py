@@ -1881,6 +1881,27 @@ def fooof_mono_beta_threshold_plot(similarity_calculation: str, beta_threshold: 
     }
 
 
+def calculate_statistics(data):
+    median = np.median(data)
+    q1 = np.percentile(data, 25)  # First quartile
+    q3 = np.percentile(data, 75)  # Third quartile
+    stats = scipy.stats.describe(data)
+    std_dev = np.std(data, ddof=1)  # Standard deviation with Bessel's correction
+    return {
+        "number_observations": stats.nobs,
+        "min": stats.minmax[0],
+        "max": stats.minmax[1],
+        "mean": stats.mean,
+        "std_dev": std_dev,
+        "variance": stats.variance,
+        "skewness": stats.skewness,
+        "kurtosis": stats.kurtosis,
+        "median": median,
+        "q1": q1,
+        "q3": q3,
+    }
+
+
 def fooof_mono_beta_and_clinical_activity_statistical_test(
     single_contacts_or_average: str, feature: str, similarity_calculation: str, fooof_version: str, cohort: str
 ):

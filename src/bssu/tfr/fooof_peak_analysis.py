@@ -25,10 +25,10 @@ from ..utils import loadResults as loadResults
 from ..utils import percept_helpers as percept_helpers
 
 
-
 CHANNEL_GROUPS = ["ring", "segm_inter", "segm_intra"]
 
-def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest_beta_session: str):
+
+def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest_beta_session: str, cohort: str):
     """
     Load the file "fooof_model_group_data.json"
     from the group result folder
@@ -52,14 +52,19 @@ def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest
     """
 
     # load the group dataframe
-    #fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version)
-    fooof_group_result = loadResults.load_fooof_beta_ranks(
-        fooof_spectrum=fooof_spectrum,
-        fooof_version=fooof_version,
-        all_or_one_chan="beta_ranks_all",
-        all_or_one_longterm_ses="all_sessions",
-    )
+    # fooof_group_result = loadResults.load_group_fooof_result(fooof_version=fooof_version)
+    # fooof_group_result = loadResults.load_fooof_beta_ranks(
+    #     fooof_spectrum=fooof_spectrum,
+    #     fooof_version=fooof_version,
+    #     all_or_one_chan="beta_ranks_all",
+    #     all_or_one_longterm_ses="all_sessions",
+    # )
 
+    fooof_group_result = loadResults.select_fooof_data(
+        dataset="bipolar_beta",
+        cohort=cohort,
+    )
+    fooof_group_result = fooof_group_result["fooof_data"]
 
     # create new column: first duplicate column fooof power spectrum, then apply calculation to each row -> average of indices [13:36] so averaging the beta range
     fooof_group_result_copy = fooof_group_result.copy()
@@ -79,7 +84,7 @@ def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest
 
     ################################ WRITE DATAFRAME ONLY WITH HIGHEST BETA CHANNELS PER STN | SESSION | CHANNEL_GROUP ################################
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    sessions = ["postop", "fu3m", "fu12m", "fu18m", "fu24m"]
+    sessions = ["postop", "fu3m", "fu12m", "fu18or24m"]
 
     stn_unique = fooof_group_result_copy.subject_hemisphere.unique().tolist()
 
@@ -250,7 +255,7 @@ def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest
             group_df_copy["subject_hemisphere"]
         )  # adds a column "group" with integer values for each subject_hemisphere
         group_df_copy["session"] = group_df_copy.session.replace(
-            to_replace=["postop", "fu3m", "fu12m", "fu18m", "fu24m"], value=[0, 3, 12, 18, 24]
+            to_replace=["postop", "fu3m", "fu12m", "fu18or24m"], value=[0, 3, 12, 18]
         )
 
         # split beta, low beta and high beta peak columns into three columns each
@@ -274,7 +279,9 @@ def highest_beta_channels_fooof(fooof_spectrum: str, fooof_version: str, highest
     return group_dict
 
 
-def calculate_auc_beta_power(fooof_spectrum: str, fooof_version: str, highest_beta_session: str, around_cf: str):
+def calculate_auc_beta_power(
+    fooof_spectrum: str, fooof_version: str, highest_beta_session: str, around_cf: str, cohort: str
+):
     """
     calculating the area under the curve of ± 3 Hz around the center frequency of the highest beta peak in the selected FU
 
@@ -296,12 +303,15 @@ def calculate_auc_beta_power(fooof_spectrum: str, fooof_version: str, highest_be
 
     # Load the dataframe with only highest beta channels
     highest_beta_channels = highest_beta_channels_fooof(
-        fooof_spectrum=fooof_spectrum, fooof_version=fooof_version, highest_beta_session=highest_beta_session
+        fooof_spectrum=fooof_spectrum,
+        fooof_version=fooof_version,
+        highest_beta_session=highest_beta_session,
+        cohort=cohort,
     )
     # output is a dictionary with keys "ring", "segm_inter", "segm_intra"
 
     channel_group = ["ring", "segm_inter", "segm_intra"]
-    sessions = [0, 3, 12, 18, 24]
+    sessions = [0, 3, 12, 18]
 
     group_dict = {}
     no_beta_peak_dict = {}
@@ -633,7 +643,7 @@ def calculate_auc_beta_power(fooof_spectrum: str, fooof_version: str, highest_be
 
 
 def calculate_auc_beta_power_fu18or24(
-    fooof_spectrum: str, fooof_version: str, highest_beta_session: str, around_cf: str
+    fooof_spectrum: str, fooof_version: str, highest_beta_session: str, around_cf: str, cohort: str
 ):
     """
     Taking the output dataframes from the function calculate_auc_beta_power_fu18or24()
@@ -660,6 +670,7 @@ def calculate_auc_beta_power_fu18or24(
         fooof_version=fooof_version,
         highest_beta_session=highest_beta_session,
         around_cf=around_cf,
+        cohort=cohort,
     )
 
     for group in channel_group:
@@ -697,6 +708,7 @@ def fooof_mixedlm_highest_beta_channels(
     around_cf: str,
     incl_sessions: list,
     shape_of_model: str,
+    cohort: str,
 ):
     """
 
@@ -782,11 +794,12 @@ def fooof_mixedlm_highest_beta_channels(
 
     ############################## select the center frequency of 3MFU and get the area under the curve of power in a freq range +- 3 Hz around that center frequency ##############################
 
-    beta_peak_auc_data = calculate_auc_beta_power_fu18or24(
+    beta_peak_auc_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
         fooof_version=fooof_version,
         highest_beta_session=highest_beta_session,
         around_cf=around_cf,
+        cohort=cohort,
     )
 
     ############################## perform linear mixed effects model ##############################
@@ -1022,22 +1035,22 @@ def fooof_mixedlm_highest_beta_channels(
     fig_1.tight_layout()
 
     if data_to_fit == "beta_power_auc":
-        fig1_filename_png = f"lme_{shape_of_model}_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
-        fig1_filename_svg = f"lme_{shape_of_model}_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
+        fig1_filename_png = f"revision_{cohort}_lme_{shape_of_model}_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
+        fig1_filename_svg = f"revision_{cohort}_lme_{shape_of_model}_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
 
-        fig2_filename_png = f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
-        fig2_filename_svg = f"lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
+        fig2_filename_png = f"revision_{cohort}_lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
+        fig2_filename_svg = f"revision_{cohort}_lme_{shape_of_model}_residuals_{data_to_fit}_{around_cf}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
 
-        mdf_result_filename = f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}_{fooof_version}.pickle"
+        mdf_result_filename = f"revision_{cohort}_fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{around_cf}_{highest_beta_session}_sessions{incl_sessions}_{fooof_version}.pickle"
 
     else:
-        fig1_filename_png = f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
-        fig1_filename_svg = f"lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
+        fig1_filename_png = f"revision_{cohort}_lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
+        fig1_filename_svg = f"revision_{cohort}_lme_{shape_of_model}_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
 
-        fig2_filename_png = f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
-        fig2_filename_svg = f"lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
+        fig2_filename_png = f"revision_{cohort}_lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.png"
+        fig2_filename_svg = f"revision_{cohort}_lme_{shape_of_model}_residuals_{data_to_fit}_{highest_beta_session}_beta_channels_sessions{incl_sessions}_{fooof_version}.svg"
 
-        mdf_result_filename = f"fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}_{fooof_version}.pickle"
+        mdf_result_filename = f"revision_{cohort}_fooof_lme_{shape_of_model}_model_output_{data_to_fit}_{highest_beta_session}_sessions{incl_sessions}_{fooof_version}.pickle"
 
     fig_1.savefig(os.path.join(figures_path, fig1_filename_png), bbox_inches="tight")
     fig_1.savefig(os.path.join(figures_path, fig1_filename_svg), bbox_inches="tight", format="svg")
@@ -1082,6 +1095,7 @@ def calculate_mean_squared_error(
     highest_beta_session: str,
     data_to_fit: str,
     around_cf: str,
+    cohort: str,
 ):
     """
     Input
@@ -1116,6 +1130,7 @@ def calculate_mean_squared_error(
             around_cf=around_cf,
             incl_sessions=[0, 3, 12, 18],
             shape_of_model=model,
+            cohort=cohort,
         )
 
         # merge dataframes of all LFP groups together
@@ -1146,6 +1161,7 @@ def change_beta_peak_power_or_cf_violinplot(
     around_cf: str,
     absolute_change: str,
     session_comparisons: list,
+    cohort: str,
 ):
     """
     Load the fooof data of the selected highest beta channels
@@ -1177,11 +1193,12 @@ def change_beta_peak_power_or_cf_violinplot(
     fontdict = {"size": 25}
 
     # Load the dataframe with only highest beta channels and calculated area under the curve of highest beta peaks
-    beta_data = calculate_auc_beta_power_fu18or24(
+    beta_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
         fooof_version=fooof_version,
         highest_beta_session=highest_beta_session,
         around_cf=around_cf,
+        cohort=cohort,
     )
     # output is a dictionary with keys "ring", "segm_inter", "segm_intra"
 
@@ -1392,7 +1409,7 @@ def change_beta_peak_power_or_cf_violinplot(
             x="session_comp_group",
             y="difference_ses1-ses2",
             ax=ax,
-            size=8, # 6
+            size=8,  # 6
             color="black",
             alpha=0.3,  # Transparency of dots
         )
@@ -1426,12 +1443,12 @@ def change_beta_peak_power_or_cf_violinplot(
             absolute = ""
 
         if data_to_analyze == "beta_power_auc":
-            fig_filename_png = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.png"
-            fig_filename_svg = f"change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.svg"
+            fig_filename_png = f"revision_{cohort}_change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.png"
+            fig_filename_svg = f"revision_{cohort}_change_of_{data_to_analyze}_{around_cf}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.svg"
 
         else:
-            fig_filename_png = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.png"
-            fig_filename_svg = f"change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.svg"
+            fig_filename_png = f"revision_{cohort}_change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.png"
+            fig_filename_svg = f"revision_{cohort}_change_of_{data_to_analyze}_fooof_beta_{highest_beta_session}_{group}_{absolute}{session_comparisons}_{fooof_version}.svg"
 
         fig.savefig(os.path.join(figures_path, fig_filename_png), bbox_inches="tight")
         fig.savefig(os.path.join(figures_path, fig_filename_svg), bbox_inches="tight", format="svg")
@@ -1497,16 +1514,14 @@ def change_beta_peak_power_or_cf_violinplot(
     }
 
 
-
-
 ##################################### POWER RELATIVE TO 3MFU PEAK POWER #####################################
 
-def drop_non_relevant_columns(data_to_analyze:str, group_data=None):
-    """
-    """
+
+def drop_non_relevant_columns(data_to_analyze: str, group_data=None):
+    """ """
 
     group_data_copy = group_data.copy()
-    
+
     if data_to_analyze == "beta_center_frequency" or data_to_analyze == "beta_power_auc":
         group_data_copy = group_data_copy.drop(
             columns=[
@@ -1567,14 +1582,8 @@ def drop_non_relevant_columns(data_to_analyze:str, group_data=None):
     return group_data_copy
 
 
-
-
 def rel_to_3mfu_change_beta_peak_power_or_cf(
-    fooof_spectrum: str,
-    fooof_version: str,
-    data_to_analyze: str,
-    around_cf: str,
-    percentage: str
+    fooof_spectrum: str, fooof_version: str, data_to_analyze: str, around_cf: str, percentage: str, cohort: str
 ):
     """
     Load the fooof data of the selected highest beta channels
@@ -1594,17 +1603,18 @@ def rel_to_3mfu_change_beta_peak_power_or_cf(
 
         - around_cf: "around_cf_at_each_session", "around_cf_at_fixed_session"
         - percentage: "yes"
-    
+
     This function calculates the difference of data_to_analyze relative to the data of interest at 3 MFU of the same lead
 
 
     """
     # Load the dataframe with only highest beta channels and calculated area under the curve of highest beta peaks
-    beta_data = calculate_auc_beta_power_fu18or24(
+    beta_data = calculate_auc_beta_power(
         fooof_spectrum=fooof_spectrum,
         fooof_version=fooof_version,
         highest_beta_session="highest_fu3m",
         around_cf=around_cf,
+        cohort=cohort,
     )
     # output is a dictionary with keys "ring", "segm_inter", "segm_intra"
 
@@ -1641,9 +1651,9 @@ def rel_to_3mfu_change_beta_peak_power_or_cf(
 
                 if percentage == "yes":
                     # percentage = (value / total) * 100
-                    session_data_rel_to_fu3m = (session_data / session_3_data) #* 100
+                    session_data_rel_to_fu3m = session_data / session_3_data  # * 100
 
-                else: 
+                else:
                     # calculate difference relative to the 3MFU data: session - 3MFU session
                     session_data_rel_to_fu3m = session_data - session_3_data
 
@@ -1654,47 +1664,42 @@ def rel_to_3mfu_change_beta_peak_power_or_cf(
                     "bipolar_channel": [channel],
                     "session": [ses],
                     f"absolute_{data_to_analyze}": [session_data],
-                    f"rel_to_fu3m_{data_to_analyze}": [session_data_rel_to_fu3m]
+                    f"rel_to_fu3m_{data_to_analyze}": [session_data_rel_to_fu3m],
                 }
 
                 rel_df = pd.DataFrame(rel_to_fu3m_dict)
 
                 relative_fu3m_data_endresult = pd.concat([relative_fu3m_data_endresult, rel_df], ignore_index=True)
 
-    #relative_fu3m_data_endresult[f"rel_to_fu3m_{data_to_analyze}"] = relative_fu3m_data_endresult[f"rel_to_fu3m_{data_to_analyze}"].astype(float)
+    # relative_fu3m_data_endresult[f"rel_to_fu3m_{data_to_analyze}"] = relative_fu3m_data_endresult[f"rel_to_fu3m_{data_to_analyze}"].astype(float)
 
     return relative_fu3m_data_endresult
 
 
 def plot_rel_to_fu3m_cf_or_power(
-    fooof_spectrum: str,
-    fooof_version: str,
-    data_to_analyze: str,
-    around_cf: str,
-    percentage: str
+    fooof_spectrum: str, fooof_version: str, data_to_analyze: str, around_cf: str, percentage: str, cohort: str
 ):
     """
     This function plots a scatter and line plot
         - for each hemisphere with existing session 3
-        - 
+        -
 
 
     """
     figures_path = findfolders.get_local_path(folder="GroupFigures")
     fontdict = {"size": 25}
-    sessions_without_3 = [1,3,4]
+    sessions_without_3 = [1, 3, 4]
 
     rel_to_fu3m_data = rel_to_3mfu_change_beta_peak_power_or_cf(
         fooof_spectrum=fooof_spectrum,
         fooof_version=fooof_version,
         data_to_analyze=data_to_analyze,
         around_cf=around_cf,
-        percentage=percentage
+        percentage=percentage,
+        cohort=cohort,
     )
 
-    rel_to_fu3m_data["session"] = rel_to_fu3m_data.session.replace(
-            to_replace=[0,3,12,18], value=[1, 2, 3, 4]
-        )
+    rel_to_fu3m_data["session"] = rel_to_fu3m_data.session.replace(to_replace=[0, 3, 12, 18], value=[1, 2, 3, 4])
 
     # for violinplots, take out 3MFU, because all zero
     data_without_3 = rel_to_fu3m_data.loc[rel_to_fu3m_data.session.isin(sessions_without_3)]
@@ -1704,13 +1709,13 @@ def plot_rel_to_fu3m_cf_or_power(
     for g, group in enumerate(CHANNEL_GROUPS):
 
         group_data = rel_to_fu3m_data.loc[rel_to_fu3m_data.channel_group == group]
-        
+
         # for violinplots, take out 3MFU, because all zero
-        #data_without_3 = group_data.loc[group_data.session.isin(sessions_without_3)]
-        # group_data_2D_array = np.stack((group_data["session"].values, 
+        # data_without_3 = group_data.loc[group_data.session.isin(sessions_without_3)]
+        # group_data_2D_array = np.stack((group_data["session"].values,
         #                                 group_data[f"rel_to_fu3m_{data_to_analyze}"].values),
         #                                 axis=-1)
-        
+
         stacked_arrays = []
         for ses in [1, 2, 3, 4]:
             ses_data = group_data.loc[group_data.session == ses]
@@ -1718,14 +1723,10 @@ def plot_rel_to_fu3m_cf_or_power(
 
             stacked_arrays.append(ses_data)
 
-
         # one subplot per channel group
         axes[g].set_title(f"{group} channel group", fontdict=fontdict)
 
-        axes[g].boxplot(
-            x=stacked_arrays,
-            positions=[1, 2, 3, 4]
-        )
+        axes[g].boxplot(x=stacked_arrays, positions=[1, 2, 3, 4])
 
         ################## plot the result for each electrode ##################
 
@@ -1735,9 +1736,12 @@ def plot_rel_to_fu3m_cf_or_power(
             stn_data = group_data[group_data.subject_hemisphere == stn]
 
             axes[g].scatter(
-                stn_data["session"], stn_data[f"rel_to_fu3m_{data_to_analyze}"], color=plt.cm.twilight_shifted((id + 1) * 10), alpha=0.3
+                stn_data["session"],
+                stn_data[f"rel_to_fu3m_{data_to_analyze}"],
+                color=plt.cm.twilight_shifted((id + 1) * 10),
+                alpha=0.3,
             )  # color=plt.cm.tab20(group_id)
-            
+
             axes[g].plot(
                 stn_data["session"],
                 stn_data[f"rel_to_fu3m_{data_to_analyze}"],
@@ -1745,46 +1749,38 @@ def plot_rel_to_fu3m_cf_or_power(
                 linewidth=1,
                 alpha=0.3,
             )
-        
+
         for ax in axes:
 
             ax.set_ylabel(f"relative {data_to_analyze}", fontsize=25)
             ax.set_xlabel("months post-surgery", fontsize=25)
-            ax.set_ylim(-0.1,2.5)
+            ax.set_ylim(-0.1, 2.5)
 
             ax.tick_params(axis="x", labelsize=25)
             ax.tick_params(axis="y", labelsize=25)
             ax.grid(False)
 
         ################## plot the MEAN per session connection line ##################
-      
+
     fig.suptitle(f"{data_to_analyze} relative to session 3 per hemisphere", fontsize=30)
     fig.subplots_adjust(wspace=0, hspace=0)
 
     fig.tight_layout()
 
     if percentage == "yes":
-        fig_filename = f"fooof_{data_to_analyze}_rel_to_session_3_{around_cf}_percentage_ylim"
+        fig_filename = f"revision_{cohort}_fooof_{data_to_analyze}_rel_to_session_3_{around_cf}_percentage_ylim"
 
     else:
-        fig_filename = f"fooof_{data_to_analyze}_rel_to_session_3_{around_cf}"
+        fig_filename = f"revision_{cohort}_fooof_{data_to_analyze}_rel_to_session_3_{around_cf}"
 
     fig.savefig(os.path.join(figures_path, f"{fig_filename}.png"), bbox_inches="tight")
     fig.savefig(os.path.join(figures_path, f"{fig_filename}.svg"), bbox_inches="tight", format="svg")
 
 
-
 def get_description_of_data(
-    fooof_spectrum: str,
-    fooof_version: str,
-    data_to_analyze: str,
-    around_cf: str,
-    percentage: str
+    fooof_spectrum: str, fooof_version: str, data_to_analyze: str, around_cf: str, percentage: str, cohort: str
 ):
-    """
-    
-    
-    """
+    """ """
     description_data_all = pd.DataFrame()
     stn_all_list = pd.DataFrame()
     statistics = pd.DataFrame()
@@ -1794,14 +1790,22 @@ def get_description_of_data(
         fooof_version=fooof_version,
         data_to_analyze=data_to_analyze,
         around_cf=around_cf,
-        percentage=percentage
+        percentage=percentage,
+        cohort=cohort,
     )
 
-    sessions = [0,3,12,18]
+    sessions = [0, 3, 12, 18]
+
+    if cohort == "group_1":
+        sessions = [0, 3, 12]
+
+    elif cohort == "group_2":
+        sessions = [3, 12, 18]
+
     pairs = list(combinations(sessions, 2))
 
     for group in CHANNEL_GROUPS:
-        
+
         group_data = rel_to_fu3m_data.loc[rel_to_fu3m_data.channel_group == group]
 
         for ses in sessions:
@@ -1813,7 +1817,7 @@ def get_description_of_data(
                 "group": [group],
                 "session": [ses],
                 "stn_list": [ses_stn_list],
-                "sample_size": [len(ses_stn_list)]
+                "sample_size": [len(ses_stn_list)],
             }
             stn_df = pd.DataFrame(stn_dict)
             stn_all_list = pd.concat([stn_all_list, stn_df], ignore_index=True)
@@ -1821,16 +1825,17 @@ def get_description_of_data(
             if ses == 3:
                 continue
 
-            data_description_ses = percept_helpers.get_statistics(data_info=data_to_analyze, data=ses_data[f"rel_to_fu3m_{data_to_analyze}"])
+            data_description_ses = percept_helpers.get_statistics(
+                data_info=data_to_analyze, data=ses_data[f"rel_to_fu3m_{data_to_analyze}"]
+            )
 
             data_description_ses["group"] = group
             data_description_ses["session"] = ses
 
             description_data_all = pd.concat([description_data_all, data_description_ses], ignore_index=True)
-        
 
         # statistical test
-        for pair in pairs: 
+        for pair in pairs:
             group_1 = pair[0]  # e.g. 3
             group_2 = pair[1]  # e.g. 12
 
@@ -1849,14 +1854,9 @@ def get_description_of_data(
                 "group": [group],
                 "pair": [pair],
                 "statistic_mwu": [statistic],
-                "pval": ["{:.4f}".format(p_value)]
+                "pval": ["{:.4f}".format(p_value)],
             }
             statistics_single = pd.DataFrame(statistics_dict)
             statistics = pd.concat([statistics, statistics_single], ignore_index=True)
-  
-    
-    return {
-        "description": description_data_all, 
-        "STN_list": stn_all_list,
-        "statistics_MWU": statistics}
 
+    return {"description": description_data_all, "STN_list": stn_all_list, "statistics_MWU": statistics}
