@@ -13,6 +13,7 @@ import scipy
 from scipy import stats
 from scipy.integrate import simps
 from scipy.stats import shapiro, friedmanchisquare, wilcoxon, ttest_rel
+from statsmodels.stats.contingency_tables import mcnemar
 from statsmodels.stats.anova import AnovaRM
 import statsmodels.formula.api as smf
 import statsmodels.api as sm
@@ -896,7 +897,14 @@ def boxplot_peak_frequency_or_power_group_0(fooof_spectrum: str, highest_beta_se
         ax.set_ylabel(peak_feature, fontsize=14)
 
         if peak_feature == "peak_frequency":
-            ax.set_ylim(10, 38)
+            if b_range == "beta":
+                ax.set_ylim(10, 38)
+
+            elif b_range == "low_beta":
+                ax.set_ylim(10, 23)
+
+            elif b_range == "high_beta":
+                ax.set_ylim(20, 38)
 
         elif peak_feature in ["peak_power_auc_per_peak", "peak_power_auc_fixed_f_range"]:
             ax.set_ylim(-3, 50)
@@ -1189,7 +1197,15 @@ def boxplot_peak_frequency_or_power_three_sessions(
 
         # Adjust y-axis limits based on the feature type
         if peak_feature == "peak_frequency":
-            ax.set_ylim(10, 38)
+            if b_range == "beta":
+                ax.set_ylim(10, 38)
+
+            elif b_range == "low_beta":
+                ax.set_ylim(10, 23)
+
+            elif b_range == "high_beta":
+                ax.set_ylim(20, 38)
+
         elif peak_feature in ["peak_power_auc_per_peak", "peak_power_auc_fixed_f_range"]:
             ax.set_ylim(-3, 50)
 
@@ -1201,5 +1217,321 @@ def boxplot_peak_frequency_or_power_three_sessions(
         percept_helpers.save_fig_png_and_svg(
             path=FIGURES_PATH,
             filename=f"revision_paired_comparison_{b_range}_{peak_feature}_three_sessions_{cohort}",
+            figure=fig,
+        )
+
+
+################################### Peak shift analysis >2.5 or > 5 Hz ###################################
+
+
+def analyze_peak_frequency_differences(cohort: str, beta_range: str, peak_shift: float):
+    """
+    Analyze peak frequency differences across three sessions and prepare for paired statistical test.
+
+    Parameters:
+        data (pd.DataFrame): A DataFrame with columns ['subject_hemisphere', 'session', 'peak_frequency'].
+
+    Input:
+        - peak_shift: The minimum shift in Hz to consider a peak as different. e.g. 2.5 or 5 Hz.
+        - beta_range: The beta range to analyze (e.g., "beta", "low_beta", "high_beta").
+        - cohort: The cohort to analyze (e.g., "group_1", "group_2").
+
+    Returns:
+        results (dict): A dictionary with keys:
+            - "excluded_patients": A DataFrame specifying excluded patients and their NaN sessions.
+            - "comparison_results": A DataFrame with binomial values for both comparisons.
+    """
+
+    # load data
+    loaded_data = calculate_auc_beta_power(
+        fooof_spectrum="periodic_spectrum",
+        highest_beta_session="highest_fu3m",
+        around_cf="around_cf_at_each_session",
+        cohort=cohort,
+    )
+
+    data = loaded_data["group_dict"]["ring"]
+
+    # Ensure the input DataFrame has the expected columns
+    required_columns = ['subject_hemisphere', 'session', f'{beta_range}_center_frequency']
+    if not all(col in data.columns for col in required_columns):
+        raise ValueError(f"Input data must contain columns: {required_columns}")
+
+    # Pivot the data to wide format for comparisons
+    pivot_data = data.pivot(
+        index="subject_hemisphere", columns="session", values=f"{beta_range}_center_frequency"
+    ).reset_index()
+    pivot_data.columns.name = None  # Remove MultiIndex in columns
+
+    # Rename session columns for clarity
+    if cohort == "group_1":
+        pivot_data.rename(columns={0: 'session1', 3: 'session2', 12: 'session3'}, inplace=True)
+
+    elif cohort == "group_2":
+        pivot_data.rename(columns={3: 'session1', 12: 'session2', 18: 'session3'}, inplace=True)
+
+    # Step 1: Identify excluded patients
+    pivot_data['exclude_reason'] = np.where(
+        pivot_data[['session1', 'session2']].isna().all(axis=1)
+        | pivot_data[['session2', 'session3']].isna().all(axis=1),
+        "No peaks in both comparisons",
+        None,
+    )
+    excluded_patients = pivot_data[pivot_data['exclude_reason'].notnull()]
+
+    # Filter data to exclude these patients
+    valid_data = pivot_data[pivot_data['exclude_reason'].isnull()].copy()
+
+    # Step 2: Analyze session 1 vs session 2
+    valid_data['diff_1_2'] = abs(valid_data['session1'] - valid_data['session2'])
+    valid_data['binomial_1_2'] = np.where(
+        (valid_data['diff_1_2'] > peak_shift) | valid_data[['session1', 'session2']].isna().any(axis=1),
+        0,
+        1,
+    )
+
+    # Step 3: Analyze session 2 vs session 3
+    valid_data['diff_2_3'] = abs(valid_data['session2'] - valid_data['session3'])
+    valid_data['binomial_2_3'] = np.where(
+        (valid_data['diff_2_3'] > peak_shift) | valid_data[['session2', 'session3']].isna().any(axis=1),
+        0,
+        1,
+    )
+
+    # Step 4: Identify patients to exclude from both comparisons
+    invalid_subjects = excluded_patients['subject_hemisphere'].tolist()
+    valid_data = valid_data[~valid_data['subject_hemisphere'].isin(invalid_subjects)]
+
+    # Step 5: Prepare data for paired test
+    comparison_results = valid_data[['subject_hemisphere', 'binomial_1_2', 'binomial_2_3']]
+
+    return {
+        "excluded_patients": excluded_patients[['subject_hemisphere', 'exclude_reason']],
+        "valid_data": valid_data,
+        "comparison_results": comparison_results,
+    }
+
+
+def compare_binomial_proportions(cohort: str, peak_shift: float):
+    """
+    Compare binomial proportions between two periods using McNemar's test.
+
+    Parameters:
+        data (pd.DataFrame): A DataFrame with columns ['subject', 'binomial_1_2', 'binomial_2_3'].
+
+    Returns:
+        results (dict): A dictionary with test results and statistical description.
+    """
+
+    final_results = {}
+    contingency_tables = {}
+    description_DF = pd.DataFrame()
+
+    for b_range in BETA_RANGES:
+
+        loaded_data = analyze_peak_frequency_differences(cohort=cohort, beta_range=b_range, peak_shift=peak_shift)
+        data = loaded_data["comparison_results"]
+
+        # Ensure the input DataFrame has the expected columns
+        required_columns = ['binomial_1_2', 'binomial_2_3']
+        if not all(col in data.columns for col in required_columns):
+            raise ValueError(f"Input data must contain columns: {required_columns}")
+
+        # Step 1: Create a contingency table
+        # comparison of the two columns: showing how many STN fall into category of the two columns
+        # possible categories: 0-0 (shift in both periods); 1-1 (no shift in both periods); 0-1 (shift only in first period); 1-0 (shift only in second period)
+        contingency_table = pd.crosstab(data['binomial_1_2'], data['binomial_2_3'])
+        contingency_tables[b_range] = contingency_table
+
+        # Step 2: Perform McNemar's test: evaluates the balance of changes: 0-1 vs 1-0 (shift-no shift vs no shift-shift)
+        mcnemar_result = mcnemar(contingency_table, exact=True)
+        mcnemar_stat, mcnemar_p = mcnemar_result.statistic, mcnemar_result.pvalue
+
+        # Step 3: Descriptive statistics
+        data['difference'] = data['binomial_1_2'] - data['binomial_2_3']
+        mean_diff = data['difference'].mean()
+        std_diff = data['difference'].std()
+        median_diff = data['difference'].median()
+
+        n_shift_session1_2 = (data['binomial_1_2'] == 0).sum()
+        n_shift_session2_3 = (data['binomial_2_3'] == 0).sum()
+        n_no_shift_session1_2 = (data['binomial_1_2'] == 1).sum()
+        n_no_shift_session2_3 = (data['binomial_2_3'] == 1).sum()
+        total_subjects = len(data)
+
+        percentage_shift_session1_2 = (n_shift_session1_2 / total_subjects) * 100
+        percentage_shift_session2_3 = (n_shift_session2_3 / total_subjects) * 100
+        percentage_no_shift_session1_2 = (n_no_shift_session1_2 / total_subjects) * 100
+        percentage_no_shift_session2_3 = (n_no_shift_session2_3 / total_subjects) * 100
+
+        description_shifts_count = {
+            "beta_range": [b_range],
+            "n_shift_ses1_2": [n_shift_session1_2],
+            "n_shift_ses2_3": [n_shift_session2_3],
+            "n_no_shift_ses1_2": [n_no_shift_session1_2],
+            "n_no_shift_ses2_3": [n_no_shift_session2_3],
+            "total_subjects": [total_subjects],
+            "perc_shift_ses1_2": [percentage_shift_session1_2],
+            "perc_shift_ses2_3": [percentage_shift_session2_3],
+            "perc_no_shift_ses1_2": [percentage_no_shift_session1_2],
+            "perc_no_shift_ses2_3": [percentage_no_shift_session2_3],
+        }
+        # transform to dataframe
+        description_shifts_count_df = pd.DataFrame(description_shifts_count)
+        description_DF = pd.concat([description_DF, description_shifts_count_df])
+
+        # Step 4: Paired t-test and Wilcoxon signed-rank test -> testing whether the median of differences between both columns is significantly different from 0
+        # Q: Is there a significant difference in the paired distribution of the two columns?
+        ttest_stat, ttest_p = ttest_rel(data['binomial_1_2'], data['binomial_2_3'])
+        wilcoxon_stat, wilcoxon_p = wilcoxon(data['binomial_1_2'], data['binomial_2_3'])
+
+        # Step 5: Perform a Wilcoxon signed-rank test on the differences themselves
+        # tests whether differences between paired observations deviate significantly from zero, focuses specifically on the direction and magnitude of the differences
+        # Q Are the differences between both periods predominantly positive or negative? -1 means shift-no shift, 1 means no shift-shift, 0 means same in both periods
+        wilcoxon_stat_diff, wilcoxon_p_diff = wilcoxon(data['difference'])
+
+        # Step 6: Compile results into a DataFrame
+        results_data = [
+            ["McNemar's Test", mcnemar_stat, mcnemar_p, None, None, None],
+            ["Paired t-test", ttest_stat, ttest_p, mean_diff, std_diff, median_diff],
+            ["Wilcoxon Test columns", wilcoxon_stat, wilcoxon_p, mean_diff, std_diff, median_diff],
+            ["Wilcoxon Test differences", wilcoxon_stat_diff, wilcoxon_p_diff, mean_diff, std_diff, median_diff],
+        ]
+
+        results_df = pd.DataFrame(
+            results_data,
+            columns=["Test", "Statistic", "P-value", "Mean Difference", "Std Dev Difference", "Median Difference"],
+        )
+
+        final_results[b_range] = results_df
+
+    return final_results, contingency_tables, description_DF
+
+
+def plot_peak_frequency_with_binomial(cohort: str, peak_shift: float):
+    """
+    Plot boxplots and scatterplots for peak frequency with color-coded lines based on binomial stability.
+
+    WATCH OUT: This function plots the data for 3 sessions analysis with peaks indentified at each session.
+    But the binomial comparison is also done for subjects who are missing one peak at one session.
+
+    Parameters:
+        loaded_data (dict): Data from analyze_peak_frequency_or_power_three_sessions().
+        comparison_results (pd.DataFrame): DataFrame with columns "binomial_1_2" and "binomial_2_3".
+        peak_feature (str): Feature being analyzed.
+        cohort (str): Cohort identifier.
+        beta_ranges (list): List of beta ranges.
+        save_path (str): Path to save the plots.
+    """
+
+    loaded_data = analyze_peak_frequency_or_power_three_sessions(
+        fooof_spectrum="periodic_spectrum",
+        highest_beta_session="highest_fu3m",
+        peak_feature="peak_frequency",
+        cohort=cohort,
+    )
+
+    data = loaded_data[3]  # Extract raw data for plotting
+
+    for b_range in BETA_RANGES:
+        range_data = data[b_range]
+
+        # load the comparison results
+        comp_result_data = analyze_peak_frequency_differences(cohort=cohort, beta_range=b_range, peak_shift=peak_shift)
+        comparison_results = comp_result_data["comparison_results"]
+        # range_data = comp_result_data["valid_data"]
+
+        # rename columns session1, session2, session3 to integers 0, 1, 2
+        # range_data.rename(columns={"session1": 0, "session2": 1, "session3": 2}, inplace=True)
+
+        # Reshape the dataframe for long-format plotting
+        long_data = range_data.reset_index().melt(
+            id_vars="subject_hemisphere", var_name="session", value_name="peak_frequency"
+        )
+
+        # Ensure the session column is treated as categorical for proper ordering
+        long_data["session"] = pd.Categorical(long_data["session"], categories=[0, 1, 2], ordered=True)
+
+        # Plot the figure
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        # Create boxplots for each session
+        sns.boxplot(
+            data=long_data,
+            x="session",
+            y="peak_frequency",
+            whis=[5, 95],
+            width=0.5,
+            # palette="pastel",
+            color="white",
+            showfliers=True,
+            ax=ax,
+        )
+
+        # Overlay scatterplot with connections for each subject
+        x_positions = [0, 1, 2]
+        for subject in range_data.index:
+            session_values = range_data.loc[subject, [0, 1, 2]].values
+
+            # Get binomial values for the subject
+            binomial_1_2 = comparison_results.loc[
+                comparison_results["subject_hemisphere"] == subject, "binomial_1_2"
+            ].values[0]
+            binomial_2_3 = comparison_results.loc[
+                comparison_results["subject_hemisphere"] == subject, "binomial_2_3"
+            ].values[0]
+
+            # Determine colors for lines based on binomial values
+            color_1_2 = "red" if binomial_1_2 == 0 else "gray"
+            color_2_3 = "red" if binomial_2_3 == 0 else "gray"
+
+            # Plot the line between sessions 0 and 1
+            plt.plot(
+                x_positions[:2],  # Sessions 0 and 1
+                session_values[:2],  # Values for sessions 0 and 1
+                marker="o",
+                color=color_1_2,
+                alpha=0.3,
+                linestyle="-",
+                linewidth=1.5,
+                markersize=9,
+            )
+
+            # Plot the line between sessions 1 and 2
+            plt.plot(
+                x_positions[1:],  # Sessions 1 and 2
+                session_values[1:],  # Values for sessions 1 and 2
+                marker="o",
+                color=color_2_3,
+                alpha=0.3,
+                linestyle="-",
+                linewidth=1.5,
+                markersize=9,
+            )
+
+        # Calculate and plot means for each session
+        means = range_data.mean(axis=0)  # Mean for each session
+        ax.scatter(x_positions, means, color="black", marker="+", s=100, label="Mean")
+
+        # Customize the plot
+        ax.set_title(f"Paired Comparison of {b_range} peak_frequency: {cohort} (Three Sessions)", fontsize=16)
+        ax.set_xlabel("Session", fontsize=14)
+        ax.set_ylabel("peak_frequency", fontsize=14)
+
+        # Adjust y-axis limits based on the feature type
+        if b_range == "beta":
+            ax.set_ylim(10, 38)
+        elif b_range == "low_beta":
+            ax.set_ylim(10, 23)
+        elif b_range == "high_beta":
+            ax.set_ylim(20, 38)
+
+        ax.grid(axis="y", linestyle="--", alpha=0.6)
+        ax.legend(loc="best")
+
+        # Save the figure
+        percept_helpers.save_fig_png_and_svg(
+            path=FIGURES_PATH,
+            filename=f"revision_binomial_paired_comparison_{b_range}_peak_frequency_shift_{peak_shift}Hz_three_sessions_{cohort}",
             figure=fig,
         )
