@@ -1612,8 +1612,17 @@ def write_df_xy_changes_of_beta_ranks(cohort: str, ranks_included: list):
 
         percentage_stable_level = (comp_data_rank_1.y_difference.value_counts()[0]) / size
         percentage_stable_direction = (comp_data_rank_1.x_difference.value_counts()[0]) / size
+        percentage_changed_level = 1.0 - percentage_stable_level
+        percentage_changed_direction = 1.0 - percentage_stable_direction
 
-        sample_size[f"{comp}_beta_rank_1"] = [comp, size, percentage_stable_level, percentage_stable_direction]
+        sample_size[f"{comp}_beta_rank_1"] = [
+            comp,
+            size,
+            percentage_stable_level,
+            percentage_stable_direction,
+            percentage_changed_level,
+            percentage_changed_direction,
+        ]
 
         # rank 2
         comp_data_rank_2 = comp_data.loc[comp_data.beta_rank == 2]
@@ -1623,12 +1632,16 @@ def write_df_xy_changes_of_beta_ranks(cohort: str, ranks_included: list):
 
         percentage_rank_2_stable_level = (comp_data_rank_2.y_difference.value_counts()[0]) / size_2
         percentage_rank_2_stable_direction = (comp_data_rank_2.x_difference.value_counts()[0]) / size_2
+        percentage_rank_2_changed_level = 1.0 - percentage_rank_2_stable_level
+        percentage_rank_2_changed_direction = 1.0 - percentage_rank_2_stable_direction
 
         sample_size_rank_2[f"{comp}_beta_rank_2"] = [
             comp,
             size_2,
             percentage_rank_2_stable_level,
             percentage_rank_2_stable_direction,
+            percentage_rank_2_changed_level,
+            percentage_rank_2_changed_direction,
         ]
 
     # save as dataframe
@@ -1639,6 +1652,8 @@ def write_df_xy_changes_of_beta_ranks(cohort: str, ranks_included: list):
             1: "sample_size",
             2: "percentage_stable_level",
             3: "percentage_stable_direction",
+            4: "percentage_changed_level",
+            5: "percentage_changed_direction",
         },
         inplace=True,
     )
@@ -1651,6 +1666,8 @@ def write_df_xy_changes_of_beta_ranks(cohort: str, ranks_included: list):
             1: "sample_size",
             2: "percentage_stable_level",
             3: "percentage_stable_direction",
+            4: "percentage_changed_level",
+            5: "percentage_changed_direction",
         },
         inplace=True,
     )
@@ -1757,3 +1774,57 @@ def fooof_beta_rank_coord_difference_scatterplot(cohort: str, ranks_included: li
             bbox_inches="tight",
             format="svg",
         )
+
+
+def plot_percentage_changed_levels_or_direction(level_or_direction: str):
+    """
+    Plot a barplot comparing percentage_changed_level between rank_1 and rank_2
+    for specific session comparisons.
+
+    Parameters:
+        df_rank_1 (pd.DataFrame): DataFrame for rank_1 with columns "session_comparison" and "percentage_changed_level".
+        df_rank_2 (pd.DataFrame): DataFrame for rank_2 with columns "session_comparison" and "percentage_changed_level".
+    """
+
+    loaded_data = write_df_xy_changes_of_beta_ranks(cohort="all_included", ranks_included=[1, 2])
+    df_rank_1 = loaded_data["sample_size_dataframe"]
+    df_rank_2 = loaded_data["sample_size_dataframe_rank_2"]
+
+    # Define session comparisons to include
+    session_comparisons = ["0_3", "3_12", "12_18"]
+
+    # Filter and create a copy to avoid SettingWithCopyWarning
+    df_rank_1_filtered = df_rank_1[df_rank_1["session_comparison"].isin(session_comparisons)].copy()
+    df_rank_2_filtered = df_rank_2[df_rank_2["session_comparison"].isin(session_comparisons)].copy()
+
+    df_rank_1_filtered["rank"] = "rank_1"
+    df_rank_2_filtered["rank"] = "rank_2"
+
+    # Combine the two dataframes
+    combined_df = pd.concat([df_rank_1_filtered, df_rank_2_filtered])
+
+    # Plot the barplot
+    fig = plt.figure(figsize=[8, 6], layout="tight")  # 10,6
+
+    sns.barplot(
+        data=combined_df,
+        x="session_comparison",
+        y=f"percentage_changed_{level_or_direction}",
+        hue="rank",
+        palette=["orange", "grey"],
+    )
+
+    # Customize the plot
+    plt.title(f"Percentage Changed {level_or_direction} by Session Comparison", fontsize=16)
+    plt.xlabel("Session Comparison", fontsize=14)
+    plt.ylabel(f"Percentage Changed {level_or_direction}", fontsize=14)
+    plt.legend(title="Rank", fontsize=12)
+    plt.grid(axis="y", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+
+    # save the plot
+    helpers.save_fig_png_and_svg(
+        path=FIGURES_PATH,
+        filename=f"revision_percentage_changed_{level_or_direction}_monoolar_only_segmental_all_included",
+        figure=fig,
+    )

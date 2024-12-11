@@ -1120,7 +1120,7 @@ def analyze_peak_frequency_or_power_three_sessions(
 
 
 def boxplot_peak_frequency_or_power_three_sessions(
-    fooof_spectrum: str, highest_beta_session: str, peak_feature: str, cohort: str
+    fooof_spectrum: str, highest_beta_session: str, peak_feature: str, cohort: str, abs_or_rel: str
 ):
     """
     Plot boxplots per session with scatterplot for individual subjects connected by lines for three sessions.
@@ -1130,6 +1130,9 @@ def boxplot_peak_frequency_or_power_three_sessions(
             if "peak_frequency" -> around_cf_at_each_session
             if "peak_power_auc_per_peak" -> around_cf_at_each_session
             if "peak_power_auc_fixed_f_range" -> around_cf_at_fixed_session
+
+        - abs_or_rel: "absolute" or "relative" values for peak power
+            if "relative" -> relative to the 3MFU session within each subject_hemisphere
 
     Parameters:
         fooof_spectrum (str): Spectrum data source.
@@ -1149,6 +1152,16 @@ def boxplot_peak_frequency_or_power_three_sessions(
     for b_range in BETA_RANGES:
         range_data = data[b_range]
 
+        if abs_or_rel == "relative":
+            # transform data to relative values to the 3MFU session within each subject_hemisphere
+            if cohort == "group_1":
+                # Normalize values relative to session 1 = "fu3m" within each subject_hemisphere
+                range_data = range_data.div(range_data[1], axis=0)
+
+            elif cohort == "group_2":
+                # Normalize values relative to session 0 = "fu3m" within each subject_hemisphere
+                range_data = range_data.div(range_data[0], axis=0)
+
         # Reshape the dataframe for long-format plotting
         long_data = range_data.reset_index().melt(
             id_vars="subject_hemisphere", var_name="session", value_name=peak_feature
@@ -1167,7 +1180,8 @@ def boxplot_peak_frequency_or_power_three_sessions(
             y=peak_feature,
             whis=[5, 95],
             width=0.5,
-            palette="pastel",
+            color="white",
+            # palette="pastel",
             showfliers=True,
             ax=ax,
         )
@@ -1180,7 +1194,7 @@ def boxplot_peak_frequency_or_power_three_sessions(
                 range_data.loc[subject, [0, 1, 2]],  # Peak frequencies for this subject
                 marker="o",
                 color="gray",
-                alpha=0.4,
+                alpha=0.3,
                 linestyle="-",
                 linewidth=1,
                 markersize=9,
@@ -1196,18 +1210,24 @@ def boxplot_peak_frequency_or_power_three_sessions(
         ax.set_ylabel(peak_feature, fontsize=14)
 
         # Adjust y-axis limits based on the feature type
-        if peak_feature == "peak_frequency":
-            if b_range == "beta":
-                ax.set_ylim(10, 38)
+        if abs_or_rel == "absolute":
+            if peak_feature == "peak_frequency":
+                if b_range == "beta":
+                    ax.set_ylim(10, 38)
 
-            elif b_range == "low_beta":
-                ax.set_ylim(10, 23)
+                elif b_range == "low_beta":
+                    ax.set_ylim(10, 23)
 
-            elif b_range == "high_beta":
-                ax.set_ylim(20, 38)
+                elif b_range == "high_beta":
+                    ax.set_ylim(20, 38)
 
-        elif peak_feature in ["peak_power_auc_per_peak", "peak_power_auc_fixed_f_range"]:
-            ax.set_ylim(-3, 50)
+            elif peak_feature in ["peak_power_auc_per_peak", "peak_power_auc_fixed_f_range"]:
+                if b_range == "high_beta":
+                    ax.set_ylim(-1, 30)
+                # ax.set_ylim(-3, 50)
+
+        elif abs_or_rel == "relative":
+            ax.set_ylim(-0.2, 3)
 
         ax.grid(axis="y", linestyle="--", alpha=0.6)
         ax.legend(loc="best")
@@ -1216,7 +1236,7 @@ def boxplot_peak_frequency_or_power_three_sessions(
         # Save the figure
         percept_helpers.save_fig_png_and_svg(
             path=FIGURES_PATH,
-            filename=f"revision_paired_comparison_{b_range}_{peak_feature}_three_sessions_{cohort}",
+            filename=f"revision_paired_comparison_{b_range}_{abs_or_rel}_{peak_feature}_three_sessions_{cohort}",
             figure=fig,
         )
 
