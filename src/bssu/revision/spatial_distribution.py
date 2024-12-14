@@ -1818,6 +1818,7 @@ def plot_percentage_changed_levels_or_direction(level_or_direction: str):
     plt.title(f"Percentage Changed {level_or_direction} by Session Comparison", fontsize=16)
     plt.xlabel("Session Comparison", fontsize=14)
     plt.ylabel(f"Percentage Changed {level_or_direction}", fontsize=14)
+    plt.ylim(0, 0.72)
     plt.legend(title="Rank", fontsize=12)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()

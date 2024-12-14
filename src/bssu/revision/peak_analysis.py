@@ -864,7 +864,8 @@ def boxplot_peak_frequency_or_power_group_0(fooof_spectrum: str, highest_beta_se
             y=peak_feature,
             whis=[5, 95],
             width=0.5,
-            palette="pastel",
+            color="white",
+            # palette="pastel",
             showfliers=True,
             ax=ax,
         )
@@ -998,8 +999,13 @@ def analyze_peak_frequency_or_power_three_sessions(
         # Step 2: Reshape data for repeated-measures testing
         paired_data = filtered_data.pivot(
             index="subject_hemisphere", columns="session", values=f"{b_range}_{feature_column_name}"
-        )  # Sessions: 0, 1, 3
-        paired_data.columns = [0, 1, 2]
+        )
+
+        if cohort == "group_0":
+            paired_data.columns = [0, 1]
+
+        else:
+            paired_data.columns = [0, 1, 2]
 
         raw_data[b_range] = paired_data
 
@@ -1041,7 +1047,12 @@ def analyze_peak_frequency_or_power_three_sessions(
 
         # Step 6: Post-hoc testing
         if p_value < 0.05:  # Post-hoc only if the main test is significant
-            comparisons = [(0, 1), (0, 2), (1, 2)]
+            if cohort == "group_0":
+                comparisons = [(0, 1), (1, 0)]
+
+            else:
+                comparisons = [(0, 1), (0, 2), (1, 2)]
+
             for session1, session2 in comparisons:
                 if test_name == "Repeated-measures ANOVA":
                     # Pairwise t-tests
@@ -1162,6 +1173,10 @@ def boxplot_peak_frequency_or_power_three_sessions(
                 # Normalize values relative to session 0 = "fu3m" within each subject_hemisphere
                 range_data = range_data.div(range_data[0], axis=0)
 
+            elif cohort == "group_0":
+                # Normalize values relative to session 1 = "fu3m" within each subject_hemisphere
+                range_data = range_data.div(range_data[1], axis=0)
+
         # Reshape the dataframe for long-format plotting
         long_data = range_data.reset_index().melt(
             id_vars="subject_hemisphere", var_name="session", value_name=peak_feature
@@ -1188,6 +1203,10 @@ def boxplot_peak_frequency_or_power_three_sessions(
 
         # Overlay scatterplot with connections for each subject
         x_positions = [0, 1, 2]
+
+        if cohort == "group_1":
+            x_positions = [0, 1]
+
         for subject in range_data.index:
             plt.plot(
                 x_positions,  # Sessions (columns of the original dataframe)
@@ -1290,13 +1309,24 @@ def analyze_peak_frequency_differences(cohort: str, beta_range: str, peak_shift:
     elif cohort == "group_2":
         pivot_data.rename(columns={3: 'session1', 12: 'session2', 18: 'session3'}, inplace=True)
 
+    elif cohort == "group_0":
+        pivot_data.rename(columns={0: 'session1', 3: 'session2'}, inplace=True)
+
     # Step 1: Identify excluded patients
-    pivot_data['exclude_reason'] = np.where(
-        pivot_data[['session1', 'session2']].isna().all(axis=1)
-        | pivot_data[['session2', 'session3']].isna().all(axis=1),
-        "No peaks in both comparisons",
-        None,
-    )
+    if cohort in ["group_1", "group_2"]:
+        pivot_data['exclude_reason'] = np.where(
+            pivot_data[['session1', 'session2']].isna().all(axis=1)
+            | pivot_data[['session2', 'session3']].isna().all(axis=1),
+            "No peaks in both comparisons",
+            None,
+        )
+
+    elif cohort == "group_0":
+        pivot_data['exclude_reason'] = np.where(
+            pivot_data[['session1', 'session2']].isna().all(axis=1),
+            "No peaks in both comparisons",
+            None,
+        )
     excluded_patients = pivot_data[pivot_data['exclude_reason'].notnull()]
 
     # Filter data to exclude these patients
@@ -1310,20 +1340,25 @@ def analyze_peak_frequency_differences(cohort: str, beta_range: str, peak_shift:
         1,
     )
 
-    # Step 3: Analyze session 2 vs session 3
-    valid_data['diff_2_3'] = abs(valid_data['session2'] - valid_data['session3'])
-    valid_data['binomial_2_3'] = np.where(
-        (valid_data['diff_2_3'] > peak_shift) | valid_data[['session2', 'session3']].isna().any(axis=1),
-        0,
-        1,
-    )
+    if cohort in ["group_1", "group_2"]:
+        # Step 3: Analyze session 2 vs session 3
+        valid_data['diff_2_3'] = abs(valid_data['session2'] - valid_data['session3'])
+        valid_data['binomial_2_3'] = np.where(
+            (valid_data['diff_2_3'] > peak_shift) | valid_data[['session2', 'session3']].isna().any(axis=1),
+            0,
+            1,
+        )
 
     # Step 4: Identify patients to exclude from both comparisons
     invalid_subjects = excluded_patients['subject_hemisphere'].tolist()
     valid_data = valid_data[~valid_data['subject_hemisphere'].isin(invalid_subjects)]
 
     # Step 5: Prepare data for paired test
-    comparison_results = valid_data[['subject_hemisphere', 'binomial_1_2', 'binomial_2_3']]
+    if cohort in ["group_1", "group_2"]:
+        comparison_results = valid_data[['subject_hemisphere', 'binomial_1_2', 'binomial_2_3']]
+
+    elif cohort == "group_0":
+        comparison_results = valid_data[['subject_hemisphere', 'binomial_1_2']]
 
     return {
         "excluded_patients": excluded_patients[['subject_hemisphere', 'exclude_reason']],
@@ -1553,5 +1588,409 @@ def plot_peak_frequency_with_binomial(cohort: str, peak_shift: float):
         percept_helpers.save_fig_png_and_svg(
             path=FIGURES_PATH,
             filename=f"revision_binomial_paired_comparison_{b_range}_peak_frequency_shift_{peak_shift}Hz_three_sessions_{cohort}",
+            figure=fig,
+        )
+
+
+def plot_peak_frequency_with_binomial_at_least_one_peak_per_stn(cohort: str, peak_shift: float):
+    """
+    Plot boxplots and scatterplots for peak frequency with color-coded lines based on binomial stability.
+    Includes handling and marking missing values (NaNs) with crosses.
+
+    This is the complete data used for the peak shift analysis, including subjects with missing peaks.
+    """
+
+    range_data_dict = {}
+
+    for b_range in BETA_RANGES:
+        # range_data = data[b_range]
+
+        comp_result_data = analyze_peak_frequency_differences(cohort=cohort, beta_range=b_range, peak_shift=peak_shift)
+        range_data = comp_result_data["valid_data"]
+
+        range_data.rename(columns={"session1": 0, "session2": 1, "session3": 2}, inplace=True)
+        range_data.drop(columns=["exclude_reason", "diff_1_2", "diff_2_3"], inplace=True)
+        # reset index
+        range_data.reset_index(drop=True, inplace=True)
+
+        # Separate rows with NaN values into a separate DataFrame
+        nan_data = range_data[range_data.isnull().any(axis=1)]
+        range_data_clean = range_data.dropna()
+
+        # reset index
+        nan_data.reset_index(drop=True, inplace=True)
+        range_data_clean.reset_index(drop=True, inplace=True)
+
+        # Load the comparison results for binomial analysis
+        comparison_results = comp_result_data["comparison_results"]
+
+        # Reshape the cleaned dataframe for long-format plotting
+        long_data = range_data_clean.reset_index().melt(
+            id_vars="subject_hemisphere", var_name="session", value_name="peak_frequency"
+        )
+
+        long_data["session"] = pd.Categorical(long_data["session"], categories=[0, 1, 2], ordered=True)
+
+        range_data_dict[b_range] = long_data
+
+        # Plot the figure
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        # Create boxplots for each session
+        sns.boxplot(
+            data=long_data,
+            x="session",
+            y="peak_frequency",
+            whis=[5, 95],
+            width=0.5,
+            color="white",
+            showfliers=True,
+            ax=ax,
+        )
+
+        # Get the unique subject_hemisphere values from both dataframes
+        valid_subjects_clean = range_data_clean.subject_hemisphere.unique()
+        valid_nan_subjects = nan_data.subject_hemisphere.unique()
+
+        # Filter the comparison_results dataframe
+        comparison_results_filtered = comparison_results[
+            comparison_results["subject_hemisphere"].isin(valid_subjects_clean)
+        ]
+        comparison_results_nan_filtered = comparison_results[
+            comparison_results["subject_hemisphere"].isin(valid_nan_subjects)
+        ]
+
+        # Overlay scatterplot with connections for each subject in the cleaned data
+        x_positions = [0, 1, 2]
+        for s, subject in enumerate(valid_subjects_clean):
+            session_values = range_data_clean.loc[s, [0, 1, 2]].values
+
+            # Get binomial values for the subject
+            binomial_1_2 = comparison_results_filtered.loc[
+                comparison_results_filtered["subject_hemisphere"] == subject, "binomial_1_2"
+            ].values[0]
+            binomial_2_3 = comparison_results_filtered.loc[
+                comparison_results_filtered["subject_hemisphere"] == subject, "binomial_2_3"
+            ].values[0]
+
+            # Determine colors for lines based on binomial values
+            color_1_2 = "red" if binomial_1_2 == 0 else "gray"
+            color_2_3 = "red" if binomial_2_3 == 0 else "gray"
+
+            # Plot the line between sessions 0 and 1
+            plt.plot(
+                x_positions[:2],
+                session_values[:2],
+                marker="o",
+                color=color_1_2,
+                alpha=0.3,
+                linestyle="-",
+                linewidth=1.5,
+                markersize=9,
+            )
+
+            # Plot the line between sessions 1 and 2
+            plt.plot(
+                x_positions[1:],
+                session_values[1:],
+                marker="o",
+                color=color_2_3,
+                alpha=0.3,
+                linestyle="-",
+                linewidth=1.5,
+                markersize=9,
+            )
+
+        # Overlay data from nan_data (subjects with missing values), if available
+        if not nan_data.empty:
+            for s, subject in enumerate(valid_nan_subjects):
+                session_values = nan_data.loc[s, [0, 1, 2]].values
+
+                # Get binomial values for the subject
+                binomial_1_2 = comparison_results_nan_filtered.loc[
+                    comparison_results_nan_filtered["subject_hemisphere"] == subject, "binomial_1_2"
+                ].values[0]
+                binomial_2_3 = comparison_results_nan_filtered.loc[
+                    comparison_results_nan_filtered["subject_hemisphere"] == subject, "binomial_2_3"
+                ].values[0]
+
+                # Determine colors for lines based on binomial values
+                color_1_2 = "red" if binomial_1_2 == 0 else "gray"
+                color_2_3 = "red" if binomial_2_3 == 0 else "gray"
+
+                # Plot scatter and connecting lines for non-NaN values
+                valid_sessions = [i for i, value in enumerate(session_values) if not np.isnan(value)]
+
+                # Ensure lines are only plotted for consecutive valid sessions
+                if len(valid_sessions) > 1:  # Only plot if there's more than one valid session
+                    for i in range(len(valid_sessions) - 1):
+                        # Check if the two valid sessions are consecutive
+                        if valid_sessions[i + 1] == valid_sessions[i] + 1:
+                            # Determine color based on binomial value
+                            color = color_1_2 if valid_sessions[i] == 0 else color_2_3
+                            plt.plot(
+                                [x_positions[valid_sessions[i]], x_positions[valid_sessions[i + 1]]],  # X positions
+                                [session_values[valid_sessions[i]], session_values[valid_sessions[i + 1]]],  # Y values
+                                marker="o",
+                                color=color,
+                                alpha=0.5,
+                                linestyle="-",
+                                linewidth=1.5,
+                                markersize=9,
+                            )
+
+                # Plot crosses for NaN values
+                for i, value in enumerate(session_values):
+                    if np.isnan(value):
+                        # Scenario 1: NaN in the first column
+                        if i == 0:
+                            valid_session = 1  # Nearest valid column is the second column
+                            if not np.isnan(session_values[valid_session]):
+                                plt.scatter(
+                                    x_positions[valid_session],
+                                    session_values[valid_session],
+                                    color="red",
+                                    marker="x",
+                                    s=100,
+                                    label="Missing Value" if i == 0 else "",
+                                )
+
+                        # Scenario 2: NaN in the third column
+                        elif i == 2:
+                            valid_session = 1  # Nearest valid column is the second column
+                            if not np.isnan(session_values[valid_session]):
+                                plt.scatter(
+                                    x_positions[valid_session],
+                                    session_values[valid_session],
+                                    color="red",
+                                    marker="x",
+                                    s=100,
+                                    label="Missing Value" if i == 0 else "",
+                                )
+
+                        # Scenario 3: NaN in the second column
+                        elif i == 1:
+                            # Plot crosses at both the first and third columns
+                            for valid_session in [0, 2]:
+                                if not np.isnan(session_values[valid_session]):
+                                    plt.scatter(
+                                        x_positions[valid_session],
+                                        session_values[valid_session],
+                                        color="red",
+                                        marker="x",
+                                        s=100,
+                                        label="Missing Value" if i == 0 else "",
+                                    )
+
+                # # Plot crosses for NaN values
+                # for i, value in enumerate(session_values):
+                #     if np.isnan(value):
+                #         # Plot a cross for NaN values at the nearest valid session
+                #         valid_session = i - 1 if i > 0 and not np.isnan(session_values[i - 1]) else i + 1
+                #         if 0 <= valid_session < len(session_values) and not np.isnan(session_values[valid_session]):
+                #             plt.scatter(
+                #                 x_positions[valid_session],
+                #                 session_values[valid_session],
+                #                 color="red",
+                #                 marker="x",
+                #                 s=100,
+                #                 label="Missing Value" if i == 0 else "",
+                #             )
+
+        # Calculate and plot means for each session
+        numeric_columns = [0, 1, 2]  # Specify the session columns explicitly
+        means = range_data_clean[numeric_columns].mean(axis=0)  # Include only numeric session columns
+
+        # Ensure x_positions matches the length of means
+        x_positions_adjusted = range(len(means))
+
+        # Plot means
+        ax.scatter(x_positions_adjusted, means, color="black", marker="+", s=100, label="Mean")
+
+        # Customize the plot
+        ax.set_title(f"Paired Comparison of {b_range} peak_frequency: {cohort} (Three Sessions)", fontsize=16)
+        ax.set_xlabel("Session", fontsize=14)
+        ax.set_ylabel("peak_frequency", fontsize=14)
+
+        # Adjust y-axis limits based on the feature type
+        if b_range == "beta":
+            ax.set_ylim(10, 38)
+        elif b_range == "low_beta":
+            ax.set_ylim(10, 23)
+        elif b_range == "high_beta":
+            ax.set_ylim(20, 38)
+
+        ax.grid(axis="y", linestyle="--", alpha=0.6)
+        ax.legend(loc="best")
+
+        # Save the figure
+        percept_helpers.save_fig_png_and_svg(
+            path=FIGURES_PATH,
+            filename=f"revision_binomial_with_missing_peaks_paired_comparison_{b_range}_peak_frequency_shift_{peak_shift}Hz_three_sessions_{cohort}",
+            figure=fig,
+        )
+
+    return range_data_dict
+
+
+########## THIS FUNCTION DOES NOT WORK..... ####################
+########### peak frequency plot with binomial also for group 0 with two sessions only ####################
+
+
+def plot_peak_frequency_with_binomial_also_group_0(cohort: str, peak_shift: float):
+    """
+    Plot boxplots and scatterplots for peak frequency with color-coded lines based on binomial stability.
+    This function adapts to datasets with either two or three sessions.
+
+    Parameters:
+        cohort (str): Cohort identifier ("group_0" for two sessions, others for three sessions).
+        peak_shift (float): Threshold for peak stability (binomial comparison).
+    """
+
+    # Load the main data
+    if cohort == "group_0":
+        loaded_data = analyze_peak_frequency_or_power_group_0(
+            fooof_spectrum="periodic_spectrum",
+            highest_beta_session="highest_fu3m",
+            peak_feature="peak_frequency",
+        )
+        data = loaded_data[2]  # Extract raw data for plotting
+
+    else:
+        loaded_data = analyze_peak_frequency_or_power_three_sessions(
+            fooof_spectrum="periodic_spectrum",
+            highest_beta_session="highest_fu3m",
+            peak_feature="peak_frequency",
+            cohort=cohort,
+        )
+        data = loaded_data[3]  # Extract raw data for plotting
+
+    for b_range in BETA_RANGES:
+        range_data = data[b_range]
+
+        if cohort == "group_0":
+            range_data.rename(columns={"session1": 0, "session2": 1}, inplace=True)
+            x_positions = [0, 1]  # Two sessions for group_0
+        else:
+            range_data.rename(columns={"session1": 0, "session2": 1, "session3": 2}, inplace=True)
+            x_positions = [0, 1, 2]  # Three sessions for other cohorts
+
+        # Load the comparison results
+        comp_result_data = analyze_peak_frequency_differences(cohort=cohort, beta_range=b_range, peak_shift=peak_shift)
+        comparison_results = comp_result_data["comparison_results"]
+
+        # Determine session range based on the cohort
+        session_range = [0, 1] if cohort == "group_0" else [0, 1, 2]
+
+        # Reshape the dataframe for long-format plotting
+        long_data = range_data.reset_index().melt(
+            id_vars="subject_hemisphere", var_name="session", value_name="peak_frequency"
+        )
+
+        # Ensure the session column is treated as categorical for proper ordering
+        long_data["session"] = pd.Categorical(long_data["session"], categories=session_range, ordered=True)
+
+        # Plot the figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Create boxplots for each session
+        sns.boxplot(
+            data=long_data,
+            x="session",
+            y="peak_frequency",
+            whis=[5, 95],
+            width=0.5,
+            color="white",
+            showfliers=True,
+            ax=ax,
+        )
+
+        # Overlay scatterplot with connections for each subject
+        # x_positions = session_range
+        # for s, subject in enumerate(range_data.subject_hemisphere.unique()):
+        #     session_values = range_data.loc[s, session_range].values
+
+        #     # Get binomial values for the subject
+        #     binomial_1_2 = comparison_results.loc[
+        #         comparison_results["subject_hemisphere"] == subject, "binomial_1_2"
+        #     ].values[0]
+
+        #     binomial_2_3 = None
+        #     if len(session_range) > 2:  # Check for three sessions
+        #         binomial_2_3 = comparison_results.loc[
+        #             comparison_results["subject_hemisphere"] == subject, "binomial_2_3"
+        #         ].values[0]
+
+        x_positions = session_range
+        for subject in range_data.index:
+            session_values = range_data.loc[subject, session_range].values
+
+            # Get binomial values for the subject
+            binomial_1_2 = comparison_results.loc[
+                comparison_results["subject_hemisphere"] == subject, "binomial_1_2"
+            ].values[0]
+
+            binomial_2_3 = None
+            if len(session_range) > 2:  # Check for three sessions
+                binomial_2_3 = comparison_results.loc[
+                    comparison_results["subject_hemisphere"] == subject, "binomial_2_3"
+                ].values[0]
+
+            # Determine colors for lines based on binomial values
+            color_1_2 = "red" if binomial_1_2 == 0 else "gray"
+            color_2_3 = "red" if binomial_2_3 == 0 else "gray" if binomial_2_3 is not None else None
+
+            # Plot the line between sessions 0 and 1
+            if 0 in range_data.columns and 1 in range_data.columns:
+                # Plot the line between sessions 0 and 1
+                plt.plot(
+                    x_positions[:2],  # Sessions 0 and 1
+                    session_values[:2],  # Values for sessions 0 and 1
+                    marker="o",
+                    color=color_1_2,
+                    alpha=0.3,
+                    linestyle="-",
+                    linewidth=1.5,
+                    markersize=9,
+                )
+
+            if len(session_range) > 2 and 1 in range_data.columns and 2 in range_data.columns:
+                # Plot the line between sessions 1 and 2
+                plt.plot(
+                    x_positions[1:],  # Sessions 1 and 2
+                    session_values[1:],  # Values for sessions 1 and 2
+                    marker="o",
+                    color=color_2_3,
+                    alpha=0.3,
+                    linestyle="-",
+                    linewidth=1.5,
+                    markersize=9,
+                )
+
+        # Calculate and plot means for each session
+        means = range_data.mean(axis=0)  # Mean for each session
+        ax.scatter(x_positions, means, color="black", marker="+", s=100, label="Mean")
+
+        # Customize the plot
+        session_label = "Two Sessions" if cohort == "group_0" else "Three Sessions"
+        ax.set_title(f"Paired Comparison of {b_range} peak_frequency: {cohort} ({session_label})", fontsize=16)
+        ax.set_xlabel("Session", fontsize=14)
+        ax.set_ylabel("peak_frequency", fontsize=14)
+
+        # Adjust y-axis limits based on the feature type
+        if b_range == "beta":
+            ax.set_ylim(10, 38)
+        elif b_range == "low_beta":
+            ax.set_ylim(10, 23)
+        elif b_range == "high_beta":
+            ax.set_ylim(20, 38)
+
+        ax.grid(axis="y", linestyle="--", alpha=0.6)
+        ax.legend(loc="best")
+
+        # Save the figure
+        percept_helpers.save_fig_png_and_svg(
+            path=FIGURES_PATH,
+            filename=f"revision_binomial_paired_comparison_{b_range}_peak_frequency_shift_{peak_shift}Hz_{session_label}_{cohort}",
             figure=fig,
         )
