@@ -7,7 +7,7 @@ from scipy import stats
 from scipy.stats import norm
 from scipy.stats import ttest_ind
 import statistics
-from scipy.stats import shapiro, friedmanchisquare, wilcoxon
+from scipy.stats import shapiro, friedmanchisquare, wilcoxon, mannwhitneyu
 from scipy.stats import ttest_rel
 from statsmodels.stats.multitest import multipletests
 
@@ -254,7 +254,7 @@ def plot_violinplot_active_vs_inactive(cohort: str):
         loc='upper right',
     )
 
-    ax.set_title('Beta PSD Relative to Rank 1 for Each Session', fontsize=16)
+    ax.set_title(f'Beta PSD Relative to Rank 1: {cohort}, optimal stimulation from last session', fontsize=16)
     ax.set_xlabel('Session', fontsize=14)
     ax.set_ylabel('Beta PSD Relative to Rank 1', fontsize=14)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
@@ -271,6 +271,104 @@ def plot_violinplot_active_vs_inactive(cohort: str):
     stats_df = pd.DataFrame(stats_list)
 
     return stats_df
+
+
+def perform_mann_whitney_u_test(cohort: str):
+    """
+    Perform Mann-Whitney U tests comparing active vs. inactive groups for each session.
+
+    Parameters:
+        data (pd.DataFrame): DataFrame with columns:
+            - 'session_clinical_activity': Combined session and clinical activity column (e.g., "postop_active").
+            - 'beta_psd_rel_to_rank1': The metric to compare.
+
+    Returns:
+        results_df (pd.DataFrame): Summary of the MWU test results with corrected p-values.
+    """
+    results = []
+    descriptive_stats = []
+
+    # Extract session and activity from 'session_clinical_activity'
+    loaded_data = get_monopolar_beta_power_and_clinical_activity(cohort)
+    loaded_data['subject_hemisphere_contact'] = loaded_data['subject_hemisphere'] + "_" + loaded_data['contact']
+
+    sessions = loaded_data.session.unique()  # Extract unique session names
+    all_pvalues = []
+
+    for session in sessions:
+        # Filter active and inactive groups for this session
+        active_group = loaded_data.loc[
+            loaded_data['session_clinical_activity'] == f"{session}_active", 'beta_psd_rel_to_rank1'
+        ]
+        inactive_group = loaded_data.loc[
+            loaded_data['session_clinical_activity'] == f"{session}_inactive", 'beta_psd_rel_to_rank1'
+        ]
+
+        # Perform MWU test
+        if len(active_group) > 0 and len(inactive_group) > 0:  # Ensure groups are non-empty
+            stat, p_value = mannwhitneyu(active_group, inactive_group, alternative='two-sided')
+            results.append(
+                {
+                    "Session": session,
+                    "Test": "Mann-Whitney U",
+                    "Statistic": stat,
+                    "Raw P-Value": p_value,
+                    "Active Sample Size": len(active_group),
+                    "Inactive Sample Size": len(inactive_group),
+                }
+            )
+            all_pvalues.append(p_value)
+
+            # Collect descriptive statistics for active and inactive groups
+            descriptive_stats.append(
+                {
+                    "Session": session,
+                    "Group": "Active",
+                    "Mean": active_group.mean(),
+                    "Median": active_group.median(),
+                    "1st Quartile": active_group.quantile(0.25),
+                    "3rd Quartile": active_group.quantile(0.75),
+                    "Standard Deviation": active_group.std(),
+                    "Sample Size": len(active_group),
+                }
+            )
+
+            descriptive_stats.append(
+                {
+                    "Session": session,
+                    "Group": "Inactive",
+                    "Mean": inactive_group.mean(),
+                    "Median": inactive_group.median(),
+                    "1st Quartile": inactive_group.quantile(0.25),
+                    "3rd Quartile": inactive_group.quantile(0.75),
+                    "Standard Deviation": inactive_group.std(),
+                    "Sample Size": len(inactive_group),
+                }
+            )
+
+        else:
+            print(f"Skipped session {session} due to empty groups.")
+
+    # Perform multiple comparison correction
+    if all_pvalues:
+        correction_methods = ["bonferroni", "holm", "fdr_bh"]
+        corrections = {}
+        for method in correction_methods:
+            _, corrected_pvalues, _, _ = multipletests(all_pvalues, method=method)
+            corrections[method] = corrected_pvalues
+
+        # Add corrected p-values to results
+        for i, result in enumerate(results):
+            for method, corrected_pvalues in corrections.items():
+                result[f"Corrected P-Value ({method})"] = corrected_pvalues[i]
+    else:
+        print("No tests were performed; no corrections applied.")
+
+    # Convert results to DataFrame
+    results_df = pd.DataFrame(results)
+    descriptive_stats_df = pd.DataFrame(descriptive_stats)
+
+    return results_df, descriptive_stats_df
 
 
 def perform_friedman_test_with_posthoc_all_groups(cohort):
@@ -294,13 +392,20 @@ def perform_friedman_test_with_posthoc_all_groups(cohort):
     loaded_data = get_monopolar_beta_power_and_clinical_activity(cohort)
     loaded_data['subject_hemisphere_contact'] = loaded_data['subject_hemisphere'] + "_" + loaded_data['contact']
 
+    # rename sessions to integers
+    if cohort == "group_1":
+        loaded_data["session"] = loaded_data["session"].map({"postop": 0, "fu3m": 1, "fu12m": 2})
+
+    elif cohort == "group_2":
+        loaded_data["session"] = loaded_data["session"].map({"fu3m": 0, "fu12m": 1, "fu18or24m": 2})
+
     for activity in ['active', 'inactive']:
         activity_data = loaded_data[loaded_data['clinical_activity'] == activity]
 
         # Check for duplicates and aggregate if necessary
-        if activity_data.duplicated(subset=["subject_hemisphere_contact", "session"]).any():
-            print("Duplicate entries found. Aggregating by mean.")
-            activity_data = activity_data.groupby(["subject_hemisphere_contact", "session"], as_index=False).mean()
+        # if activity_data.duplicated(subset=["subject_hemisphere_contact", "session"]).any():
+        #     print("Duplicate entries found. Aggregating by mean.")
+        #     activity_data = activity_data.groupby(["subject_hemisphere_contact", "session"], as_index=False).mean()
 
         # Pivot data for Friedman test
         pivoted_data = activity_data.pivot(
@@ -397,3 +502,211 @@ def perform_friedman_test_with_posthoc_all_groups(cohort):
     results_df = pd.DataFrame(results)
 
     return results_df
+
+
+def plot_active_or_inactive_plot_with_lines(cohort: str, active_or_inactive: str):
+    """
+    Plot boxplots with scatter and connecting lines for the "active" clinical_activity group
+    across sessions.
+
+    Parameters:
+        cohort (str): Cohort identifier to filter the data.
+        active_or_inactive (str): Activity group to plot ("active" or "inactive").
+
+    Returns:
+        stats_df (pd.DataFrame): A DataFrame with mean, median, Q1, Q3, and sample size for each session.
+    """
+    # Extract session and activity from 'session_clinical_activity'
+    loaded_data = get_monopolar_beta_power_and_clinical_activity(cohort)
+
+    # add new column for subject_hemisphere_contact
+    loaded_data['subject_hemisphere_contact'] = loaded_data['subject_hemisphere'] + "_" + loaded_data['contact']
+
+    # Filter the data for the "active" clinical activity group
+    active_data = loaded_data[loaded_data['clinical_activity'] == active_or_inactive]
+
+    if cohort == "group_1":
+        session_order = ['postop', 'fu3m', 'fu12m']
+    elif cohort == "group_2":
+        session_order = ['fu3m', 'fu12m', 'fu18or24m']
+
+    session_map = {session: i for i, session in enumerate(session_order)}
+    active_data['x_vals'] = active_data['session'].map(session_map)
+    active_data['session'] = pd.Categorical(active_data['session'], categories=session_order, ordered=True)
+
+    # Sort data by `subject_hemisphere` and `session`
+    active_data = active_data.sort_values(by=['subject_hemisphere', 'session'])
+
+    # Determine the y-axis limits based on the range of beta_psd_rel_to_rank1
+    y_min = active_data['beta_psd_rel_to_rank1'].min() - 0.3
+    y_max = active_data['beta_psd_rel_to_rank1'].max() + 0.3
+
+    # Initialize a list to store statistics
+    stats_list = []
+    x_val_list = []
+    y_val_list = []
+    subject_data_list = []
+
+    # Plot settings
+    fig, ax = plt.subplots(figsize=(10, 6))  # 12,8
+
+    # Create the boxplot
+    if active_or_inactive == "active":
+        color = "gold"
+    elif active_or_inactive == "inactive":
+        color = "lightgray"
+
+    # sns.boxplot(
+    #     data=active_data,
+    #     x='session',
+    #     y='beta_psd_rel_to_rank1',
+    #     color=color,
+    #     width=0.6,
+    #     showcaps=True,
+    #     showfliers=False,
+    #     boxprops={'facecolor': color, 'edgecolor': 'black', 'linewidth': 1.5},
+    #     medianprops={'color': 'black', 'linewidth': 2},
+    #     whiskerprops={'color': 'black', 'linewidth': 1.5},
+    #     ax=ax,
+    # )
+
+    # Create the violin plot
+    sns.violinplot(
+        data=active_data,
+        x='session',
+        y='beta_psd_rel_to_rank1',
+        color=color,
+        inner=None,  # Disable inner lines as we'll add markers for statistics
+        scale='width',
+        linewidth=1.5,
+        width=0.3,
+        ax=ax,
+    )
+
+    # Adjust x-axis limits to make all violins visible
+    session_labels = session_order
+    # session_labels = active_data['session'].unique()
+    ax.set_xlim(-0.5, len(session_labels) - 0.5)  # Add padding to both ends
+
+    # Overlay scatterplot for individual points
+    sns.stripplot(
+        data=active_data,
+        x='session',
+        y='beta_psd_rel_to_rank1',
+        jitter=True,
+        size=9,
+        color='black',
+        alpha=0.5,
+        edgecolor='k',
+        linewidth=0.5,
+        ax=ax,
+    )
+
+    # Add lines connecting the dots for the same subject across sessions
+    for subject in active_data['subject_hemisphere_contact'].unique():
+        subject_data = active_data[active_data['subject_hemisphere_contact'] == subject]
+
+        # Sort data by session to ensure correct plotting
+        subject_data = subject_data.sort_values(by='x_vals')
+
+        x_vals = subject_data['x_vals'].values
+        y_vals = subject_data['beta_psd_rel_to_rank1'].values
+
+        x_val_list.append(x_vals)
+        y_val_list.append(y_vals)
+        subject_data_list.append(subject_data)
+
+        # Plot connecting lines
+        for i in range(len(x_vals) - 1):
+            color = 'green' if y_vals[i + 1] > y_vals[i] else 'gray'
+            plt.plot(
+                [x_vals[i], x_vals[i + 1]],
+                [y_vals[i], y_vals[i + 1]],
+                color=color,
+                alpha=0.3,
+                linestyle='-',
+                linewidth=1.5,
+            )
+
+    # Calculate and plot statistics for each session
+    sessions = active_data['session'].unique()
+    for session_idx, session in enumerate(sessions):
+        # Subset data for the specific session
+        subset = active_data[active_data['session'] == session]
+
+        # Calculate statistics
+        mean_value = subset['beta_psd_rel_to_rank1'].mean()
+        median_value = subset['beta_psd_rel_to_rank1'].median()
+        q1 = subset['beta_psd_rel_to_rank1'].quantile(0.25)
+        q3 = subset['beta_psd_rel_to_rank1'].quantile(0.75)
+        sample_size = len(subset)
+
+        # Perform Shapiro-Wilk normality test
+        if sample_size > 2:  # Shapiro-Wilk requires at least 3 samples
+            _, normality_p_value = shapiro(subset['beta_psd_rel_to_rank1'])
+        else:
+            normality_p_value = None  # Insufficient data
+
+        # Save the statistics in the list
+        stats_list.append(
+            {
+                "Session": session,
+                "Mean": mean_value,
+                "Median": median_value,
+                "Q1": q1,
+                "Q3": q3,
+                "Sample Size": sample_size,
+                "Normality P-Value": normality_p_value,
+                "Normal Distribution (p > 0.05)": normality_p_value is not None and normality_p_value > 0.05,
+            }
+        )
+
+        # Plot mean as +
+        ax.scatter(
+            x=[session_idx],
+            y=[mean_value],
+            color='black',
+            s=200,
+            marker='+',
+            zorder=10,
+            label="Mean" if session_idx == 0 else None,
+        )
+
+        # Plot median as o
+        ax.scatter(
+            x=[session_idx],
+            y=[median_value],
+            color='white',
+            s=100,
+            marker='o',
+            zorder=9,
+            label="Median" if session_idx == 0 else None,
+        )
+
+        # Plot quartiles as vertical line
+        ax.vlines(
+            x=session_idx,
+            ymin=q1,
+            ymax=q3,
+            color='white',
+            linewidth=2,
+            zorder=8,
+            label="IQR" if session_idx == 0 else None,
+        )
+
+    # Customize the plot
+    ax.set_ylim(y_min, y_max)
+    ax.set_title(f'Beta PSD Relative to Rank 1 (Active): {cohort}', fontsize=16)
+    ax.set_xlabel('Session', fontsize=14)
+    ax.set_ylabel('Beta PSD Relative to Rank 1', fontsize=14)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+
+    # Save figure
+    helpers.save_fig_png_and_svg(
+        path=FIGURES_PATH,
+        filename=f"revision_{active_or_inactive}_monopol_beta_rel_to_rank1_{cohort}_optimal_stimulation_settings",
+        figure=fig,
+    )
+
+    return stats_list, x_val_list, y_val_list, subject_data_list
