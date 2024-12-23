@@ -24,9 +24,10 @@ FIGURES_PATH = find_folders.get_local_path(folder="GroupFigures")
 
 SESSIONS = ["fu3m", "fu12m", "fu18or24m"]
 
-def hemispheres_active_beta_higher_than_inactive():
+
+def hemispheres_active_beta_higher_than_inactive(cohort: str):
     """
-    This function counts how many hemispheres show higher beta average at their active stimulation contacts 
+    This function counts how many hemispheres show higher beta average at their active stimulation contacts
     compared to their average beta power at inactive stimulation contacts
     """
 
@@ -34,12 +35,11 @@ def hemispheres_active_beta_higher_than_inactive():
     no_beta = []
 
     active_and_inactive_contacts_beta = active_stim_contacts.fooof_mono_beta_and_clinical_activity_write_dataframes(
-        fooof_version="v2"
-    ) # this loads the FOOOF monopolar beta power (inverse sq distance) at active and inactive contacts
+        fooof_version="v2", cohort=cohort
+    )  # this loads the FOOOF monopolar beta power (inverse sq distance) at active and inactive contacts
 
     electrode_average_data = active_and_inactive_contacts_beta["electrode_average"]
     sub_hem_unique = electrode_average_data.subject_hemisphere.unique()
-
 
     for stn in sub_hem_unique:
 
@@ -47,7 +47,7 @@ def hemispheres_active_beta_higher_than_inactive():
 
         for ses in SESSIONS:
 
-            # check if session exists for this stn: 
+            # check if session exists for this stn:
             if ses not in stn_data.session.values:
                 continue
 
@@ -67,14 +67,13 @@ def hemispheres_active_beta_higher_than_inactive():
                 no_beta.append(f"{stn}_{ses}")
                 continue
 
-
             # check if active mean beta is higher than inactive mean beta for both absolute and relative values
             active_mean_above_inactive_mean = "no"
             rel_active_mean_above_inactive_mean = "no"
-            
+
             if active_mean_beta > inactive_mean_beta:
                 active_mean_above_inactive_mean = "yes"
-            
+
             if active_mean_beta_rel_to_max > inactive_mean_beta_rel_to_max:
                 rel_active_mean_above_inactive_mean = "yes"
 
@@ -94,14 +93,13 @@ def hemispheres_active_beta_higher_than_inactive():
     return summary_all, no_beta
 
 
-
-def count_hemispheres_beta_active_higher():
+def count_hemispheres_beta_active_higher(cohort: str):
     """
     Count the hemispheres which have higher beta power mean at active contacts than inactive contacts
-    
+
     """
 
-    stn_active_vs_inactive_data = hemispheres_active_beta_higher_than_inactive()
+    stn_active_vs_inactive_data = hemispheres_active_beta_higher_than_inactive(cohort=cohort)
     data_all_stns = stn_active_vs_inactive_data[0]
     stn_sessions_without_beta = stn_active_vs_inactive_data[1]
     stn_list_per_session = {}
@@ -118,37 +116,20 @@ def count_hemispheres_beta_active_higher():
         total_sample_size = len(ses_data.active_mean_beta_above_inactive.values)
         mean_value_count = ses_data.active_mean_beta_above_inactive.value_counts()
         mean_value_count_yes = mean_value_count["yes"]
-        percentage_mean_yes = mean_value_count_yes/total_sample_size
+        percentage_mean_yes = mean_value_count_yes / total_sample_size
 
         mean_rel_value_count = ses_data.active_mean_beta_above_inactive_rel.value_counts()
         mean_rel_value_count_yes = mean_rel_value_count["yes"]
-        percentage_rel_mean_yes = mean_rel_value_count_yes/total_sample_size
+        percentage_rel_mean_yes = mean_rel_value_count_yes / total_sample_size
 
         summary_dict = {
             "session": [ses],
             "total_sample_size": [total_sample_size],
             "stn_perc_beta_mean_active_higher": [percentage_mean_yes],
-            "stn_perc_beta_rel_mean_active_higher": [percentage_rel_mean_yes]
+            "stn_perc_beta_rel_mean_active_higher": [percentage_rel_mean_yes],
         }
 
         summary_single = pd.DataFrame(summary_dict)
         summary_all = pd.concat([summary_all, summary_single])
 
     return summary_all, stn_sessions_without_beta, stn_list_per_session
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

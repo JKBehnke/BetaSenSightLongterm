@@ -923,7 +923,7 @@ def boxplot_peak_frequency_or_power_group_0(fooof_spectrum: str, highest_beta_se
 
 
 def analyze_peak_frequency_or_power_three_sessions(
-    fooof_spectrum: str, highest_beta_session: str, peak_feature: str, cohort: str
+    fooof_spectrum: str, highest_beta_session: str, peak_feature: str, cohort: str, abs_or_rel: str
 ):
     """
     Analyze peak frequencies or power across three sessions for group 0.
@@ -937,6 +937,8 @@ def analyze_peak_frequency_or_power_three_sessions(
         fooof_spectrum (str): The input spectrum data.
         highest_beta_session (str): The session with the highest beta activity.
         peak_feature (str): The feature to analyze ("peak_frequency", "peak_power_auc_fixed_f_range", "peak_power_auc_per_peak").
+        cohort (str): The cohort to analyze ("group_0", "group_1").
+        abs_or_rel (str): The type of power to analyze ("absolute", "relative").
 
     Returns:
         summary_df (pd.DataFrame): Summary of the analysis.
@@ -1006,6 +1008,15 @@ def analyze_peak_frequency_or_power_three_sessions(
 
         else:
             paired_data.columns = [0, 1, 2]
+
+        # Normalize power to "fu3m" session if "relative" power is selected
+        if abs_or_rel == "relative":
+            if cohort == "group_1" or cohort == "group_0":
+                # Normalize values relative to session 1 ("fu3m")
+                paired_data = paired_data.div(paired_data[1], axis=0)
+            elif cohort == "group_2":
+                # Normalize values relative to session 0 ("fu3m")
+                paired_data = paired_data.div(paired_data[0], axis=0)
 
         raw_data[b_range] = paired_data
 
@@ -1156,6 +1167,7 @@ def boxplot_peak_frequency_or_power_three_sessions(
         highest_beta_session=highest_beta_session,
         peak_feature=peak_feature,
         cohort=cohort,
+        abs_or_rel="absolute",
     )
 
     data = loaded_data[3]  # Extract raw data for plotting
