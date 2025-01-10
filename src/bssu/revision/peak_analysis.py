@@ -1379,6 +1379,116 @@ def analyze_peak_frequency_differences(cohort: str, beta_range: str, peak_shift:
     }
 
 
+def boxplot_group_0_peak_frequency_differences(peak_shift: float):
+    """ """
+
+    store_comparison_results = {}
+    store_valid_data = {}
+    store_excluded_patients = {}
+
+    loaded_data = analyze_peak_frequency_or_power_group_0(
+        fooof_spectrum="periodic_spectrum",
+        highest_beta_session="highest_fu3m",
+        peak_feature="peak_frequency",
+    )
+
+    data = loaded_data[2]  # Extract raw data for plotting
+
+    for b_range in BETA_RANGES:
+        range_data = data[b_range]
+
+        # load the comparison results
+        comp_result_data = analyze_peak_frequency_differences(
+            cohort="group_0", beta_range=b_range, peak_shift=peak_shift
+        )
+        comparison_results = comp_result_data["comparison_results"]
+        store_comparison_results[b_range] = comparison_results
+
+        valid_data = comp_result_data["valid_data"]
+        store_valid_data[b_range] = valid_data
+
+        excluded_patients = comp_result_data["excluded_patients"]
+        store_excluded_patients[b_range] = excluded_patients
+
+        # Reshape the dataframe for long-format plotting
+        long_data = range_data.reset_index().melt(
+            id_vars="subject_hemisphere", var_name="session", value_name="peak_frequency"
+        )
+
+        # Ensure the session column is treated as categorical for proper ordering
+        long_data["session"] = pd.Categorical(long_data["session"], categories=[0, 3], ordered=True)
+
+        # Plot the figure
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        # Create boxplots for each session
+        sns.boxplot(
+            data=long_data,
+            x="session",
+            y="peak_frequency",
+            whis=[5, 95],
+            width=0.5,
+            # palette="pastel",
+            color="white",
+            showfliers=True,
+            ax=ax,
+        )
+
+        # Overlay scatterplot with connections for each subject
+        x_positions = [0, 1]
+        for subject in range_data.index:
+            session_values = range_data.loc[subject, [0, 3]].values
+
+            # Get binomial values for the subject
+            binomial_1_2 = comparison_results.loc[
+                comparison_results["subject_hemisphere"] == subject, "binomial_1_2"
+            ].values[0]
+
+            # Determine colors for lines based on binomial values
+            color_1_2 = "red" if binomial_1_2 == 0 else "gray"
+
+            # Plot the line between sessions 0 and 1
+            plt.plot(
+                x_positions[:2],  # Sessions 0 and 1
+                session_values[:2],  # Values for sessions 0 and 1
+                marker="o",
+                color=color_1_2,
+                alpha=0.3,
+                linestyle="-",
+                linewidth=1.5,
+                markersize=9,
+            )
+
+        # Calculate and plot means for each session
+        means = range_data.mean(axis=0)  # Mean for each session
+        ax.scatter(x_positions, means, color="black", marker="+", s=100, label="Mean")
+
+        # Customize the plot
+        ax.set_title(f"Paired Comparison of {b_range} peak_frequency: group_0", fontsize=16)
+        ax.set_xlabel("Session", fontsize=14)
+        ax.set_ylabel("peak_frequency", fontsize=14)
+
+        # Adjust y-axis limits based on the feature type
+        if b_range == "beta":
+            ax.set_ylim(10, 38)
+        elif b_range == "low_beta":
+            ax.set_ylim(10, 23)
+        elif b_range == "high_beta":
+            ax.set_ylim(20, 38)
+
+        ax.grid(axis="y", linestyle="--", alpha=0.6)
+        ax.legend(loc="best")
+
+        # Save the figure
+        percept_helpers.save_fig_png_and_svg(
+            path=FIGURES_PATH,
+            filename=f"revision_binomial_paired_comparison_{b_range}_peak_frequency_shift_{peak_shift}Hz_group_0",
+            figure=fig,
+        )
+
+    return store_valid_data, store_excluded_patients, store_comparison_results
+
+
 def compare_binomial_proportions(cohort: str, peak_shift: float):
     """
     Compare binomial proportions between two periods using McNemar's test.
@@ -2006,3 +2116,122 @@ def plot_peak_frequency_with_binomial_also_group_0(cohort: str, peak_shift: floa
             filename=f"revision_binomial_paired_comparison_{b_range}_peak_frequency_shift_{peak_shift}Hz_{session_label}_{cohort}",
             figure=fig,
         )
+
+
+##################### PLOT PEAK IDENTIFICATION OVERVIEW IN 3 SESSIONS ####################
+
+
+def overview_identified_peaks_per_session(cohort: str):
+    """
+    Overview of identified peaks per session for each beta range.
+    Input: cohort (str) - "group_1" for [0, 3, 12], "group_2" for [3, 12, 18or24]
+    """
+
+    results = []
+
+    peak_data = calculate_auc_beta_power(
+        fooof_spectrum="periodic_spectrum",
+        highest_beta_session="highest_fu3m",
+        around_cf="around_cf_at_each_session",
+        cohort=cohort,
+    )
+
+    ring_data = peak_data["group_dict"]["ring"]
+    available_sessions = ring_data["session"].unique()  # [0,3,12]
+
+    session_counts = ring_data["session"].value_counts().sort_index()
+
+    excluded_stns = peak_overview_table(
+        fooof_spectrum="periodic_spectrum",
+        highest_beta_session="highest_fu3m",
+        around_cf="around_cf_at_each_session",
+        cohort=cohort,
+    )
+
+    for b_range in BETA_RANGES:
+        excluded = excluded_stns[b_range]
+
+        # get number of excluded STNs per session
+        excluded_ses_available = excluded["session"].unique()  # [0,3]
+
+        # check for each session if there are excluded STNs
+        for s, ses in enumerate(available_sessions):
+
+            total_stn = session_counts[available_sessions[s]]
+
+            if ses in excluded_ses_available:
+                excluded_ses = excluded.loc[excluded["session"] == ses]
+                excluded_ses_count = len(excluded_ses)
+            else:
+                excluded_ses_count = 0
+
+            # results
+            identified_peaks = total_stn - excluded_ses_count
+            percentage_identified_peaks = (identified_peaks / total_stn) * 100
+
+            results.append(
+                {
+                    "session": ses,
+                    "beta_range": b_range,
+                    "identified_peaks": identified_peaks,
+                    "percentage_identified_peaks": percentage_identified_peaks,
+                    "total_stn": total_stn,
+                }
+            )
+
+    # convert to DataFrame
+    results_df = pd.DataFrame(results)
+
+    return results_df
+
+
+def plot_identified_peaks_per_session(cohort: str):
+    """
+    Barplot separate for each beta range for identified peaks per session.
+
+    """
+
+    peak_overview_table = overview_identified_peaks_per_session(cohort)
+
+    for b_range in BETA_RANGES:
+
+        # filter data for the beta range
+        b_range_data = peak_overview_table[peak_overview_table["beta_range"] == b_range]
+
+        # Plot the figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Create barplot for each session
+        sns.barplot(
+            data=b_range_data,
+            x="session",
+            y="percentage_identified_peaks",
+            hue="session",
+            # color="blue",
+            ax=ax,
+            dodge=True,
+        )
+
+        # Customize the plot
+        ax.set_title(f"Identified Peaks per Session: {b_range}", fontsize=16)
+        ax.set_xlabel("Session", fontsize=14)
+        ax.set_ylabel("Percentage of Identified Peaks [%]", fontsize=14)
+        ax.set_ylim(0, 100)
+
+        # Improve tick alignment
+        ax.set_xticks(sorted(b_range_data["session"].unique()))  # Align x-ticks properly
+        ax.set_xlim(-0.5, 2.5)  # Adjust x-axis limits
+        ax.set_xticklabels(["Session 1", "Session 2", "Session 3"], fontsize=12)
+
+        ax.grid(axis="y", linestyle="--", alpha=0.6)
+
+        plt.tight_layout()
+
+        # Save the figure
+        percept_helpers.save_fig_png_and_svg(
+            path=FIGURES_PATH,
+            filename=f"revision_identified_peaks_per_session_{b_range}_{cohort}",
+            figure=fig,
+        )
+
+    return peak_overview_table
