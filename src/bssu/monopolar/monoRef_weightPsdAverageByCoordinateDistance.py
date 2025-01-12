@@ -1471,6 +1471,7 @@ def weight_power_of_single_contacts(
     #     mono_data_copy["session"] = f"{ses}"
     #     mono_data_copy["subject_hemisphere"] = f"{stn}"
     weighted_power_spectra = {}
+    all_dists_from_all_contacts = []
 
     for contact in contacts:
         # extracting coordinates for mono polar contacts
@@ -1494,6 +1495,16 @@ def weight_power_of_single_contacts(
 
             # append the distance
             all_dists.append(dist)
+            # store all contacts, bipolar channels and distances
+            all_dists_from_all_contacts.append(
+                {
+                    "contact": contact,
+                    "bipolar_channel": stn_ses_bipolar.loc[bipolar_channel, 'bipolar_channel'],
+                    "bipolar_z": stn_ses_bipolar.loc[bipolar_channel, 'coord_z'],
+                    "bipolar_xy": stn_ses_bipolar.loc[bipolar_channel, 'coord_xy'],
+                    "distance": dist,
+                }
+            )
 
         # collect all distances in numpy array
         all_dists = np.array(all_dists)
@@ -1550,7 +1561,9 @@ def weight_power_of_single_contacts(
     # cluster values into 3 categories: <40%, 40-70% and >70%
     mono_data_copy["beta_cluster"] = mono_data_copy["beta_relative_to_max"].apply(helpers.assign_cluster)
 
-    return mono_data_copy, weighted_power_spectra
+    distances_and_coordinates_DF = pd.DataFrame(all_dists_from_all_contacts)
+
+    return mono_data_copy, weighted_power_spectra, distances_and_coordinates_DF
 
 
 def fooof_weight_psd_by_euclidean_distance(
